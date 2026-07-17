@@ -1,0 +1,7 @@
+inference:
+
+  confidence_threshold: 0.70
+
+  top_k: 3
+
+  smoothing_window: 5

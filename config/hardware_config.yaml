@@ -1,0 +1,13 @@
+hardware:
+
+  microphone:
+
+    sample_rate: 16000
+
+    channels: 1
+
+  esp32:
+
+    serial_port: COM5
+
+    baudrate: 115200

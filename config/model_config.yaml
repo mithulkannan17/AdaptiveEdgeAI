@@ -1,0 +1,27 @@
+model:
+
+  name: AuraCNN
+
+  input_channels: 1
+
+  num_classes: 10
+
+  dropout: 0.30
+
+  activation: relu
+
+  batch_norm: true
+
+  global_average_pooling: true
+
+feature_extraction:
+
+  sample_rate: 16000
+
+  duration: 5
+
+  n_fft: 1024
+
+  hop_length: 512
+
+  n_mels: 128

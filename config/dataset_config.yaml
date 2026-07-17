@@ -1,0 +1,9 @@
+dataset:
+
+  metadata: database/spectrogram_metadata.csv
+
+  audio_directory: processed/audio
+
+  spectrogram_directory: processed/spectrograms
+
+  cache: true

@@ -1,0 +1,51 @@
+training:
+
+  batch_size: 32
+
+  epochs: 100
+
+  learning_rate: 0.001
+
+  optimizer: AdamW
+
+  scheduler: CosineAnnealingLR
+
+  weight_decay: 0.0001
+
+  num_workers: 4
+
+  random_seed: 42
+
+  device: auto
+
+  mixed_precision: true
+
+  early_stopping:
+
+    enabled: true
+
+    patience: 10
+
+    monitor: validation_loss
+
+dataset:
+
+  train_ratio: 0.70
+
+  validation_ratio: 0.15
+
+  test_ratio: 0.15
+
+  shuffle: true
+
+logging:
+
+  save_every: 5
+
+  log_dir: logs/training
+
+checkpoint:
+
+  directory: models/checkpoints
+
+  save_best_only: true
