@@ -7,3 +7,6 @@ Mithul Kannan
 
 Status:
 Development
+
+
+.venv\Scripts\Activate.ps1    

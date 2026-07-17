@@ -1,27 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual Environment
+.venv/
 venv/
 
-.venv/
+# IDE
+.vscode/
+.idea/
 
-__pycache__/
+# Logs
+logs/
+*.log
 
+# Models
+models/checkpoints/
+models/*.pth
+models/*.pt
+models/*.onnx
+
+# Dataset
+processed/
+database/*.db
+
+# Jupyter
 .ipynb_checkpoints/
 
-*.pth
-
-*.pt
-
-*.wav
-
-*.zip
-
-outputs/
-
-logs/
-
-data/processed/
-
-data/features/
-
-models/checkpoints/
+# OS
+.DS_Store
+Thumbs.db
 
 datasets/

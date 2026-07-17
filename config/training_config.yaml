@@ -12,6 +12,10 @@ training:
 
   weight_decay: 0.0001
 
+  momentum: 0.9
+
+  loss: CrossEntropy
+
   num_workers: 4
 
   random_seed: 42
