@@ -1,0 +1,7 @@
+MODEL_NAME = "BaselineCNN"
+
+INPUT_CHANNELS = 1
+
+NUM_CLASSES = 8
+
+DROPOUT = 0.3

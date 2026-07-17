@@ -1,0 +1,74 @@
+Bird:
+  - bird
+  - birds
+  - chirping_birds
+  - crow
+  - pigeon
+  - sparrow
+  - rooster
+  - chicken
+  - owl
+  - duck
+  - goose
+
+Wildlife:
+  - dog
+  - cat
+  - monkey
+  - tiger
+  - lion
+  - elephant
+  - wolf
+  - fox
+  - cow
+  - sheep
+  - goat
+  - horse
+  - pig
+  - frog
+  - insect
+  - bee
+  - cricket
+
+Human:
+  - speech
+  - talking
+  - conversation
+  - footsteps
+  - walking
+  - scream
+  - laughter
+  - crying
+  - clapping
+
+Vehicle:
+  - car
+  - engine
+  - engine_idling
+  - bus
+  - truck
+  - motorcycle
+  - train
+  - airplane
+  - helicopter
+
+Chainsaw:
+  - chainsaw
+
+EmergencyVehicle:
+  - ambulance
+  - ambulance_siren
+  - police
+  - police_siren
+  - fire_engine
+  - fire_truck
+  - siren
+
+Rain:
+  - rain
+  - drizzle
+  - thunderstorm
+
+Wind:
+  - wind
+  - wind_noise
