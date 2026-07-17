@@ -1,46 +1,44 @@
-"""
-Test Metadata Builder
-"""
+from collections import Counter
 
 from managers.dataset_manager import DatasetManager
 from managers.metadata_builder import MetadataBuilder
 
 
-def main():
+manager = DatasetManager()
+raw = manager.build()
 
-    print("=" * 60)
-    print("BUILDING RAW DATASET")
-    print("=" * 60)
+print("=" * 70)
+print("RAW DATASET DISTRIBUTION")
+print("=" * 70)
+print(raw["dataset"].value_counts())
 
-    manager = DatasetManager()
+builder = MetadataBuilder()
 
-    raw_dataframe = manager.build()
+counter = Counter()
 
-    print()
+for _, row in raw.iterrows():
 
-    print("=" * 60)
-    print("BUILDING FINAL METADATA")
-    print("=" * 60)
+    labels = builder._extract_labels(row["original_label"])
 
-    builder = MetadataBuilder()
+    mapped = False
 
-    metadata = builder.build(raw_dataframe)
+    for label in labels:
 
-    print()
+        unified = builder.mapper.map_label(label)
 
-    print(metadata.head())
+        if unified != "UNMAPPED":
 
-    print()
+            counter[unified] += 1
+            mapped = True
+            break
 
-    print("=" * 60)
+    if not mapped:
+        counter["UNMAPPED"] += 1
 
-    print(metadata["unified_label"].value_counts())
+print()
+print("=" * 70)
+print("MAPPING RESULT")
+print("=" * 70)
 
-    print("=" * 60)
-
-    builder.save(metadata)
-
-
-if __name__ == "__main__":
-
-    main()
+for k, v in counter.items():
+    print(f"{k:20} {v}")

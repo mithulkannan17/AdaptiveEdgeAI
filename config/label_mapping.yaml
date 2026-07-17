@@ -2,6 +2,8 @@ Bird:
   - bird
   - birds
   - chirping_birds
+  - chirp_and_tweet
+  - bird_vocalization_and_bird_call_and_bird_song
   - crow
   - pigeon
   - sparrow
@@ -10,6 +12,8 @@ Bird:
   - owl
   - duck
   - goose
+  - chirp
+  - tweet
 
 Wildlife:
   - dog
@@ -29,31 +33,45 @@ Wildlife:
   - insect
   - bee
   - cricket
+  - animal
+  - wild_animals
+  - domestic_animals_and_pets
 
-Human:
+Speech:
   - speech
   - talking
   - conversation
+  - human_voice
+  - male_speech_and_man_speaking
+  - female_speech_and_woman_speaking
+  - children_playing
+  - laughter
+  - clapping
+  - screaming
+
+Footsteps:
   - footsteps
   - walking
-  - scream
-  - laughter
-  - crying
-  - clapping
+  - walk_and_footsteps
+  - run
 
 Vehicle:
+  - vehicle
   - car
+  - car_passing_by
   - engine
   - engine_idling
+  - motor_vehicle_(road)
   - bus
   - truck
   - motorcycle
   - train
+  - rail_transport
   - airplane
+  - aircraft
   - helicopter
-
-Chainsaw:
-  - chainsaw
+  - bicycle
+  - subway_and_metro_and_underground
 
 EmergencyVehicle:
   - ambulance
@@ -63,28 +81,22 @@ EmergencyVehicle:
   - fire_engine
   - fire_truck
   - siren
+  - alarm
+
+Chainsaw:
+  - chainsaw
 
 Rain:
   - rain
   - drizzle
-  - thunderstorm
+  - raindrop
+  - water
 
 Wind:
   - wind
   - wind_noise
-
-Speech:
-  - speech
-  - talking
-  - conversation
-  - children_playing
-
-Footsteps:
-  - footsteps
-  - footsteps_on_leaves
-  - footsteps_on_grass
-  - walking
+  - breeze
 
 Thunderstorm:
-  - thunderstorm
   - thunder
+  - thunderstorm

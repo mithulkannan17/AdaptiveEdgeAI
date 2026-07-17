@@ -1,10 +1,14 @@
 """
 metadata_builder.py
 
-Builds the final metadata.csv used by the entire project.
+Builds unified metadata from all datasets.
+Supports:
+- Single-label datasets (ESC-50, UrbanSound8K)
+- Multi-label datasets (FSD50K)
 """
 
 from pathlib import Path
+import ast
 
 import pandas as pd
 
@@ -17,45 +21,99 @@ class MetadataBuilder:
     def __init__(self):
 
         self.mapper = LabelMapper()
-
         self.id_generator = SampleIDGenerator()
+
+    def _extract_labels(self, original_label):
+        """
+        Convert any label format into a list of clean labels.
+
+        Supported formats:
+        ------------------
+        speech
+
+        "speech"
+
+        ['Thunder', 'Rain']
+
+        "['Thunder', 'Rain']"
+
+        "Thunder,Rain"
+
+        ["Thunder","Rain"]
+        """
+
+        if original_label is None:
+            return []
+
+        # Already a Python list
+        if isinstance(original_label, list):
+            return [str(x).strip() for x in original_label]
+
+        # Everything else becomes string
+        text = str(original_label).strip()
+
+        if not text:
+            return []
+
+        # String representation of a Python list
+        if text.startswith("[") and text.endswith("]"):
+
+            try:
+
+                parsed = ast.literal_eval(text)
+
+                if isinstance(parsed, list):
+                    return [str(x).strip() for x in parsed]
+
+            except Exception:
+                pass
+
+        # Comma separated labels
+        if "," in text:
+
+            return [
+                x.strip().strip("'").strip('"')
+                for x in text.split(",")
+            ]
+
+        return [text]
 
     def build(self, dataframe: pd.DataFrame) -> pd.DataFrame:
 
         rows = []
 
+        total = len(dataframe)
+
+        mapped = 0
+
+        unmapped = 0
+
         for _, row in dataframe.iterrows():
 
-            original = row["original_label"]
+            labels = self._extract_labels(row["original_label"])
 
-            # Handle multi-label datasets (FSD50K)
-            if isinstance(original, list):
+            unified_label = "UNMAPPED"
 
-                mapped = None
+            for label in labels:
 
-                for label in original:
+                mapped_label = self.mapper.map_label(label)
 
-                    unified = self.mapper.map_label(label)
+                if mapped_label != "UNMAPPED":
 
-                    if unified != "UNMAPPED":
+                    unified_label = mapped_label
+                    break
 
-                        mapped = unified
+            if unified_label == "UNMAPPED":
 
-                        break
-
-            else:
-
-                mapped = self.mapper.map_label(original)
-
-            if mapped == "UNMAPPED":
+                unmapped += 1
                 continue
+
+            mapped += 1
 
             rows.append({
 
                 "sample_id":
-                    self.id_generator.generate(
-                        row["dataset"]
-                    ),
+                    self.id_generator.generate(row["dataset"]),
 
                 "dataset":
                     row["dataset"],
@@ -67,37 +125,49 @@ class MetadataBuilder:
                     row["filename"],
 
                 "original_label":
-                    original,
+                    row["original_label"],
 
                 "unified_label":
-                    mapped,
+                    unified_label,
 
                 "split":
-                    row["split"],
+                    row.get("split", ""),
 
                 "fold":
-                    row["fold"]
+                    row.get("fold", "")
 
             })
+
+        print("\n" + "=" * 60)
+        print("Metadata Builder Summary")
+        print("=" * 60)
+        print(f"Total Samples : {total}")
+        print(f"Mapped        : {mapped}")
+        print(f"Unmapped      : {unmapped}")
+        print("=" * 60)
 
         return pd.DataFrame(rows)
 
     def save(
+
         self,
+
         dataframe: pd.DataFrame,
+
         output_file="database/metadata.csv"
+
     ):
 
-        output = Path(output_file)
+        output_file = Path(output_file)
 
-        output.parent.mkdir(
+        output_file.parent.mkdir(
             parents=True,
             exist_ok=True
         )
 
         dataframe.to_csv(
-            output,
+            output_file,
             index=False
         )
 
-        print(f"\nSaved {output}")
+        print(f"\nMetadata saved to: {output_file}")

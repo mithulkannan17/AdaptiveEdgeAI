@@ -1,31 +1,19 @@
 from utils.label_mapper import LabelMapper
 
-mapper = LabelMapper("config/label_mapping.yaml")
+mapper = LabelMapper()
 
-labels = [
-
-    "dog",
-
-    "crow",
-
-    "speech",
-
-    "chainsaw",
-
-    "ambulance_siren",
-
-    "rain",
-
-    "wind",
-
-    "alien"
-
+tests = [
+    "Thunder",
+    "Thunderstorm",
+    "Rain",
+    "Walk_and_footsteps",
+    "Bird_vocalization_and_bird_call_and_bird_song",
+    "Human_voice",
+    "Motor_vehicle_(road)",
+    "Animal",
+    "Wild_animals",
+    "Speech",
 ]
 
-for label in labels:
-
-    print(
-
-        f"{label:20} -> {mapper.map_label(label)}"
-
-    )
+for t in tests:
+    print(f"{t:45} -> {mapper.map_label(t)}")

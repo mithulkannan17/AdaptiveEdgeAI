@@ -1,32 +1,50 @@
+"""
+PyTorch Dataset
+"""
+
 from pathlib import Path
+
 import numpy as np
+import pandas as pd
 import torch
 from torch.utils.data import Dataset
+
+from training.label_encoder import LabelEncoder
 
 
 class EnvironmentalSoundDataset(Dataset):
 
-    def __init__(self, feature_paths, labels):
+    def __init__(self, metadata_csv):
 
-        self.feature_paths = feature_paths
-        self.labels = labels
+        self.metadata = pd.read_csv(metadata_csv)
+
+        self.encoder = LabelEncoder()
 
     def __len__(self):
 
-        return len(self.feature_paths)
+        return len(self.metadata)
 
     def __getitem__(self, index):
 
-        feature = np.load(self.feature_paths[index])
+        row = self.metadata.iloc[index]
 
-        feature = torch.tensor(
-            feature,
+        spec = np.load(row["spectrogram_path"])
+
+        spec = torch.tensor(
+            spec,
             dtype=torch.float32
         )
 
+        spec = spec.unsqueeze(0)
+
         label = torch.tensor(
-            self.labels[index],
+
+            self.encoder.encode(
+                row["unified_label"]
+            ),
+
             dtype=torch.long
+
         )
 
-        return feature, label
+        return spec, label
