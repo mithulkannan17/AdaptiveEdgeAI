@@ -1,5 +1,5 @@
 """
-PyTorch Dataset
+Production Dataset for Environmental Sound Classification
 """
 
 from pathlib import Path
@@ -12,30 +12,44 @@ from torch.utils.data import Dataset
 from training.label_encoder import LabelEncoder
 
 
-class EnvironmentalSoundDataset(Dataset):
+class EnvironmentalDataset(Dataset):
 
-    def __init__(self, metadata_csv):
+    def __init__(
+        self,
+        dataframe: pd.DataFrame,
+        transform=None,
+        training=False,
+    ):
 
-        self.metadata = pd.read_csv(metadata_csv)
+        self.dataframe = dataframe.reset_index(drop=True)
+
+        self.transform = transform
+
+        self.training = training
 
         self.encoder = LabelEncoder()
 
     def __len__(self):
 
-        return len(self.metadata)
+        return len(self.dataframe)
 
     def __getitem__(self, index):
 
-        row = self.metadata.iloc[index]
+        row = self.dataframe.iloc[index]
 
-        spec = np.load(row["spectrogram_path"])
+        spectrogram = np.load(row["spectrogram_path"])
 
-        spec = torch.tensor(
-            spec,
-            dtype=torch.float32
-        )
+        spectrogram = torch.from_numpy(
+            spectrogram
+        ).float()
 
-        spec = spec.unsqueeze(0)
+        spectrogram = spectrogram.unsqueeze(0)
+
+        if self.transform is not None:
+
+            spectrogram = self.transform(
+                spectrogram
+            )
 
         label = torch.tensor(
 
@@ -47,4 +61,16 @@ class EnvironmentalSoundDataset(Dataset):
 
         )
 
-        return spec, label
+        sample = {
+
+            "spectrogram": spectrogram,
+
+            "label": label,
+
+            "sample_id": row["sample_id"],
+
+            "filepath": row["filepath"]
+
+        }
+
+        return sample

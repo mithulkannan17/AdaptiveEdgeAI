@@ -1,0 +1,12 @@
+{
+    "Bird": 0,
+    "Chainsaw": 1,
+    "EmergencyVehicle": 2,
+    "Footsteps": 3,
+    "Rain": 4,
+    "Speech": 5,
+    "Thunderstorm": 6,
+    "Vehicle": 7,
+    "Wildlife": 8,
+    "Wind": 9
+}

@@ -1,33 +1,29 @@
-import torch
+import pandas as pd
 
-from training.datamodule import create_dataloader
+from training.dataset import EnvironmentalDataset
 
 
 def main():
 
-    loader = create_dataloader(
-
-        "database/spectrogram_metadata.csv",
-
-        batch_size=16
-
+    df = pd.read_csv(
+        "database/spectrogram_metadata.csv"
     )
 
-    images, labels = next(iter(loader))
+    dataset = EnvironmentalDataset(df)
+
+    sample = dataset[0]
 
     print()
 
-    print(images.shape)
+    print(sample.keys())
 
-    print(labels.shape)
+    print(sample["spectrogram"].shape)
 
-    print(labels)
+    print(sample["label"])
 
-    print()
+    print(sample["sample_id"])
 
-    print(images.dtype)
-
-    print(labels.dtype)
+    print(sample["filepath"])
 
 
 if __name__ == "__main__":
