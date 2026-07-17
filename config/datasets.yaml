@@ -1,0 +1,23 @@
+esc50:
+
+  root: datasets/ESC50
+
+  loader: ESC50Loader
+
+urbansound8k:
+
+  root: datasets/urbansound8k
+
+  loader: UrbanSoundLoader
+
+fsd50k:
+
+  root: datasets/FSD50K
+
+  loader: FSD50KLoader
+
+emergency:
+
+  root: datasets/emergency
+
+  loader: EmergencyLoader

@@ -72,3 +72,19 @@ Rain:
 Wind:
   - wind
   - wind_noise
+
+Speech:
+  - speech
+  - talking
+  - conversation
+  - children_playing
+
+Footsteps:
+  - footsteps
+  - footsteps_on_leaves
+  - footsteps_on_grass
+  - walking
+
+Thunderstorm:
+  - thunderstorm
+  - thunder

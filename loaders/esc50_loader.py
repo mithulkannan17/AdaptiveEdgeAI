@@ -1,27 +1,77 @@
-import pandas as pd
+"""
+ESC-50 Dataset Loader
+"""
 
 from pathlib import Path
+import pandas as pd
 
-from .base_loader import BaseDatasetLoader
+from loaders.base_loader import BaseDatasetLoader
 
 
 class ESC50Loader(BaseDatasetLoader):
 
-    def load_metadata(self):
+    DATASET_NAME = "ESC50"
 
-        metadata = self.dataset_path / "meta" / "esc50.csv"
+    def __init__(self, dataset_root):
 
-        return pd.read_csv(metadata)
+        self.dataset_root = Path(dataset_root)
 
-    def dataset_info(self):
+        self.metadata_file = (
+            self.dataset_root /
+            "meta" /
+            "esc50.csv"
+        )
 
-        df = self.load_metadata()
+        self.audio_folder = (
+            self.dataset_root /
+            "audio"
+        )
 
-        return {
+    def load(self):
 
-            "Dataset": "ESC50",
+        if not self.metadata_file.exists():
 
-            "Samples": len(df),
+            raise FileNotFoundError(
+                self.metadata_file
+            )
 
-            "Classes": df["category"].nunique()
-        }
+        df = pd.read_csv(self.metadata_file)
+
+        records = []
+
+        for _, row in df.iterrows():
+
+            audio_path = (
+                self.audio_folder /
+                row["filename"]
+            )
+
+            records.append({
+
+                "dataset": self.DATASET_NAME,
+
+                "filepath": str(audio_path),
+
+                "filename": row["filename"],
+
+                "original_label": row["category"],
+
+                "split": "train",
+
+                "fold": int(row["fold"]),
+
+                "metadata": {
+
+                    "target": int(row["target"]),
+
+                    "esc10": bool(row["esc10"]),
+
+                    "src_file": row["src_file"],
+
+                    "take": row["take"]
+
+                }
+
+            })
+
+        return pd.DataFrame(records)

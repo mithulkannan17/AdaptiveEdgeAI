@@ -1,27 +1,68 @@
-import pandas as pd
+"""
+FSD50K Dataset Loader
+"""
 
 from pathlib import Path
+import pandas as pd
 
-from .base_loader import BaseDatasetLoader
+from loaders.base_loader import BaseDatasetLoader
 
 
 class FSD50KLoader(BaseDatasetLoader):
 
-    def load_metadata(self):
+    DATASET_NAME = "FSD50K"
 
-        metadata = self.dataset_path / "meta" / "fsd50k.csv"
+    def __init__(self, dataset_root):
 
-        return pd.read_csv(metadata)
+        self.dataset_root = Path(dataset_root)
 
-    def dataset_info(self):
+        self.metadata_file = (
+            self.dataset_root /
+            "Metadata" /
+            "dev.csv"
+        )
 
-        df = self.load_metadata()
+        self.audio_root = (
+            self.dataset_root /
+            "Extracted" /
+            "FSD50K.dev_audio"
+        )
 
-        return {
+    def load(self):
 
-            "Dataset": "FSD50K",
+        df = pd.read_csv(self.metadata_file)
 
-            "Samples": len(df),
+        records = []
 
-            "Classes": df["category"].nunique()
-        }
+        for _, row in df.iterrows():
+
+            audio_path = (
+                self.audio_root /
+                f"{row['fname']}.wav"
+            )
+
+            labels = str(row["labels"]).split(",")
+
+            records.append({
+
+                "dataset": self.DATASET_NAME,
+
+                "filepath": str(audio_path),
+
+                "filename": f"{row['fname']}.wav",
+
+                "original_label": labels,
+
+                "split": row["split"],
+
+                "fold": None,
+
+                "metadata": {
+
+                    "mids": row["mids"]
+
+                }
+
+            })
+
+        return pd.DataFrame(records)

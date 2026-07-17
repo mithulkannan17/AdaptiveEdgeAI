@@ -19,7 +19,10 @@ class LabelMapper:
         speech -> Human
     """
 
-    def __init__(self, mapping_file: str | Path):
+    def __init__(
+            self,
+            mapping_file: str | Path = "config/label_mapping.yaml"
+            ):
 
         self.mapping_file = Path(mapping_file)
 
