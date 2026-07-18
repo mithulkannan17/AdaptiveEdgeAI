@@ -105,3 +105,7 @@ class BatchFeatureExtractor:
         print(f"Saved : {output_metadata}")
 
         print("=" * 60)
+
+if __name__ == "__main__":
+
+    BatchFeatureExtractor().process_dataset()

@@ -1,44 +1,39 @@
-from collections import Counter
+import pandas as pd
 
-from managers.dataset_manager import DatasetManager
 from managers.metadata_builder import MetadataBuilder
 
 
-manager = DatasetManager()
-raw = manager.build()
+def main():
 
-print("=" * 70)
-print("RAW DATASET DISTRIBUTION")
-print("=" * 70)
-print(raw["dataset"].value_counts())
+    builder = MetadataBuilder()
 
-builder = MetadataBuilder()
+    df = builder.build()
 
-counter = Counter()
+    print()
 
-for _, row in raw.iterrows():
+    print(df.head())
 
-    labels = builder._extract_labels(row["original_label"])
+    print()
 
-    mapped = False
+    print("=" * 60)
 
-    for label in labels:
+    print("Class Distribution")
 
-        unified = builder.mapper.map_label(label)
+    print("=" * 60)
 
-        if unified != "UNMAPPED":
+    print(df["unified_label"].value_counts())
 
-            counter[unified] += 1
-            mapped = True
-            break
+    print()
 
-    if not mapped:
-        counter["UNMAPPED"] += 1
+    print("=" * 60)
 
-print()
-print("=" * 70)
-print("MAPPING RESULT")
-print("=" * 70)
+    print("Dataset Distribution")
 
-for k, v in counter.items():
-    print(f"{k:20} {v}")
+    print("=" * 60)
+
+    print(df["dataset"].value_counts())
+
+
+if __name__ == "__main__":
+
+    main()

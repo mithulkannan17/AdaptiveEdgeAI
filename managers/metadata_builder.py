@@ -1,98 +1,85 @@
 """
-metadata_builder.py
+Metadata Builder
 
-Builds unified metadata from all datasets.
-Supports:
-- Single-label datasets (ESC-50, UrbanSound8K)
-- Multi-label datasets (FSD50K)
+Combines all dataset loaders into a unified metadata.csv
 """
 
-from pathlib import Path
 import ast
+from pathlib import Path
 
 import pandas as pd
 
+from database.dataset_manager import DatasetManager
+
+from loaders.esc50_loader import ESC50Loader
+from loaders.urbansound8k_loader import UrbanSound8KLoader
+from loaders.fsd50k_loader import FSD50KLoader
+from loaders.emergency_loader import EmergencyLoader
+
 from utils.label_mapper import LabelMapper
-from utils.sample_id_generator import SampleIDGenerator
 
 
 class MetadataBuilder:
 
     def __init__(self):
 
+        self.manager = DatasetManager()
+
         self.mapper = LabelMapper()
-        self.id_generator = SampleIDGenerator()
 
-    def _extract_labels(self, original_label):
-        """
-        Convert any label format into a list of clean labels.
+    def load_datasets(self):
 
-        Supported formats:
-        ------------------
-        speech
+        print("Loading ESC50...")
+        self.manager.add_dataset(
+            ESC50Loader("datasets/ESC50").load()
+        )
 
-        "speech"
+        print("Loading UrbanSound8K...")
+        self.manager.add_dataset(
+            UrbanSound8KLoader("datasets/urbansound8k").load()
+        )
 
-        ['Thunder', 'Rain']
+        print("Loading FSD50K...")
+        self.manager.add_dataset(
+            FSD50KLoader("datasets/FSD50K").load()
+        )
 
-        "['Thunder', 'Rain']"
+        print("Loading Emergency...")
+        self.manager.add_dataset(
+            EmergencyLoader("datasets/emergency").load()
+        )
 
-        "Thunder,Rain"
+        return self.manager.build()
 
-        ["Thunder","Rain"]
-        """
+    def build(self):
 
-        if original_label is None:
-            return []
+        df = self.load_datasets()
 
-        # Already a Python list
-        if isinstance(original_label, list):
-            return [str(x).strip() for x in original_label]
-
-        # Everything else becomes string
-        text = str(original_label).strip()
-
-        if not text:
-            return []
-
-        # String representation of a Python list
-        if text.startswith("[") and text.endswith("]"):
-
-            try:
-
-                parsed = ast.literal_eval(text)
-
-                if isinstance(parsed, list):
-                    return [str(x).strip() for x in parsed]
-
-            except Exception:
-                pass
-
-        # Comma separated labels
-        if "," in text:
-
-            return [
-                x.strip().strip("'").strip('"')
-                for x in text.split(",")
-            ]
-
-        return [text]
-
-    def build(self, dataframe: pd.DataFrame) -> pd.DataFrame:
-
-        rows = []
-
-        total = len(dataframe)
+        metadata = []
 
         mapped = 0
 
         unmapped = 0
 
-        for _, row in dataframe.iterrows():
+        for idx, row in df.iterrows():
 
-            labels = self._extract_labels(row["original_label"])
+            labels = row["original_label"]
 
-            unified_label = "UNMAPPED"
+            if isinstance(labels, str):
+
+                try:
+
+                    labels = ast.literal_eval(labels)
+
+                except Exception:
+
+                    labels = [labels]
+
+            if not isinstance(labels, list):
+
+                labels = [labels]
+
+            unified = None
 
             for label in labels:
 
@@ -100,74 +87,63 @@ class MetadataBuilder:
 
                 if mapped_label != "UNMAPPED":
 
-                    unified_label = mapped_label
+                    unified = mapped_label
+
                     break
 
-            if unified_label == "UNMAPPED":
+            if unified is None:
 
                 unmapped += 1
+
                 continue
 
-            mapped += 1
+            metadata.append({
 
-            rows.append({
+                "sample_id": f"{row['dataset']}_{idx:06d}",
 
-                "sample_id":
-                    self.id_generator.generate(row["dataset"]),
+                "dataset": row["dataset"],
 
-                "dataset":
-                    row["dataset"],
+                "filepath": row["filepath"],
 
-                "filepath":
-                    row["filepath"],
+                "filename": row["filename"],
 
-                "filename":
-                    row["filename"],
+                "original_label": labels,
 
-                "original_label":
-                    row["original_label"],
+                "unified_label": unified,
 
-                "unified_label":
-                    unified_label,
+                "split": row["split"],
 
-                "split":
-                    row.get("split", ""),
-
-                "fold":
-                    row.get("fold", "")
+                "fold": row["fold"]
 
             })
 
-        print("\n" + "=" * 60)
-        print("Metadata Builder Summary")
+            mapped += 1
+
+        metadata = pd.DataFrame(metadata)
+
+        output = Path("database/metadata.csv")
+
+        output.parent.mkdir(exist_ok=True)
+
+        metadata.to_csv(output, index=False)
+
+        print()
+
         print("=" * 60)
-        print(f"Total Samples : {total}")
-        print(f"Mapped        : {mapped}")
-        print(f"Unmapped      : {unmapped}")
+
+        print("Metadata Generation Complete")
+
         print("=" * 60)
 
-        return pd.DataFrame(rows)
+        print(f"Mapped Samples   : {mapped}")
 
-    def save(
+        print(f"Unmapped Samples : {unmapped}")
 
-        self,
+        print(f"Saved            : {output}")
 
-        dataframe: pd.DataFrame,
+        return metadata
 
-        output_file="database/metadata.csv"
 
-    ):
+if __name__ == "__main__":
 
-        output_file = Path(output_file)
-
-        output_file.parent.mkdir(
-            parents=True,
-            exist_ok=True
-        )
-
-        dataframe.to_csv(
-            output_file,
-            index=False
-        )
-
-        print(f"\nMetadata saved to: {output_file}")
+    MetadataBuilder().build()

@@ -100,3 +100,17 @@ Wind:
 Thunderstorm:
   - thunder
   - thunderstorm
+
+Fire:
+  - crackling_fire
+  - fire
+
+Drill:
+  - drill
+  - drilling
+
+Jackhammer:
+  - jackhammer
+
+
+  

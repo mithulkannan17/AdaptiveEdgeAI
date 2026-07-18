@@ -109,3 +109,7 @@ class BatchStandardizer:
             print(f"Failed Log         : {failed_metadata}")
 
         print("=" * 60)
+
+if __name__ == "__main__":
+
+    BatchStandardizer().process_dataset()
