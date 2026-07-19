@@ -15,6 +15,8 @@ from loaders.esc50_loader import ESC50Loader
 from loaders.urbansound8k_loader import UrbanSound8KLoader
 from loaders.fsd50k_loader import FSD50KLoader
 from loaders.emergency_loader import EmergencyLoader
+from loaders.birdclef_loader import BirdCLEFLoader
+from loaders.animals_loader import AnimalsLoader
 
 from utils.label_mapper import LabelMapper
 
@@ -47,6 +49,16 @@ class MetadataBuilder:
         print("Loading Emergency...")
         self.manager.add_dataset(
             EmergencyLoader("datasets/emergency").load()
+        )
+
+        print("Loading BirdCLEF2026...")
+        self.manager.add_dataset(
+            BirdCLEFLoader("datasets/BirdCLEF/birdclef-2026").load()
+        )
+
+        print("Loading Animals...")
+        self.manager.add_dataset(
+            AnimalsLoader("datasets/Animals/Animal-SDataset").load()
         )
 
         return self.manager.build()
@@ -130,16 +142,20 @@ class MetadataBuilder:
         print()
 
         print("=" * 60)
-
         print("Metadata Generation Complete")
-
         print("=" * 60)
 
+        print(f"Total Samples    : {len(df)}")
         print(f"Mapped Samples   : {mapped}")
-
         print(f"Unmapped Samples : {unmapped}")
 
-        print(f"Saved            : {output}")
+        print("\nDataset Distribution")
+        print(metadata["dataset"].value_counts())
+
+        print("\nUnified Label Distribution")
+        print(metadata["unified_label"].value_counts())
+
+        print(f"\nSaved : {output}")
 
         return metadata
 

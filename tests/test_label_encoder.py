@@ -11,7 +11,7 @@ def main():
 
     print(encoder.encode("Bird"))
 
-    print(encoder.encode("Speech"))
+    print(encoder.encode("Human"))
 
     print(encoder.decode(0))
 

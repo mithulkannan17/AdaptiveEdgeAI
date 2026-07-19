@@ -1,6 +1,7 @@
 Bird:
   - bird
   - birds
+  - aves
   - chirping_birds
   - chirp_and_tweet
   - bird_vocalization_and_bird_call_and_bird_song
@@ -22,6 +23,7 @@ Wildlife:
   - tiger
   - lion
   - elephant
+  - donkey
   - wolf
   - fox
   - cow
@@ -30,14 +32,22 @@ Wildlife:
   - horse
   - pig
   - frog
-  - insect
-  - bee
-  - cricket
   - animal
   - wild_animals
   - domestic_animals_and_pets
+  - mammalia
+  - amphibia
+  - reptilia
 
-Speech:
+Insects:
+  - insect
+  - insects
+  - insecta
+  - bee
+  - cricket
+  - cicada
+
+Human:
   - speech
   - talking
   - conversation
@@ -86,16 +96,19 @@ EmergencyVehicle:
 Chainsaw:
   - chainsaw
 
-Rain:
-  - rain
-  - drizzle
-  - raindrop
+Water:
+  - river
+  - stream
+  - waterfall
+  - ocean
+  - waves
   - water
 
 Wind:
   - wind
   - wind_noise
   - breeze
+  - gust
 
 Thunderstorm:
   - thunder
@@ -111,6 +124,17 @@ Drill:
 
 Jackhammer:
   - jackhammer
+
+Gunshot:
+  - gunshot
+  - gun_fire
+  - firearm
+
+Fire:
+  - crackling_fire
+  - fire
+  - wildfire
+  - burning
 
 
   

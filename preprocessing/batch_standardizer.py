@@ -21,7 +21,7 @@ class BatchStandardizer:
 
     def process_dataset(
         self,
-        metadata_csv="database/metadata.csv",
+        metadata_csv="database/balanced_metadata.csv",
         output_folder="processed/audio",
         output_metadata="database/processed_metadata.csv",
         failed_metadata="database/failed_audio.csv"
@@ -45,8 +45,14 @@ class BatchStandardizer:
 
             output_audio = (
                 output_folder /
-                row["sample_id"]
-            ).with_suffix(".wav")
+                row["dataset"] /
+                f"{row['sample_id']}.wav"
+            )
+
+            output_audio.parent.mkdir(
+                parents=True,
+                exist_ok=True
+            )
 
             try:
 
