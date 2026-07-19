@@ -1,0 +1,3 @@
+CHECKPOINT_NAME = "best_model.pth"
+RANDOM_SEED = 42
+DEFAULT_DEVICE = "auto"

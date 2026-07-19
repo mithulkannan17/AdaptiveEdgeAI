@@ -33,21 +33,21 @@ class ConfigManager:
         return config
 
     def training(self):
-
-        return self.load("training_config.yaml")
+        
+        return self.load("training_config.yaml")["training"]
 
     def model(self):
-
-        return self.load("model_config.yaml")
+        
+        return self.load("model_config.yaml")["model"]
 
     def dataset(self):
-
-        return self.load("dataset_config.yaml")
+        
+        return self.load("dataset_config.yaml")["dataset"]
 
     def inference(self):
-
-        return self.load("inference_config.yaml")
+        
+        return self.load("inference_config.yaml")["inference"]
 
     def hardware(self):
-
-        return self.load("hardware_config.yaml")
+        
+        return self.load("hardware_config.yaml")["hardware"]

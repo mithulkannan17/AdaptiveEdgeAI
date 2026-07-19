@@ -1,5 +1,9 @@
 training:
 
+  # ==========================
+  # Training
+  # ==========================
+
   batch_size: 32
 
   epochs: 100
@@ -30,15 +34,11 @@ training:
 
   mixed_precision: true
 
-  early_stopping:
+  gradient_clip: 1.0
 
-    enabled: true
-
-    patience: 10
-
-    monitor: validation_loss
-
-dataset:
+  # ==========================
+  # Dataset Split
+  # ==========================
 
   train_ratio: 0.70
 
@@ -48,14 +48,34 @@ dataset:
 
   shuffle: true
 
-logging:
+  # ==========================
+  # Early Stopping
+  # ==========================
 
-  save_every: 5
+  early_stopping:
 
-  log_dir: logs/training
+    enabled: true
 
-checkpoint:
+    patience: 20
 
-  directory: models/checkpoints
+    monitor: validation_loss
 
-  save_best_only: true
+  # ==========================
+  # Logging
+  # ==========================
+
+  logging:
+
+    save_every: 1
+
+    log_dir: logs/training
+
+  # ==========================
+  # Checkpoints
+  # ==========================
+
+  checkpoint:
+
+    directory: models/checkpoints
+
+    save_best_only: true

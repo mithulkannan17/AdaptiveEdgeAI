@@ -43,6 +43,12 @@ class EnvironmentalDataset(Dataset):
             spectrogram
         ).float()
 
+        spectrogram = (
+            spectrogram - spectrogram.mean()
+        ) / (
+            spectrogram.std() + 1e-8
+        )
+
         spectrogram = spectrogram.unsqueeze(0)
 
         if self.transform is not None:

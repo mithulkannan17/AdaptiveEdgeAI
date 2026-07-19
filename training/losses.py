@@ -2,7 +2,6 @@
 Loss Function Factory
 """
 
-import torch
 import torch.nn as nn
 
 from managers.config_manager import ConfigManager
@@ -16,7 +15,7 @@ class LossFactory:
 
     def build(self):
 
-        loss_name = self.config["training"]["loss"]
+        loss_name = self.config["loss"]
 
         if loss_name == "CrossEntropy":
 
@@ -30,8 +29,6 @@ class LossFactory:
 
             return nn.MSELoss()
 
-        else:
-
-            raise ValueError(
-                f"Unsupported loss function: {loss_name}"
-            )
+        raise ValueError(
+            f"Unsupported loss function: {loss_name}"
+        )

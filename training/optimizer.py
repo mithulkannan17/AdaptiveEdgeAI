@@ -11,7 +11,7 @@ class OptimizerFactory:
 
     def __init__(self):
 
-        self.config = ConfigManager().training()["training"]
+        self.config = ConfigManager().training()
 
     def build(self, model):
 
