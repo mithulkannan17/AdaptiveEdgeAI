@@ -1,6 +1,6 @@
 model:
 
-  name: AuraCNN
+  name: mobilenet_v3_small #aura_cnn
 
   input_channels: 1
 
@@ -14,14 +14,4 @@ model:
 
   global_average_pooling: true
 
-feature_extraction:
-
-  sample_rate: 16000
-
-  duration: 5
-
-  n_fft: 1024
-
-  hop_length: 512
-
-  n_mels: 128
+  pretrained: true

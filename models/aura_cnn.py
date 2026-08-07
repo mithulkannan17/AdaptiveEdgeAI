@@ -8,8 +8,6 @@ Optimized version of the original architecture.
 import torch
 import torch.nn as nn
 
-from managers.config_manager import ConfigManager
-
 
 class ConvBlock(nn.Module):
 
@@ -54,17 +52,14 @@ class ConvBlock(nn.Module):
 
 class AuraCNN(nn.Module):
 
-    def __init__(self):
+    def __init__(
+        self,
+        input_channels: int = 1,
+        num_classes: int = 14,
+        dropout: float = 0.3
+    ):
 
         super().__init__()
-
-        cfg = ConfigManager().model()
-
-        in_channels = cfg["input_channels"]
-
-        num_classes = cfg["num_classes"]
-
-        dropout = cfg["dropout"]
 
         # ------------------------------
         # Feature Extractor
@@ -72,7 +67,7 @@ class AuraCNN(nn.Module):
 
         self.features = nn.Sequential(
 
-            ConvBlock(in_channels, 32),
+            ConvBlock(input_channels, 32),
 
             ConvBlock(32, 64),
 
@@ -108,7 +103,10 @@ class AuraCNN(nn.Module):
 
         )
 
+        # ------------------------------
         # Initialize weights
+        # ------------------------------
+
         self._initialize_weights()
 
     def _initialize_weights(self):
@@ -118,35 +116,25 @@ class AuraCNN(nn.Module):
             if isinstance(module, nn.Conv2d):
 
                 nn.init.kaiming_normal_(
-
                     module.weight,
-
                     mode="fan_out",
-
                     nonlinearity="relu"
-
                 )
 
                 if module.bias is not None:
-
                     nn.init.constant_(module.bias, 0)
 
             elif isinstance(module, nn.BatchNorm2d):
 
                 nn.init.constant_(module.weight, 1)
-
                 nn.init.constant_(module.bias, 0)
 
             elif isinstance(module, nn.Linear):
 
                 nn.init.normal_(
-
                     module.weight,
-
                     mean=0.0,
-
                     std=0.01
-
                 )
 
                 nn.init.constant_(module.bias, 0)

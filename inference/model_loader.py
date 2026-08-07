@@ -8,27 +8,50 @@ from pathlib import Path
 
 import torch
 
-from models.aura_cnn import AuraCNN
+from managers.config_manager import ConfigManager
+from models.model_factory import ModelFactory
 
 
 class ModelLoader:
     """
-    Loads trained models for inference.
+    Loads the configured trained model for inference.
     """
 
     def __init__(
+
         self,
-        checkpoint_path: str | Path,
+
         device: torch.device,
+
     ):
 
-        self.checkpoint_path = Path(checkpoint_path)
+        config = ConfigManager()
+
+        self.training_config = config.training()
+
+        self.model_config = config.model()
+
+        self.model_name = self.model_config["name"]
 
         self.device = device
 
+        self.checkpoint_path = (
+
+            Path(
+
+                self.training_config["checkpoint"]["directory"]
+
+            )
+
+            / self.model_name
+
+            / "best_model.pth"
+
+        )
+
     def load(self) -> torch.nn.Module:
         """
-        Loads the trained model.
+        Loads the configured trained model.
 
         Returns
         -------
@@ -40,11 +63,19 @@ class ModelLoader:
 
             raise FileNotFoundError(
 
-                f"Checkpoint not found: {self.checkpoint_path}"
+                f"Checkpoint not found:\n{self.checkpoint_path}"
 
             )
 
-        model = AuraCNN()
+        model = (
+
+            ModelFactory
+
+            .build(self.model_config)
+
+            .to(self.device)
+
+        )
 
         checkpoint = torch.load(
 
@@ -59,8 +90,6 @@ class ModelLoader:
             checkpoint["model_state_dict"]
 
         )
-
-        model.to(self.device)
 
         model.eval()
 

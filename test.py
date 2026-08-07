@@ -1,8 +1,16 @@
-import pandas as pd
+from inference.preprocessor import PreProcessor
+from inference.predictor import Predictor
 
-df = pd.read_csv("database/spectrogram_metadata.csv")
+preprocessor = PreProcessor()
 
-print(df["unified_label"].value_counts())
-print()
-print(df["unified_label"].nunique())
-print(sorted(df["unified_label"].unique()))
+spectrogram = preprocessor.preprocess(
+    "test_audio.wav"
+)
+
+predictor = Predictor(
+    "checkpoints/best_model.pth"
+)
+
+result = predictor.predict_spectrogram(spectrogram)
+
+print(result)

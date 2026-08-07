@@ -1,0 +1,26 @@
+model:
+
+  name: mobilenet_v3_small #aura_cnn
+
+  input_channels: 1
+
+  num_classes: 14
+
+  dropout: 0.30
+
+  activation: relu
+
+  batch_norm: true
+
+  global_average_pooling: true 
+
+  pretrained: true # false for Aura model
+
+
+
+# model:
+
+#   name: mobilenet_v3_small #aura_cnn # #aura_cnn #AuraCNN # 
+#   num_classes: 14
+
+#   pretrained: true

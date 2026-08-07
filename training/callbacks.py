@@ -38,6 +38,7 @@ class EarlyStopping:
         if improved:
 
             self.best_score = score
+
             self.counter = 0
 
         else:
@@ -95,6 +96,31 @@ class ModelCheckpoint:
 
     ):
 
+        checkpoint = {
+
+            "epoch": epoch,
+
+            "score": score,
+
+            "monitor": self.monitor,
+
+            "model_name": model.__class__.__name__,
+
+            "model_state_dict": model.state_dict(),
+
+            "optimizer_state_dict": optimizer.state_dict(),
+
+        }
+
+        # Always save the latest model
+        torch.save(
+
+            checkpoint,
+
+            self.directory / "last_model.pth"
+
+        )
+
         if self.best_score is None:
 
             improved = True
@@ -114,18 +140,6 @@ class ModelCheckpoint:
         if improved:
 
             self.best_score = score
-
-            checkpoint = {
-
-                "epoch": epoch,
-
-                "score": score,
-
-                "model_state_dict": model.state_dict(),
-
-                "optimizer_state_dict": optimizer.state_dict(),
-
-            }
 
             torch.save(
 

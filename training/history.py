@@ -9,9 +9,33 @@ import pandas as pd
 
 class HistoryLogger:
 
-    def __init__(self):
+    def __init__(
+
+        self,
+
+        directory="logs/training"
+
+    ):
 
         self.records = []
+
+        self.directory = Path(directory)
+
+        self.directory.mkdir(
+
+            parents=True,
+
+            exist_ok=True
+
+        )
+
+        self.history_file = (
+
+            self.directory
+
+            / "history.csv"
+
+        )
 
     def add(
 
@@ -43,23 +67,7 @@ class HistoryLogger:
 
         })
 
-    def save(
-
-        self,
-
-        path="logs/training/history.csv"
-
-    ):
-
-        path = Path(path)
-
-        path.parent.mkdir(
-
-            parents=True,
-
-            exist_ok=True
-
-        )
+    def save(self):
 
         pd.DataFrame(
 
@@ -67,7 +75,7 @@ class HistoryLogger:
 
         ).to_csv(
 
-            path,
+            self.history_file,
 
             index=False
 
