@@ -1,7 +1,8 @@
 """
-Preprocessor
+PreProcessor
 
-Converts raw audio into a model-ready spectrogram.
+Converts raw audio into the exact model-ready
+spectrogram used during training.
 """
 
 from __future__ import annotations
@@ -11,151 +12,299 @@ from pathlib import Path
 import torch
 import torchaudio
 
-from managers.config_manager import ConfigManager
-
 
 class PreProcessor:
     """
-    Audio preprocessing pipeline for inference.
+    Production audio preprocessing pipeline.
+
+    The preprocessing parameters MUST remain consistent
+    with the parameters used during model training.
     """
 
     def __init__(self):
 
-        config = ConfigManager()
+        # ==================================================
+        # Training Feature Configuration
+        # ==================================================
 
-        feature_config = config.feature_extraction()
+        self.sample_rate = 16000
 
-        self.sample_rate = feature_config["sample_rate"]
+        self.duration = 5
 
-        self.n_fft = feature_config["n_fft"]
+        self.n_fft = 1024
 
-        self.hop_length = feature_config["hop_length"]
+        self.hop_length = 512
 
-        self.n_mels = feature_config["n_mels"]
+        self.n_mels = 128
 
-        self.mel_transform = torchaudio.transforms.MelSpectrogram(
+        # ==================================================
+        # Mel Spectrogram
+        # ==================================================
 
-            sample_rate=self.sample_rate,
+        self.mel_transform = (
+            torchaudio.transforms.MelSpectrogram(
 
-            n_fft=self.n_fft,
+                sample_rate=self.sample_rate,
 
-            hop_length=self.hop_length,
+                n_fft=self.n_fft,
 
-            n_mels=self.n_mels,
+                hop_length=self.hop_length,
 
+                n_mels=self.n_mels,
+
+            )
         )
 
         self.amplitude_to_db = (
-
             torchaudio.transforms.AmplitudeToDB()
-
         )
+
+    # ======================================================
+    # Audio Loading
+    # ======================================================
 
     def load_audio(
-
         self,
-
         file_path: str | Path,
-
     ) -> torch.Tensor:
         """
-        Loads an audio file.
+        Load audio and convert it to mono at 16 kHz.
         """
 
-        waveform, sample_rate = torchaudio.load(
+        file_path = Path(file_path)
 
-            file_path
+        if not file_path.exists():
 
+            raise FileNotFoundError(
+                f"Audio file not found: {file_path}"
+            )
+
+        waveform, sample_rate = (
+            torchaudio.load(file_path)
         )
 
+        # --------------------------------------------------
         # Stereo → Mono
+        # --------------------------------------------------
+
         if waveform.shape[0] > 1:
 
             waveform = waveform.mean(
-
                 dim=0,
-
                 keepdim=True
-
             )
 
-        # Resample if necessary
+        # --------------------------------------------------
+        # Resampling
+        # --------------------------------------------------
+
         if sample_rate != self.sample_rate:
 
-            waveform = torchaudio.functional.resample(
+            waveform = (
+                torchaudio.functional.resample(
 
-                waveform,
+                    waveform,
 
-                sample_rate,
+                    sample_rate,
 
-                self.sample_rate,
+                    self.sample_rate,
 
+                )
             )
 
         return waveform
 
-    def waveform_to_spectrogram(
+    # ======================================================
+    # Duration Normalization
+    # ======================================================
 
+    def normalize_duration(
         self,
-
         waveform: torch.Tensor,
-
     ) -> torch.Tensor:
         """
-        Converts waveform into a normalized
-        log-mel spectrogram.
+        Make every input exactly 5 seconds.
+
+        Short audio:
+            Zero padded.
+
+        Long audio:
+            Center cropped.
         """
 
-        spectrogram = self.mel_transform(
-
-            waveform
-
+        target_samples = int(
+            self.sample_rate
+            * self.duration
         )
 
-        spectrogram = self.amplitude_to_db(
-
-            spectrogram
-
+        current_samples = (
+            waveform.shape[-1]
         )
 
-        # Same normalization used during training
+        # --------------------------------------------------
+        # Already correct
+        # --------------------------------------------------
+
+        if current_samples == target_samples:
+
+            return waveform
+
+        # --------------------------------------------------
+        # Short audio → Zero Padding
+        # --------------------------------------------------
+
+        if current_samples < target_samples:
+
+            padding = (
+                target_samples
+                - current_samples
+            )
+
+            waveform = (
+                torch.nn.functional.pad(
+
+                    waveform,
+
+                    (
+                        0,
+                        padding
+                    ),
+
+                )
+            )
+
+            return waveform
+
+        # --------------------------------------------------
+        # Long audio → Center Crop
+        # --------------------------------------------------
+
+        start = (
+            current_samples
+            - target_samples
+        ) // 2
+
+        end = (
+            start
+            + target_samples
+        )
+
+        return waveform[
+            :,
+            start:end
+        ]
+
+    # ======================================================
+    # Waveform → Spectrogram
+    # ======================================================
+
+    def waveform_to_spectrogram(
+        self,
+        waveform: torch.Tensor,
+    ) -> torch.Tensor:
+        """
+        Convert waveform into normalized log-mel
+        spectrogram.
+        """
+
+        spectrogram = (
+            self.mel_transform(
+                waveform
+            )
+        )
+
+        spectrogram = (
+            self.amplitude_to_db(
+                spectrogram
+            )
+        )
+
+        # --------------------------------------------------
+        # Normalization
+        # --------------------------------------------------
+
+        mean = spectrogram.mean()
+
+        std = spectrogram.std()
+
         spectrogram = (
 
-            spectrogram
-
-            - spectrogram.mean()
+            spectrogram - mean
 
         ) / (
 
-            spectrogram.std()
-
-            + 1e-8
+            std + 1e-8
 
         )
 
         return spectrogram
 
+    # ======================================================
+    # Complete Pipeline
+    # ======================================================
+
     def preprocess(
-
         self,
-
         file_path: str | Path,
-
     ) -> torch.Tensor:
         """
-        Complete preprocessing pipeline.
+        Complete:
+
+            Audio
+              ↓
+            Mono
+              ↓
+            16 kHz
+              ↓
+            5 seconds
+              ↓
+            Mel Spectrogram
+              ↓
+            Log scale
+              ↓
+            Normalization
         """
 
         waveform = self.load_audio(
-
             file_path
-
         )
 
-        spectrogram = self.waveform_to_spectrogram(
-
+        waveform = self.normalize_duration(
             waveform
+        )
 
+        spectrogram = (
+            self.waveform_to_spectrogram(
+                waveform
+            )
         )
 
         return spectrogram
+
+    # ======================================================
+    # Configuration Information
+    # ======================================================
+
+    def get_config(self) -> dict:
+        """
+        Return the active preprocessing configuration.
+        """
+
+        return {
+
+            "sample_rate":
+                self.sample_rate,
+
+            "duration":
+                self.duration,
+
+            "n_fft":
+                self.n_fft,
+
+            "hop_length":
+                self.hop_length,
+
+            "n_mels":
+                self.n_mels,
+
+        }

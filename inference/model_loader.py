@@ -1,8 +1,13 @@
 """
 Model Loader
 
-Loads trained deep learning models for inference.
+Loads the configured trained deep learning model for inference.
+
+The checkpoint can either be supplied explicitly or resolved
+automatically from the project configuration.
 """
+
+from __future__ import annotations
 
 from pathlib import Path
 
@@ -14,16 +19,25 @@ from models.model_factory import ModelFactory
 
 class ModelLoader:
     """
-    Loads the configured trained model for inference.
+    Loads a trained model for inference.
+
+    If checkpoint_path is provided, that checkpoint is used.
+
+    Otherwise the checkpoint is resolved from:
+
+        training_config.checkpoint.directory
+        /
+        model_name
+        /
+        best_model.pth
     """
 
     def __init__(
-
         self,
-
         device: torch.device,
-
+        checkpoint_path: str | Path | None = None,
     ):
+        self.device = device
 
         config = ConfigManager()
 
@@ -33,25 +47,43 @@ class ModelLoader:
 
         self.model_name = self.model_config["name"]
 
-        self.device = device
+        # --------------------------------------------------
+        # Checkpoint
+        # --------------------------------------------------
 
-        self.checkpoint_path = (
+        if checkpoint_path is not None:
 
-            Path(
+            self.checkpoint_path = Path(
+                checkpoint_path
+            )
 
-                self.training_config["checkpoint"]["directory"]
+        else:
+
+            self.checkpoint_path = (
+
+                Path(
+                    self.training_config[
+                        "checkpoint"
+                    ][
+                        "directory"
+                    ]
+                )
+
+                / self.model_name
+
+                / "best_model.pth"
 
             )
 
-            / self.model_name
+    # ======================================================
+    # Load Model
+    # ======================================================
 
-            / "best_model.pth"
-
-        )
-
-    def load(self) -> torch.nn.Module:
+    def load(
+        self,
+    ) -> torch.nn.Module:
         """
-        Loads the configured trained model.
+        Load the trained model.
 
         Returns
         -------
@@ -63,19 +95,30 @@ class ModelLoader:
 
             raise FileNotFoundError(
 
-                f"Checkpoint not found:\n{self.checkpoint_path}"
+                "Checkpoint not found:\n"
+                f"{self.checkpoint_path}"
 
             )
+
+        # --------------------------------------------------
+        # Build architecture from configuration
+        # --------------------------------------------------
 
         model = (
 
             ModelFactory
 
-            .build(self.model_config)
+            .build(
+                self.model_config
+            )
 
             .to(self.device)
 
         )
+
+        # --------------------------------------------------
+        # Load checkpoint
+        # --------------------------------------------------
 
         checkpoint = torch.load(
 
@@ -85,12 +128,45 @@ class ModelLoader:
 
         )
 
+        if "model_state_dict" not in checkpoint:
+
+            raise KeyError(
+
+                "Checkpoint does not contain "
+                "'model_state_dict'."
+
+            )
+
         model.load_state_dict(
 
-            checkpoint["model_state_dict"]
+            checkpoint[
+                "model_state_dict"
+            ]
 
         )
 
         model.eval()
 
         return model
+
+    # ======================================================
+    # Information
+    # ======================================================
+
+    def get_model_name(
+        self,
+    ) -> str:
+        """
+        Return the configured model name.
+        """
+
+        return self.model_name
+
+    def get_checkpoint_path(
+        self,
+    ) -> Path:
+        """
+        Return the checkpoint path being used.
+        """
+
+        return self.checkpoint_path
