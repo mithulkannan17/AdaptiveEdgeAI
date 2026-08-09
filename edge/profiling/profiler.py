@@ -585,6 +585,6 @@ class EnvironmentalProfiler:
 
             aquatic_score=aquatic_score,
 
-            uncertainty=event_diversity,
+            uncertainty=environment_uncertainty,
 
         )
