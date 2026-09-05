@@ -14,16 +14,23 @@ The controller connects:
     Event Detection
         ↓
     Event Prioritization
+        ↓
+    CADIE
+        ↓
+    Context-Aware Decision
 
 Unknown-sound discovery is executed alongside the normal
 event pipeline.
+
+Hardware telemetry is accepted as optional runtime context
+so that dummy telemetry can be replaced by real hardware
+without changing the intelligence pipeline.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from inference.predictor import Predictor
 from inference.types import PredictionResult
@@ -31,6 +38,11 @@ from inference.types import PredictionResult
 from edge.adaptation import (
     AdaptiveBehaviorEngine,
     AdaptivePolicy,
+)
+
+from edge.decision import (
+    CADIE,
+    DecisionResult,
 )
 
 from edge.events import (
@@ -50,9 +62,14 @@ class EdgeRuntimeResult:
     """
     Complete result produced by the edge runtime.
 
-    Contains the model prediction, environmental context,
-    adaptive policy, event decision, prioritized event,
-    and optional unknown-discovery result.
+    Contains:
+
+        - model prediction
+        - environmental context
+        - adaptive policy
+        - detected/prioritized event
+        - CADIE decision
+        - optional unknown-discovery result
     """
 
     prediction: PredictionResult
@@ -64,6 +81,8 @@ class EdgeRuntimeResult:
     event: Event
 
     discovery_result: object | None = None
+
+    decision: DecisionResult | None = None
 
     def to_dict(self) -> dict:
         """
@@ -88,6 +107,25 @@ class EdgeRuntimeResult:
 
                 discovery = str(
                     self.discovery_result
+                )
+
+        decision = None
+
+        if self.decision is not None:
+
+            if hasattr(
+                self.decision,
+                "to_dict",
+            ):
+
+                decision = (
+                    self.decision.to_dict()
+                )
+
+            else:
+
+                decision = str(
+                    self.decision
                 )
 
         return {
@@ -122,6 +160,9 @@ class EdgeRuntimeResult:
             "event":
                 self.event.to_dict(),
 
+            "decision":
+                decision,
+
             "discovery_result":
                 discovery,
 
@@ -133,8 +174,21 @@ class EdgeController:
     Main runtime orchestrator for the adaptive edge node.
 
     The controller does not implement the individual
-    intelligence algorithms. It coordinates the already
-    tested subsystems.
+    intelligence algorithms.
+
+    It coordinates the already-tested subsystems:
+
+        Predictor
+            ↓
+        EnvironmentalProfiler
+            ↓
+        AdaptiveBehaviorEngine
+            ↓
+        EventDetector
+            ↓
+        EventPrioritizer
+            ↓
+        CADIE
     """
 
     def __init__(
@@ -144,6 +198,7 @@ class EdgeController:
         behavior_engine: AdaptiveBehaviorEngine | None = None,
         event_detector: EventDetector | None = None,
         event_prioritizer: EventPrioritizer | None = None,
+        cadie: CADIE | None = None,
     ):
         """
         Parameters
@@ -162,6 +217,9 @@ class EdgeController:
 
         event_prioritizer:
             Event prioritization engine.
+
+        cadie:
+            Context-Aware Decision Intelligence Engine.
         """
 
         if predictor is None:
@@ -212,6 +270,16 @@ class EdgeController:
 
         )
 
+        self.cadie = (
+
+            cadie
+
+            if cadie is not None
+
+            else CADIE()
+
+        )
+
         self.last_result: EdgeRuntimeResult | None = None
 
     # ======================================================
@@ -223,6 +291,7 @@ class EdgeController:
         spectrogram,
         top_k: int = 5,
         audio_path: str | Path | None = None,
+        device_status: dict | None = None,
     ) -> EdgeRuntimeResult:
         """
         Run the complete edge intelligence pipeline
@@ -238,6 +307,9 @@ class EdgeController:
 
         audio_path:
             Optional source audio path.
+
+        device_status:
+            Optional hardware telemetry.
 
         Returns
         -------
@@ -258,7 +330,11 @@ class EdgeController:
         )
 
         return self.process_prediction(
-            prediction
+
+            prediction,
+
+            device_status=device_status,
+
         )
 
     # ======================================================
@@ -268,11 +344,24 @@ class EdgeController:
     def process_prediction(
         self,
         prediction: PredictionResult,
+        device_status: dict | None = None,
     ) -> EdgeRuntimeResult:
         """
-        Process an existing PredictionResult through
-        environmental profiling, adaptive behaviour,
-        event detection, and prioritization.
+        Process an existing PredictionResult through:
+
+            Environmental Profiling
+            Adaptive Behaviour
+            Event Detection
+            Event Prioritization
+            CADIE
+
+        Parameters
+        ----------
+        prediction:
+            Existing PredictionResult.
+
+        device_status:
+            Optional hardware telemetry.
 
         This method is useful when inference has already
         been performed separately.
@@ -286,6 +375,14 @@ class EdgeController:
             raise TypeError(
                 "prediction must be a PredictionResult."
             )
+
+        # --------------------------------------------------
+        # Hardware telemetry
+        # --------------------------------------------------
+
+        if device_status is None:
+
+            device_status = {}
 
         # --------------------------------------------------
         # Environmental profiling
@@ -342,6 +439,37 @@ class EdgeController:
         )
 
         # --------------------------------------------------
+        # CADIE
+        # --------------------------------------------------
+        #
+        # CADIE receives the complete contextual state:
+        #
+        # prediction
+        # environment
+        # adaptive policy
+        # prioritized event
+        # hardware telemetry
+        #
+        # It produces a context-aware decision.
+        # --------------------------------------------------
+
+        decision = (
+            self.cadie.evaluate(
+
+                prediction=prediction,
+
+                environment_profile=profile,
+
+                adaptive_policy=policy,
+
+                event=event,
+
+                device_status=device_status,
+
+            )
+        )
+
+        # --------------------------------------------------
         # Unknown discovery
         #
         # Unknown discovery is already performed by
@@ -374,6 +502,8 @@ class EdgeController:
             discovery_result=(
                 discovery_result
             ),
+
+            decision=decision,
 
         )
 

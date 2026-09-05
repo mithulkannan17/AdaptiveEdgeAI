@@ -1,20 +1,23 @@
 """
-Communication Package.
+Communication Package
 
-Defines the data contracts and communication client used
-between the adaptive edge node and backend services.
+Provides the communication contract, telemetry structures,
+backend client, transmission policy, serializer, and
+edge runtime communication service.
 """
 
 from communication.schemas import (
-    PredictionMessage,
-    EnvironmentMessage,
     AdaptivePolicyMessage,
-    EventMessage,
+    DecisionMessage,
     EdgeMessage,
+    EnvironmentMessage,
+    EventMessage,
+    PredictionMessage,
 )
 
-from communication.serializer import (
-    EdgeMessageSerializer,
+from communication.telemetry import (
+    DeviceTelemetry,
+    LocationTelemetry,
 )
 
 from communication.client import (
@@ -22,14 +25,57 @@ from communication.client import (
     CommunicationError,
 )
 
+from communication.serializer import (
+    EdgeMessageSerializer,
+)
+
+from communication.transmission_policy import (
+    TransmissionPolicy,
+)
+
+from communication.runtime_service import (
+    EdgeRuntimeService,
+)
+
 
 __all__ = [
+
+    # --------------------------------------------------
+    # Message schemas
+    # --------------------------------------------------
+
     "PredictionMessage",
+
     "EnvironmentMessage",
+
     "AdaptivePolicyMessage",
+
     "EventMessage",
+
+    "DecisionMessage",
+
     "EdgeMessage",
-    "EdgeMessageSerializer",
+
+    # --------------------------------------------------
+    # Telemetry
+    # --------------------------------------------------
+
+    "DeviceTelemetry",
+
+    "LocationTelemetry",
+
+    # --------------------------------------------------
+    # Communication
+    # --------------------------------------------------
+
     "CommunicationClient",
+
     "CommunicationError",
+
+    "EdgeMessageSerializer",
+
+    "TransmissionPolicy",
+
+    "EdgeRuntimeService",
+
 ]

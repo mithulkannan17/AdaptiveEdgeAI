@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "total_unknown_samples": 38,
+  "total_cluster_runs": 1,
+  "last_cluster_at": 1788642594.4856808,
+  "last_decision": {
+    "is_unknown": true,
+    "predicted_class": 12,
+    "confidence": 0.5800679326057434,
+    "margin": 0.2536458969116211,
+    "reason": "Low classification confidence."
+  },
+  "clusters": []
+}

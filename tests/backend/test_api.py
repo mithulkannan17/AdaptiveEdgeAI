@@ -358,3 +358,312 @@ def test_invalid_message_is_rejected(
     )
 
     assert response.status_code == 422
+
+
+def test_telemetry_survives_api_round_trip(
+    tmp_path,
+    monkeypatch,
+):
+
+    client = create_client(
+        tmp_path,
+        monkeypatch,
+    )
+
+    payload = {
+
+        "device_id":
+            "edge_node_telemetry_001",
+
+        "timestamp":
+            1755100000.0,
+
+        "prediction": {
+
+            "label":
+                "Bird",
+
+            "class_id":
+                0,
+
+            "confidence":
+                0.94,
+
+            "inference_time_ms":
+                42.1,
+
+            "top_k": [
+
+                {
+                    "label":
+                        "Bird",
+
+                    "confidence":
+                        0.94,
+
+                },
+
+            ],
+
+        },
+
+        "environment": {
+
+            "environment_type":
+                "Natural",
+
+            "observation_count":
+                10,
+
+            "observation_duration_seconds":
+                120.0,
+
+            "event_counts":
+                {
+                    "Bird": 10,
+                },
+
+            "event_ratios":
+                {
+                    "Bird": 1.0,
+                },
+
+            "average_confidence":
+                0.94,
+
+            "acoustic_activity":
+                0.083,
+
+            "natural_score":
+                1.0,
+
+            "anthropogenic_score":
+                0.0,
+
+            "weather_score":
+                0.0,
+
+            "aquatic_score":
+                0.0,
+
+            "uncertainty":
+                0.0,
+
+        },
+
+        "adaptive_policy": {
+
+            "environment_type":
+                "Natural",
+
+            "detection_threshold":
+                0.55,
+
+            "transmission_mode":
+                "selective",
+
+            "sampling_mode":
+                "active",
+
+            "class_sensitivity":
+                {
+                    "Bird": 1.20,
+                },
+
+            "class_priority":
+                {
+                    "Bird": 1,
+                },
+
+            "ignored_classes":
+                [],
+
+            "reason":
+                "Natural acoustic environment.",
+
+        },
+
+        "event": {
+
+            "label":
+                "Bird",
+
+            "class_id":
+                0,
+
+            "confidence":
+                0.94,
+
+            "adjusted_confidence":
+                1.0,
+
+            "detection_threshold":
+                0.55,
+
+            "detected":
+                True,
+
+            "priority":
+                1,
+
+            "environment_type":
+                "Natural",
+
+            "reason":
+                "Event detected.",
+
+            "inference_time_ms":
+                42.1,
+
+            "metadata":
+                {},
+
+        },
+
+        "unknown_discovery":
+            None,
+
+        "location": {
+
+            "latitude":
+                12.2958,
+
+            "longitude":
+                76.6394,
+
+            "altitude":
+                770.0,
+
+            "accuracy":
+                4.5,
+
+        },
+
+        "device_status": {
+
+            "battery_percent":
+                82.5,
+
+            "battery_voltage":
+                3.91,
+
+            "temperature":
+                28.4,
+
+            "humidity":
+                67.2,
+
+            "light_level":
+                145.0,
+
+            "vibration_detected":
+                False,
+
+        },
+
+    }
+
+    # --------------------------------------------------
+    # Send through FastAPI
+    # --------------------------------------------------
+
+    response = client.post(
+
+        "/api/v1/edge/events",
+
+        json=payload,
+
+    )
+
+    assert response.status_code == 200
+
+    response_data = response.json()
+
+    assert (
+        response_data["success"]
+        is True
+    )
+
+    assert (
+        response_data["record_id"]
+        == 1
+    )
+
+    # --------------------------------------------------
+    # Retrieve through FastAPI
+    # --------------------------------------------------
+
+    latest = client.get(
+        "/api/v1/edge/events/latest"
+    )
+
+    assert latest.status_code == 200
+
+    data = latest.json()
+
+    # --------------------------------------------------
+    # Device
+    # --------------------------------------------------
+
+    assert (
+        data["device_id"]
+        == "edge_node_telemetry_001"
+    )
+
+    # --------------------------------------------------
+    # Location
+    # --------------------------------------------------
+
+    assert (
+        data["location"]["latitude"]
+        == 12.2958
+    )
+
+    assert (
+        data["location"]["longitude"]
+        == 76.6394
+    )
+
+    assert (
+        data["location"]["altitude"]
+        == 770.0
+    )
+
+    assert (
+        data["location"]["accuracy"]
+        == 4.5
+    )
+
+    # --------------------------------------------------
+    # Device telemetry
+    # --------------------------------------------------
+
+    assert (
+        data["device_status"]["battery_percent"]
+        == 82.5
+    )
+
+    assert (
+        data["device_status"]["battery_voltage"]
+        == 3.91
+    )
+
+    assert (
+        data["device_status"]["temperature"]
+        == 28.4
+    )
+
+    assert (
+        data["device_status"]["humidity"]
+        == 67.2
+    )
+
+    assert (
+        data["device_status"]["light_level"]
+        == 145.0
+    )
+
+    assert (
+        data["device_status"]["vibration_detected"]
+        is False
+    )

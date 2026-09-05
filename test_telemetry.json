@@ -1,0 +1,29 @@
+@'
+{
+  "device_id": "edge_node_telemetry_001",
+  "timestamp": 100,
+  "device_status": {
+    "battery_percent": 26.11,
+    "battery_voltage": 3.757,
+    "temperature": 30.0,
+    "humidity": 58.4,
+    "light_level": 8.33,
+    "vibration_detected": false
+  },
+  "location": {
+    "latitude": null,
+    "longitude": null,
+    "altitude": null,
+    "accuracy": null
+  },
+  "hardware_health": {
+    "inmp441": "WORKING",
+    "bh1750": "WORKING",
+    "max17048": "WORKING",
+    "dht11": "WORKING",
+    "sw420": "WORKING",
+    "gps": "NOT_WORKING",
+    "sd": "WORKING",
+    "wifi": "WORKING"
+  }
+}

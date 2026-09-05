@@ -12,10 +12,16 @@ from typing import Optional
 
 from communication.schemas import (
     AdaptivePolicyMessage,
+    DecisionMessage,
     EdgeMessage,
     EnvironmentMessage,
     EventMessage,
     PredictionMessage,
+)
+
+from communication.telemetry import (
+    DeviceTelemetry,
+    LocationTelemetry,
 )
 
 
@@ -33,18 +39,105 @@ class EdgeMessageSerializer:
         device_id: str,
     ):
         if not device_id:
+
             raise ValueError(
                 "device_id cannot be empty."
             )
 
         self.device_id = device_id
 
+    # ======================================================
+    # Telemetry Normalization
+    # ======================================================
+
+    @staticmethod
+    def _normalize_location(
+        location,
+    ) -> Optional[LocationTelemetry]:
+        """
+        Convert location input into LocationTelemetry.
+
+        Supports:
+
+            LocationTelemetry
+            dict
+            None
+        """
+
+        if location is None:
+
+            return None
+
+        if isinstance(
+            location,
+            LocationTelemetry,
+        ):
+
+            return location
+
+        if isinstance(
+            location,
+            dict,
+        ):
+
+            return LocationTelemetry(
+                **location
+            )
+
+        raise TypeError(
+            "location must be LocationTelemetry, "
+            "dict, or None."
+        )
+
+    @staticmethod
+    def _normalize_device_status(
+        device_status,
+    ) -> Optional[DeviceTelemetry]:
+        """
+        Convert device status input into DeviceTelemetry.
+
+        Supports:
+
+            DeviceTelemetry
+            dict
+            None
+        """
+
+        if device_status is None:
+
+            return None
+
+        if isinstance(
+            device_status,
+            DeviceTelemetry,
+        ):
+
+            return device_status
+
+        if isinstance(
+            device_status,
+            dict,
+        ):
+
+            return DeviceTelemetry(
+                **device_status
+            )
+
+        raise TypeError(
+            "device_status must be DeviceTelemetry, "
+            "dict, or None."
+        )
+
+    # ======================================================
+    # Serialization
+    # ======================================================
+
     def serialize(
         self,
         runtime_result,
         timestamp: Optional[float] = None,
-        location: Optional[dict] = None,
-        device_status: Optional[dict] = None,
+        location=None,
+        device_status=None,
     ) -> EdgeMessage:
         """
         Convert an EdgeRuntimeResult into an EdgeMessage.
@@ -58,14 +151,14 @@ class EdgeMessageSerializer:
             Unix timestamp. Current time is used when omitted.
 
         location:
-            Optional GPS/device location.
+            Optional LocationTelemetry or dictionary.
 
         device_status:
-            Optional device telemetry such as battery,
-            temperature, humidity, etc.
+            Optional DeviceTelemetry or dictionary.
         """
 
         if runtime_result is None:
+
             raise ValueError(
                 "runtime_result cannot be None."
             )
@@ -87,7 +180,11 @@ class EdgeMessageSerializer:
         )
 
         discovery_result = (
-            runtime_result.discovery_result
+            getattr(
+                runtime_result,
+                "discovery_result",
+                None,
+            )
         )
 
         # --------------------------------------------------
@@ -255,6 +352,62 @@ class EdgeMessageSerializer:
         )
 
         # --------------------------------------------------
+        # CADIE Decision
+        # --------------------------------------------------
+        #
+        # CADIE is available in the production runtime.
+        #
+        # However, older/minimal runtime-result objects
+        # used by communication tests may not contain a
+        # "decision" attribute.
+        #
+        # getattr() keeps the communication layer backward
+        # compatible without weakening the real CADIE path.
+        # --------------------------------------------------
+
+        decision_message = None
+
+        decision = getattr(
+            runtime_result,
+            "decision",
+            None,
+        )
+
+        if decision is not None:
+
+            decision_message = DecisionMessage(
+
+                risk_level=(
+                    decision.risk_level
+                ),
+
+                decision_score=(
+                    decision.decision_score
+                ),
+
+                recommended_action=(
+                    decision.recommended_action
+                ),
+
+                requires_attention=(
+                    decision.requires_attention
+                ),
+
+                confidence=(
+                    decision.confidence
+                ),
+
+                reason=(
+                    decision.reason
+                ),
+
+                contributing_factors=list(
+                    decision.contributing_factors
+                ),
+
+            )
+
+        # --------------------------------------------------
         # Unknown Discovery
         # --------------------------------------------------
 
@@ -290,10 +443,27 @@ class EdgeMessageSerializer:
                 }
 
         # --------------------------------------------------
+        # Telemetry
+        # --------------------------------------------------
+
+        location_telemetry = (
+            self._normalize_location(
+                location
+            )
+        )
+
+        device_telemetry = (
+            self._normalize_device_status(
+                device_status
+            )
+        )
+
+        # --------------------------------------------------
         # Timestamp
         # --------------------------------------------------
 
         if timestamp is None:
+
             timestamp = time.time()
 
         # --------------------------------------------------
@@ -316,10 +486,20 @@ class EdgeMessageSerializer:
 
             event=event_message,
 
+            decision=decision_message,
+
             unknown_discovery=discovery,
 
-            location=location,
+            location=(
+                location_telemetry.to_dict()
+                if location_telemetry is not None
+                else None
+            ),
 
-            device_status=device_status,
+            device_status=(
+                device_telemetry.to_dict()
+                if device_telemetry is not None
+                else None
+            ),
 
         )

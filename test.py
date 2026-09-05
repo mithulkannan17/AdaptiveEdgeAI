@@ -1,147 +1,54 @@
-from inference.preprocessor import PreProcessor
+
+import torch
+
 from inference.predictor import Predictor
+from inference.preprocessor import PreProcessor
 
 
-# --------------------------------------------------
-# 1. Preprocessor
-# --------------------------------------------------
+p = Predictor()
+pp = PreProcessor()
 
-preprocessor = PreProcessor()
-
-print("\nPreprocessing Configuration")
-print(
-    preprocessor.get_config()
+waveform = torch.randn(80000)
+spectrogram = pp.preprocess_waveform(
+    waveform,
+    16000
 )
 
+values = [
+    0,
+    -1,
+    1,
+    5,
+    1000,
+    "5",
+]
 
-# --------------------------------------------------
-# 2. Predictor
-# --------------------------------------------------
-
-predictor = Predictor(
-    enable_unknown_discovery=True
-)
-
-
-# --------------------------------------------------
-# 3. Test audio
-# --------------------------------------------------
-
-audio_path = (
-    r"D:\user\Workspace\Major project\AuraForest\AdaptiveEdgeAI\test_audio\firework.wav"
-)
-
-
-# --------------------------------------------------
-# 4. Audio → Spectrogram
-# --------------------------------------------------
-
-spectrogram = (
-    preprocessor.preprocess(
-        audio_path
-    )
-)
-
-print(
-    "\nSpectrogram Shape :",
-    tuple(spectrogram.shape)
-)
-
-
-# --------------------------------------------------
-# 5. Prediction
-# --------------------------------------------------
-
-result = (
-    predictor.predict_spectrogram(
-
-        spectrogram,
-
-        top_k=5,
-
-        audio_path=audio_path,
-
-    )
-)
-
-
-# --------------------------------------------------
-# 6. Prediction Result
-# --------------------------------------------------
-
-print("\n")
-print("=" * 60)
-print("PREDICTION")
+print("TOP_K ROBUSTNESS TEST")
 print("=" * 60)
 
-print(
-    f"Label      : {result.label}"
-)
+for value in values:
 
-print(
-    f"Class ID   : {result.class_id}"
-)
+    print()
+    print("TOP_K:", repr(value))
 
-print(
-    f"Confidence : {result.confidence:.4f}"
-)
+    try:
 
-print(
-    f"Latency    : "
-    f"{result.inference_time_ms:.2f} ms"
-)
-
-print(
-    "\nTop Predictions:"
-)
-
-for label, confidence in result.top_k:
-
-    print(
-        f"  {label:20s} "
-        f"{confidence:.4f}"
-    )
-
-
-# --------------------------------------------------
-# 7. Unknown Discovery
-# --------------------------------------------------
-
-discovery = (
-    predictor.get_last_discovery_result()
-)
-
-print("\n")
-print("=" * 60)
-print("UNKNOWN SOUND DISCOVERY")
-print("=" * 60)
-
-if discovery is None:
-
-    print(
-        "Unknown discovery is disabled."
-    )
-
-else:
-
-    print(
-        "Decision :",
-        discovery.decision
-    )
-
-    print(
-        "Buffer Size :",
-        predictor.unknown_buffer_size()
-    )
-
-    if discovery.clustering_triggered:
-
-        print(
-            "Clustering : TRIGGERED"
+        result = p.predict_spectrogram(
+            spectrogram,
+            top_k=value,
         )
 
-    else:
+        print(
+            "SUCCESS:",
+            len(result.top_k),
+            "predictions"
+        )
+
+    except Exception as e:
 
         print(
-            "Clustering : Not triggered"
+            "ERROR:",
+            type(e).__name__,
+            "-",
+            e
         )

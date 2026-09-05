@@ -1,10 +1,9 @@
 """
 Embedding Extractor
 
-Extracts feature embeddings from trained environmental
-sound classification models.
-
-These embeddings are used for unknown-sound clustering.
+Extracts intermediate feature representations from
+the trained classification model for unknown-sound
+discovery and clustering.
 """
 
 from __future__ import annotations
@@ -18,9 +17,9 @@ class EmbeddingExtractor:
     Extracts intermediate feature representations from
     a trained classification model.
 
-    The extractor is intentionally model-agnostic where
-    possible, but currently supports the project's
-    MobileNetV3-Small and AuraCNN architectures.
+    Supports:
+        - MobileNetV3-Small
+        - AuraCNN
     """
 
     def __init__(
@@ -28,13 +27,10 @@ class EmbeddingExtractor:
         model: nn.Module,
         device: torch.device,
     ):
-
         self.model = model
-
         self.device = device
 
         self.model.to(self.device)
-
         self.model.eval()
 
     def extract(
@@ -44,15 +40,15 @@ class EmbeddingExtractor:
         """
         Extract an embedding from a spectrogram.
 
-        Parameters
-        ----------
-        spectrogram:
-            Model-ready spectrogram.
+        Accepts either:
 
-        Returns
-        -------
-        torch.Tensor
-            One-dimensional feature embedding.
+            [128, 157]
+            [1, 128, 157]
+            [1, 1, 128, 157]
+
+        Returns:
+
+            [embedding_dimension]
         """
 
         spectrogram = spectrogram.to(
@@ -72,7 +68,89 @@ class EmbeddingExtractor:
                 start_dim=1
             )
 
-        return embedding.squeeze(0).detach().cpu()
+        return (
+            embedding
+            .squeeze(0)
+            .detach()
+            .cpu()
+        )
+
+    def _prepare_mobilenet_input(
+        self,
+        spectrogram: torch.Tensor,
+    ) -> torch.Tensor:
+        """
+        Convert a model-ready mel spectrogram into
+        MobileNet-compatible 4-D image format:
+
+            [N, C, H, W]
+
+        Expected final shape:
+
+            [1, 3, 224, 224]
+        """
+
+        x = spectrogram
+
+        # --------------------------------------------------
+        # Remove unnecessary dimensions
+        # --------------------------------------------------
+
+        if x.ndim == 2:
+
+            # [H, W]
+            x = x.unsqueeze(0).unsqueeze(0)
+
+        elif x.ndim == 3:
+
+            # [C, H, W]
+            x = x.unsqueeze(0)
+
+        elif x.ndim != 4:
+
+            raise ValueError(
+                "Unsupported spectrogram shape: "
+                f"{tuple(x.shape)}. "
+                "Expected [H,W], [C,H,W], "
+                "or [N,C,H,W]."
+            )
+
+        # --------------------------------------------------
+        # Channel normalization
+        # --------------------------------------------------
+
+        channels = x.shape[1]
+
+        if channels == 1:
+
+            # Mel spectrogram is single-channel.
+            # MobileNet expects RGB-style 3 channels.
+            x = x.repeat(
+                1,
+                3,
+                1,
+                1
+            )
+
+        elif channels != 3:
+
+            raise ValueError(
+                "Unsupported spectrogram channel count: "
+                f"{channels}. Expected 1 or 3."
+            )
+
+        # --------------------------------------------------
+        # Resize to MobileNet input dimensions
+        # --------------------------------------------------
+
+        x = torch.nn.functional.interpolate(
+            x,
+            size=(224, 224),
+            mode="bilinear",
+            align_corners=False,
+        )
+
+        return x
 
     def _extract_features(
         self,
@@ -83,32 +161,16 @@ class EmbeddingExtractor:
         the model architecture.
         """
 
-        # --------------------------------------------------
+        # ==================================================
         # MobileNetV3-Small
-        # --------------------------------------------------
+        # ==================================================
 
         if hasattr(self.model, "model"):
 
             backbone = self.model.model
 
-            x = spectrogram
-
-            # Convert 1-channel spectrogram → 3 channels
-            if x.shape[1] == 1:
-
-                x = x.repeat(
-                    1,
-                    3,
-                    1,
-                    1
-                )
-
-            # Match MobileNet input dimensions
-            x = torch.nn.functional.interpolate(
-                x,
-                size=(224, 224),
-                mode="bilinear",
-                align_corners=False,
+            x = self._prepare_mobilenet_input(
+                spectrogram
             )
 
             x = backbone.features(x)
@@ -117,19 +179,39 @@ class EmbeddingExtractor:
 
             return x
 
-        # --------------------------------------------------
+        # ==================================================
         # AuraCNN
-        # --------------------------------------------------
+        # ==================================================
 
         if hasattr(self.model, "features"):
 
-            x = self.model.features(
-                spectrogram
-            )
+            x = spectrogram
+
+            # AuraCNN expects channel dimension.
+            if x.ndim == 2:
+
+                x = x.unsqueeze(0).unsqueeze(0)
+
+            elif x.ndim == 3:
+
+                x = x.unsqueeze(0)
+
+            elif x.ndim != 4:
+
+                raise ValueError(
+                    "Unsupported spectrogram shape: "
+                    f"{tuple(x.shape)}"
+                )
+
+            x = self.model.features(x)
 
             x = self.model.pool(x)
 
             return x
+
+        # ==================================================
+        # Unsupported architecture
+        # ==================================================
 
         raise TypeError(
             "Unsupported model architecture. "

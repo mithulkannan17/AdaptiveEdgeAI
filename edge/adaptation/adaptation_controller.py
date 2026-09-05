@@ -43,9 +43,6 @@ class AdaptiveRuntimeController:
     AdaptiveBehaviorEngine
         ↓
     AdaptivePolicy
-
-    This class does not perform model inference and does
-    not directly control hardware.
     """
 
     def __init__(
@@ -53,36 +50,16 @@ class AdaptiveRuntimeController:
         profiler: EnvironmentalProfiler | None = None,
         behavior_engine: AdaptiveBehaviorEngine | None = None,
     ):
-        """
-        Parameters
-        ----------
-        profiler:
-            Existing environmental profiler.
-
-        behavior_engine:
-            Existing adaptive behaviour engine.
-
-        If omitted, default instances are created.
-        """
-
         self.profiler = (
-
             profiler
-
             if profiler is not None
-
             else EnvironmentalProfiler()
-
         )
 
         self.behavior_engine = (
-
             behavior_engine
-
             if behavior_engine is not None
-
             else AdaptiveBehaviorEngine()
-
         )
 
         self._profile: EnvironmentProfile | None = None
@@ -90,7 +67,7 @@ class AdaptiveRuntimeController:
         self._policy: AdaptivePolicy | None = None
 
     # ======================================================
-    # Add Acoustic Event
+    # Add Event
     # ======================================================
 
     def add_event(
@@ -100,23 +77,13 @@ class AdaptiveRuntimeController:
         timestamp: float | None = None,
     ) -> AdaptivePolicy:
         """
-        Add an acoustic event and immediately update
-        the environmental profile and adaptive policy.
-
-        Returns
-        -------
-        AdaptivePolicy
-            Current adaptive policy.
+        Add an acoustic event and update the adaptive state.
         """
 
         self.profiler.add_event(
-
             label=label,
-
             confidence=confidence,
-
             timestamp=timestamp,
-
         )
 
         return self.update()
@@ -127,8 +94,8 @@ class AdaptiveRuntimeController:
 
     def update(self) -> AdaptivePolicy:
         """
-        Generate a fresh EnvironmentProfile and
-        AdaptivePolicy from the current observation window.
+        Recalculate the environment profile and adaptive
+        policy.
         """
 
         self._profile = (
@@ -144,27 +111,23 @@ class AdaptiveRuntimeController:
         return self._policy
 
     # ======================================================
-    # Current Profile
+    # Profile
     # ======================================================
 
     def get_profile(
         self,
     ) -> EnvironmentProfile:
         """
-        Return the current environment profile.
-
-        If no profile has been generated yet, one is
-        generated automatically.
+        Return the current environmental profile.
         """
 
         if self._profile is None:
-
             self.update()
 
         return self._profile
 
     # ======================================================
-    # Current Policy
+    # Policy
     # ======================================================
 
     def get_policy(
@@ -172,13 +135,9 @@ class AdaptiveRuntimeController:
     ) -> AdaptivePolicy:
         """
         Return the current adaptive policy.
-
-        If no policy has been generated yet, one is
-        generated automatically.
         """
 
         if self._policy is None:
-
             self.update()
 
         return self._policy
@@ -189,8 +148,7 @@ class AdaptiveRuntimeController:
 
     def reset(self) -> None:
         """
-        Clear the profiling window and reset the cached
-        profile and policy.
+        Reset the profiling window and cached state.
         """
 
         self.profiler.reset()
@@ -200,12 +158,12 @@ class AdaptiveRuntimeController:
         self._policy = None
 
     # ======================================================
-    # Serialization
+    # State
     # ======================================================
 
     def state(self) -> dict:
         """
-        Return the complete current adaptive state.
+        Return the complete adaptive runtime state.
         """
 
         profile = self.get_profile()
@@ -213,11 +171,16 @@ class AdaptiveRuntimeController:
         policy = self.get_policy()
 
         return {
-
             "environment_profile":
                 profile.to_dict(),
 
             "adaptive_policy":
                 policy.to_dict(),
-
         }
+
+
+# ==========================================================
+# Backward-compatible alias
+# ==========================================================
+
+AdaptationController = AdaptiveRuntimeController

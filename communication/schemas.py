@@ -13,6 +13,11 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any, Optional
 
+from communication.telemetry import (
+    DeviceTelemetry,
+    LocationTelemetry,
+)
+
 
 @dataclass
 class PredictionMessage:
@@ -169,12 +174,70 @@ class EventMessage:
 
 
 @dataclass
+class DecisionMessage:
+    """
+    Context-aware decision produced by CADIE.
+    """
+
+    risk_level: str
+
+    decision_score: float
+
+    recommended_action: str
+
+    requires_attention: bool
+
+    confidence: float
+
+    reason: str
+
+    contributing_factors: list[str] = field(
+        default_factory=list
+    )
+
+    def to_dict(self) -> dict:
+        """
+        Convert CADIE decision into a serializable
+        dictionary.
+        """
+
+        return {
+            "risk_level":
+                self.risk_level,
+
+            "decision_score":
+                self.decision_score,
+
+            "recommended_action":
+                self.recommended_action,
+
+            "requires_attention":
+                self.requires_attention,
+
+            "confidence":
+                self.confidence,
+
+            "reason":
+                self.reason,
+
+            "contributing_factors":
+                list(
+                    self.contributing_factors
+                ),
+        }
+
+
+@dataclass
 class EdgeMessage:
     """
     Complete message transmitted from the edge node.
 
     This is the main communication contract between
     edge intelligence and backend services.
+
+    Location and device status remain dictionaries at
+    the communication boundary for backward compatibility
+    and direct JSON serialization.
     """
 
     device_id: str
@@ -188,6 +251,8 @@ class EdgeMessage:
     adaptive_policy: AdaptivePolicyMessage
 
     event: EventMessage
+
+    decision: Optional[DecisionMessage] = None
 
     unknown_discovery: Optional[dict] = None
 
@@ -220,6 +285,13 @@ class EdgeMessage:
 
             "event":
                 self.event.to_dict(),
+
+            "decision":
+                (
+                    self.decision.to_dict()
+                    if self.decision is not None
+                    else None
+                ),
 
             "unknown_discovery":
                 self.unknown_discovery,
