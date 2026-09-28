@@ -1,5 +1,5 @@
 """
-Backend Audio Inference
+Backend audio_inference.py
 
 Connects incoming ESP32 PCM audio to the existing
 production preprocessing and prediction pipeline.
@@ -19,6 +19,8 @@ Pipeline:
     PredictionResult
         ↓
     Unknown discovery information
+        ↓
+    Multi-event acoustic analysis
 """
 
 from __future__ import annotations
@@ -36,6 +38,11 @@ class AudioInferenceService:
     """
     Production bridge between incoming edge audio and
     the existing inference pipeline.
+
+    The multi-event analyzer runs inside the production
+    Predictor and is exposed here as an additional API
+    field. The existing primary prediction and unknown
+    discovery behaviour are not replaced.
     """
 
     def __init__(
@@ -116,21 +123,9 @@ class AudioInferenceService:
         Run the complete inference pipeline on raw
         PCM16 audio.
 
-        Parameters
-        ----------
-        audio_bytes:
-            Signed 16-bit little-endian mono PCM.
-
-        sample_rate:
-            Sampling rate of incoming audio.
-
-        top_k:
-            Number of predictions to return.
-
-        Returns
-        -------
-        dict
-            JSON-compatible inference result.
+        Returns the original prediction, unknown discovery
+        information, multi-event acoustic analysis, audio
+        diagnostics, and model information.
         """
 
         # --------------------------------------------------
@@ -172,8 +167,6 @@ class AudioInferenceService:
 
         # --------------------------------------------------
         # Production preprocessing
-        #
-        # This performs:
         #
         # waveform validation
         #       ↓
@@ -336,6 +329,46 @@ class AudioInferenceService:
                 }
 
         # --------------------------------------------------
+        # Multi-event acoustic analysis
+        # --------------------------------------------------
+        #
+        # This is deliberately exposed as an additional
+        # result. It does NOT replace the primary model
+        # prediction or open-set decision.
+        #
+        # The analyzer works from the complete softmax
+        # probability vector inside Predictor and uses
+        # temporal persistence before confirming secondary
+        # simultaneous events.
+        # --------------------------------------------------
+
+        try:
+
+            multi_event_result = (
+                self.predictor
+                .get_last_multi_event_result()
+            )
+
+        except AttributeError:
+
+            # Backward-compatible fallback in case an older
+            # Predictor is accidentally loaded.
+            multi_event_result = {
+                "enabled": False,
+                "primary_event": None,
+                "simultaneous_events": [],
+                "candidates": [],
+                "frame_count": 0,
+                "explanation": (
+                    "Multi-event analyzer is unavailable "
+                    "because the loaded Predictor does not "
+                    "provide multi-event analysis."
+                ),
+                "source": "unavailable",
+                "source_separation": False,
+            }
+
+        # --------------------------------------------------
         # Audio information
         # --------------------------------------------------
 
@@ -358,6 +391,9 @@ class AudioInferenceService:
 
             "unknown_discovery":
                 discovery_result,
+
+            "multi_event":
+                multi_event_result,
 
             "audio": {
                 "sample_rate":

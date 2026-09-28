@@ -1,5 +1,5 @@
 """
-Backend Audio Inference Service
+Backend audio_service.py
 
 Connects incoming edge audio to the complete
 production edge-intelligence pipeline.
@@ -22,6 +22,8 @@ Pipeline:
     PCM16 → float32
         ↓
     waveform validation
+        ↓
+    Adaptive Noise Robustness
         ↓
     PreProcessor
         ↓
@@ -106,6 +108,22 @@ class AudioInferenceService:
         # --------------------------------------------------
 
         self.preprocessor = PreProcessor()
+
+        # --------------------------------------------------
+        # Noise-robust acoustic preprocessing
+        # --------------------------------------------------
+        # The denoiser is intentionally conservative.  AuraForest
+        # monitors environmental soundscapes, so aggressive noise
+        # removal could erase useful events such as wind, rain,
+        # insects, water, or distant machinery.
+        self.noise_robust_enabled = True
+        self.noise_n_fft = 512
+        self.noise_hop_length = 128
+        self.noise_noise_percentile = 20.0
+        self.noise_reduction_strength = 0.65
+        self.noise_floor_ratio = 0.12
+        self.noise_min_gain = 0.30
+        self.noise_max_gain = 1.15
 
         # --------------------------------------------------
         # Production trained model
@@ -651,7 +669,7 @@ class AudioInferenceService:
             pcm_bytes, wav_sample_rate = self.wav_to_pcm16(audio_bytes)
             return None, pcm_bytes, int(wav_sample_rate), "wav"
 
-        if detected in {"mp3", "flac", "ogg", "m4a", "aiff"}:
+        if detected in {"mp3", "flac", "ogg", "m4a", "aiff", "aac"}:
             waveform, decoded_rate = self.compressed_to_waveform(
                 audio_bytes,
                 detected,
@@ -753,6 +771,241 @@ class AudioInferenceService:
         )
 
     # ======================================================
+    # NOISE-ROBUST PREPROCESSING
+    # ======================================================
+
+    @staticmethod
+    def _safe_rms(waveform: np.ndarray) -> float:
+        """Return a numerically safe RMS level."""
+        x = np.asarray(waveform, dtype=np.float32)
+        if x.size == 0:
+            return 0.0
+        return float(np.sqrt(np.mean(np.square(x), dtype=np.float64) + 1e-12))
+
+    def estimate_noise_profile(
+        self,
+        waveform: np.ndarray,
+    ) -> np.ndarray:
+        """
+        Estimate a conservative stationary background-noise spectrum.
+
+        The lowest-energy STFT frames are treated as likely background.
+        A percentile across those frames is used instead of assuming that
+        the beginning of a recording is silent.
+
+        This is deliberately designed for short environmental clips.
+        """
+        x = np.asarray(waveform, dtype=np.float32)
+
+        if x.size < self.noise_n_fft:
+            return np.zeros(self.noise_n_fft // 2 + 1, dtype=np.float32)
+
+        stft = librosa.stft(
+            x,
+            n_fft=self.noise_n_fft,
+            hop_length=self.noise_hop_length,
+            win_length=self.noise_n_fft,
+            center=True,
+        )
+
+        magnitude = np.abs(stft).astype(np.float32)
+
+        frame_energy = np.mean(
+            np.square(magnitude),
+            axis=0,
+        )
+
+        if frame_energy.size == 0:
+            return np.zeros(
+                self.noise_n_fft // 2 + 1,
+                dtype=np.float32,
+            )
+
+        # Use the quietest ~30% of frames as candidate background.
+        # This is more robust than assuming the first N milliseconds
+        # contain only noise.
+        quiet_count = max(
+            1,
+            int(np.ceil(frame_energy.size * 0.30)),
+        )
+
+        quiet_indices = np.argpartition(
+            frame_energy,
+            quiet_count - 1,
+        )[:quiet_count]
+
+        quiet_magnitude = magnitude[:, quiet_indices]
+
+        noise_profile = np.percentile(
+            quiet_magnitude,
+            self.noise_noise_percentile,
+            axis=1,
+        )
+
+        return np.asarray(
+            noise_profile,
+            dtype=np.float32,
+        )
+
+    def reduce_stationary_noise(
+        self,
+        waveform: np.ndarray,
+    ) -> tuple[np.ndarray, dict[str, Any]]:
+        """
+        Apply conservative spectral-gating / spectral-subtraction.
+
+        Important:
+            This does NOT attempt to identify or remove a specific
+            environmental class.  It only suppresses frequency energy
+            that is consistently close to the estimated background.
+
+        Returns:
+            cleaned waveform and diagnostic information.
+        """
+        x = self.validate(waveform)
+
+        if not self.noise_robust_enabled:
+            return x, {
+                "enabled": False,
+                "applied": False,
+                "reason": "noise_robustness_disabled",
+                "input_rms": self._safe_rms(x),
+                "output_rms": self._safe_rms(x),
+                "attenuation_ratio": 1.0,
+            }
+
+        input_rms = self._safe_rms(x)
+
+        # Avoid processing effectively silent audio.  The existing
+        # open-set detector will handle silence/unknown rejection.
+        if input_rms < 1e-4 or x.size < self.noise_n_fft:
+            return x, {
+                "enabled": True,
+                "applied": False,
+                "reason": "low_energy_or_short_audio",
+                "input_rms": input_rms,
+                "output_rms": input_rms,
+                "attenuation_ratio": 1.0,
+            }
+
+        stft = librosa.stft(
+            x,
+            n_fft=self.noise_n_fft,
+            hop_length=self.noise_hop_length,
+            win_length=self.noise_n_fft,
+            center=True,
+        )
+
+        magnitude = np.abs(stft)
+        phase = np.angle(stft)
+
+        noise_profile = self.estimate_noise_profile(x)
+        noise_profile = noise_profile[:, None]
+
+        # Power-ratio style spectral subtraction.
+        # The floor prevents complete removal of a frequency bin.
+        estimated_signal = np.maximum(
+            magnitude - (
+                self.noise_reduction_strength * noise_profile
+            ),
+            self.noise_floor_ratio * magnitude,
+        )
+
+        # Soft spectral gate.  Bins close to the noise floor are
+        # attenuated; bins substantially above it are retained.
+        ratio = magnitude / (
+            noise_profile + 1e-8
+        )
+
+        gate = np.clip(
+            (ratio - 1.0) / 1.5,
+            0.0,
+            1.0,
+        )
+
+        gain = (
+            self.noise_min_gain
+            + (
+                1.0 - self.noise_min_gain
+            ) * gate
+        )
+
+        cleaned_magnitude = estimated_signal * gain
+
+        # Do not allow denoising to boost individual bins above the
+        # original magnitude.  This avoids artificial tonal artifacts.
+        cleaned_magnitude = np.minimum(
+            cleaned_magnitude,
+            magnitude * self.noise_max_gain,
+        )
+
+        cleaned_stft = (
+            cleaned_magnitude
+            * np.exp(1j * phase)
+        )
+
+        cleaned = librosa.istft(
+            cleaned_stft,
+            hop_length=self.noise_hop_length,
+            win_length=self.noise_n_fft,
+            length=x.size,
+        )
+
+        cleaned = np.asarray(
+            cleaned,
+            dtype=np.float32,
+        )
+
+        cleaned = np.nan_to_num(
+            cleaned,
+            nan=0.0,
+            posinf=0.0,
+            neginf=0.0,
+        )
+
+        cleaned = np.clip(
+            cleaned,
+            -1.0,
+            1.0,
+        )
+
+        output_rms = self._safe_rms(cleaned)
+
+        # Safety guard: if the denoiser removes almost everything,
+        # fall back to the original waveform.  This protects short,
+        # low-SNR environmental events.
+        if (
+            output_rms < input_rms * 0.20
+            and input_rms > 1e-4
+        ):
+            cleaned = x.copy()
+            output_rms = input_rms
+            applied = False
+            reason = "fallback_excessive_attenuation"
+        else:
+            applied = True
+            reason = "adaptive_spectral_noise_reduction"
+
+        attenuation_ratio = (
+            output_rms / input_rms
+            if input_rms > 1e-8
+            else 1.0
+        )
+
+        return cleaned, {
+            "enabled": True,
+            "applied": applied,
+            "reason": reason,
+            "input_rms": input_rms,
+            "output_rms": output_rms,
+            "attenuation_ratio": float(attenuation_ratio),
+            "n_fft": self.noise_n_fft,
+            "hop_length": self.noise_hop_length,
+            "noise_percentile": self.noise_noise_percentile,
+            "reduction_strength": self.noise_reduction_strength,
+        }
+
+    # ======================================================
     # AUDIO PROCESSING
     # ======================================================
 
@@ -778,6 +1031,21 @@ class AudioInferenceService:
             waveform = self.pcm16_to_float32(pcm_bytes)
 
         waveform = self.validate(waveform)
+
+        # --------------------------------------------------
+        # Adaptive noise robustness
+        # --------------------------------------------------
+        # Denoising is performed before the production Mel
+        # spectrogram so the CNN receives a cleaner acoustic
+        # representation.  The original waveform is retained
+        # for evidence storage and the returned diagnostics make
+        # the transformation measurable.
+        waveform, noise_info = self.reduce_stationary_noise(
+            waveform
+        )
+
+        # Store diagnostics for the current inference call.
+        self._last_noise_robustness = noise_info
 
         return (
             waveform,
@@ -961,12 +1229,15 @@ class AudioInferenceService:
 
             - raw PCM16
             - WAV containing 16-bit PCM
+            - MP3 / FLAC / OGG / M4A / AIFF / AAC
 
         Raw PCM uses the supplied sample_rate.
 
         WAV uses the sample rate stored in the WAV header.
-        The production PreProcessor handles resampling when
-        necessary.
+
+        Compressed formats are decoded to mono float32 at
+        16 kHz before preprocessing, matching the training
+        audio-loading path.
 
         audio_path is optional evidence storage metadata. When
         supplied, it is forwarded to the open-set Unknown Discovery
@@ -977,6 +1248,12 @@ class AudioInferenceService:
         # --------------------------------------------------
         # Sampling rate
         # --------------------------------------------------
+
+        self._last_noise_robustness = {
+            "enabled": self.noise_robust_enabled,
+            "applied": False,
+            "reason": "not_processed",
+        }
 
         if sample_rate is None:
             sample_rate = self.sample_rate
@@ -1152,12 +1429,23 @@ class AudioInferenceService:
         # Final complete result
         # --------------------------------------------------
 
+        # --------------------------------------------------
+        # Multi-event acoustic analysis
+        # --------------------------------------------------
+
+        multi_event_result = (
+            self.predictor.get_last_multi_event_result()
+        )
+
         return {
             "prediction":
                 prediction_result,
 
             "unknown_discovery":
                 discovery_result,
+
+            "multi_event":
+                multi_event_result,
 
             "audio_evidence": {
                 "path": audio_path,
@@ -1186,6 +1474,9 @@ class AudioInferenceService:
 
                 "rms":
                     rms,
+
+                "noise_robustness":
+                    self._last_noise_robustness,
 
                 "audio_min":
                     audio_min,

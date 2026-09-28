@@ -1,19 +1,12 @@
 """
 Predictor
 
-Production inference interface for environmental sound classification
-with open-set unknown-sound discovery.
-
-The CNN still produces its normal closed-set prediction.  The
-UnknownDiscoveryManager acts as the open-set gate.  When the gate rejects
-the prediction, this class returns an explicit ``Unknown`` PredictionResult
-to the rest of the edge-intelligence pipeline while retaining the original
-top-k probabilities for diagnostics.
+Production inference interface for environmental
+sound classification and unknown-sound discovery.
 """
 
 from __future__ import annotations
 
-import os
 import time
 from pathlib import Path
 
@@ -26,25 +19,33 @@ from inference.model_loader import ModelLoader
 from inference.postprocessor import PostProcessor
 from inference.types import PredictionResult
 
-from edge.unknown import UnknownDiscoveryManager
+from edge.unknown import (
+    UnknownDiscoveryManager,
+)
+from edge.multi_event_analyzer import (
+    MultiEventAnalyzer,
+)
 
 
 class Predictor:
     """
     Production inference interface.
 
-    Pipeline
-    --------
-    Audio/spectrogram
-        -> CNN logits
-        -> closed-set PredictionResult
-        -> open-set UnknownDetector
-        -> accepted class OR explicit Unknown
-        -> embedding/buffer/clustering for unknown observations
-    """
+    Responsibilities
+    ----------------
+    1. Load the configured trained model.
+    2. Perform inference.
+    3. Convert logits into predictions.
+    4. Detect potentially unknown sounds.
+    5. Store unknown acoustic events.
+    6. Trigger unknown-sound clustering.
 
-    UNKNOWN_LABEL = "Unknown"
-    UNKNOWN_CLASS_ID = -1
+    The model architecture is determined by the project
+    configuration.
+
+    The checkpoint can optionally be overridden for testing,
+    experimentation, or deployment.
+    """
 
     def __init__(
         self,
@@ -54,65 +55,136 @@ class Predictor:
         unknown_margin_threshold: float = 0.15,
         unknown_buffer_size: int = 500,
         unknown_clustering_batch_size: int = 30,
-        unknown_state_path: str | Path | None = None,
     ):
-        self.device = DeviceManager.get_device()
+        """
+        Parameters
+        ----------
+        checkpoint_path:
+            Optional explicit model checkpoint.
 
-        print(f"\nInference Device : {self.device}")
+            If None, the checkpoint configured in
+            training_config.yaml is used.
 
-        self.model_loader = ModelLoader(
-            device=self.device,
-            checkpoint_path=checkpoint_path,
+        enable_unknown_discovery:
+            Enable the unknown-sound discovery pipeline.
+
+        unknown_confidence_threshold:
+            Confidence threshold below which a prediction
+            can be considered unknown.
+
+        unknown_margin_threshold:
+            Margin threshold used by the unknown detector.
+
+        unknown_buffer_size:
+            Maximum number of unknown samples stored.
+
+        unknown_clustering_batch_size:
+            Number of unknown samples required before
+            clustering is triggered.
+        """
+
+        # --------------------------------------------------
+        # Device
+        # --------------------------------------------------
+
+        self.device = (
+            DeviceManager.get_device()
         )
 
-        self.model = self.model_loader.load()
-        self.model_name = self.model_loader.get_model_name()
-
-        print(f"Model : {self.model_name}")
         print(
-            "Checkpoint : "
+            f"\nInference Device : "
+            f"{self.device}"
+        )
+
+        # --------------------------------------------------
+        # Model
+        # --------------------------------------------------
+
+        self.model_loader = ModelLoader(
+
+            device=self.device,
+
+            checkpoint_path=checkpoint_path,
+
+        )
+
+        self.model = (
+            self.model_loader.load()
+        )
+
+        self.model_name = (
+            self.model_loader.get_model_name()
+        )
+
+        print(
+            f"Model : "
+            f"{self.model_name}"
+        )
+
+        print(
+            f"Checkpoint : "
             f"{self.model_loader.get_checkpoint_path()}"
         )
 
-        self.postprocessor = PostProcessor()
+        # --------------------------------------------------
+        # Postprocessor
+        # --------------------------------------------------
 
-        self.enable_unknown_discovery = bool(
+        self.postprocessor = (
+            PostProcessor()
+        )
+
+        # --------------------------------------------------
+        # Unknown discovery
+        # --------------------------------------------------
+
+        self.enable_unknown_discovery = (
             enable_unknown_discovery
         )
 
         self.discovery_manager = None
+
         self.last_discovery_result = None
-        self.last_raw_prediction = None
 
-        if unknown_state_path is None:
-            configured_state_path = os.getenv(
-                "AURAFOREST_DISCOVERY_STATE_PATH"
-            )
-
-            if configured_state_path:
-                unknown_state_path = configured_state_path
-            else:
-                # Relative to the project working directory.  This keeps the
-                # state persistent across API/dashboard restarts without
-                # hard-coding a machine-specific absolute path.
-                unknown_state_path = (
-                    Path("data") / "unknown_discovery.json"
-                )
+        # --------------------------------------------------
+        # Multi-event acoustic analysis
+        # --------------------------------------------------
+        self.multi_event_analyzer = MultiEventAnalyzer()
+        self.last_multi_event_result = (
+            self.multi_event_analyzer.get_last_result()
+        )
 
         if self.enable_unknown_discovery:
-            self.discovery_manager = UnknownDiscoveryManager(
-                model=self.model,
-                device=self.device,
-                confidence_threshold=unknown_confidence_threshold,
-                margin_threshold=unknown_margin_threshold,
-                buffer_size=unknown_buffer_size,
-                clustering_batch_size=unknown_clustering_batch_size,
-                state_path=unknown_state_path,
+
+            self.discovery_manager = (
+                UnknownDiscoveryManager(
+
+                    model=self.model,
+
+                    device=self.device,
+
+                    confidence_threshold=(
+                        unknown_confidence_threshold
+                    ),
+
+                    margin_threshold=(
+                        unknown_margin_threshold
+                    ),
+
+                    buffer_size=(
+                        unknown_buffer_size
+                    ),
+
+                    clustering_batch_size=(
+                        unknown_clustering_batch_size
+                    ),
+
+                )
             )
 
-    # ==========================================================
+    # ======================================================
     # Spectrogram Prediction
-    # ==========================================================
+    # ======================================================
 
     def predict_spectrogram(
         self,
@@ -122,116 +194,143 @@ class Predictor:
         audio_rms: float | None = None,
     ) -> PredictionResult:
         """
-        Predict an environmental sound from a model-ready spectrogram.
+        Predict an environmental sound from a
+        model-ready spectrogram.
 
-        The returned PredictionResult is open-set aware:
+        Parameters
+        ----------
+        spectrogram:
+            Mel spectrogram.
 
-            KNOWN:
-                normal CNN class
+        top_k:
+            Number of highest-confidence predictions.
 
-            UNKNOWN:
-                label="Unknown", class_id=-1
+        audio_path:
+            Optional source audio path.
 
-        The original CNN result is retained in
-        ``self.last_raw_prediction`` for diagnostics.
+        Returns
+        -------
+        PredictionResult
+            Human-readable model prediction.
         """
 
-        # ------------------------------------------------------
+        # --------------------------------------------------
         # Convert input to Tensor
-        # ------------------------------------------------------
+        # --------------------------------------------------
 
-        if isinstance(spectrogram, np.ndarray):
-            spectrogram = torch.from_numpy(
-                spectrogram
-            ).float()
+        if isinstance(
+            spectrogram,
+            np.ndarray,
+        ):
 
-        elif isinstance(spectrogram, torch.Tensor):
-            spectrogram = spectrogram.float()
-
-        else:
-            raise TypeError(
-                "spectrogram must be either "
-                "numpy.ndarray or torch.Tensor."
+            spectrogram = (
+                torch.from_numpy(
+                    spectrogram
+                ).float()
             )
 
-        # ------------------------------------------------------
-        # Normalize dimensions
-        # ------------------------------------------------------
+        elif isinstance(
+            spectrogram,
+            torch.Tensor,
+        ):
+
+            spectrogram = (
+                spectrogram.float()
+            )
+
+        else:
+
+            raise TypeError(
+
+                "spectrogram must be either "
+                "numpy.ndarray or torch.Tensor."
+
+            )
+
+        # --------------------------------------------------
+        # Normalize spectrogram dimensions
+        #
+        # Accepted:
+        #
+        # [mel, time]
+        # [channel, mel, time]
+        # [batch, channel, mel, time]
+        # --------------------------------------------------
 
         if spectrogram.ndim == 2:
-            spectrogram = spectrogram.unsqueeze(0)
+
+            spectrogram = (
+                spectrogram.unsqueeze(0)
+            )
 
         if spectrogram.ndim == 3:
-            spectrogram = spectrogram.unsqueeze(0)
+
+            spectrogram = (
+                spectrogram.unsqueeze(0)
+            )
 
         if spectrogram.ndim != 4:
+
             raise ValueError(
+
                 "Spectrogram must have shape "
                 "[mel, time], "
                 "[channel, mel, time], or "
                 "[batch, channel, mel, time]."
+
             )
 
-        if spectrogram.shape[0] != 1:
-            raise ValueError(
-                "Predictor currently supports exactly one "
-                "spectrogram per inference call."
+        # --------------------------------------------------
+        # Move to inference device
+        # --------------------------------------------------
+
+        spectrogram = (
+            spectrogram.to(
+                self.device
             )
+        )
 
-        spectrogram = spectrogram.to(self.device)
-
-        # ------------------------------------------------------
-        # Optional acoustic activity signal
-        # ------------------------------------------------------
-        if audio_rms is not None:
-            try:
-                audio_rms = float(audio_rms)
-            except (TypeError, ValueError) as exc:
-                raise ValueError(
-                    "audio_rms must be a finite numeric value or None."
-                ) from exc
-
-            if not np.isfinite(audio_rms):
-                raise ValueError(
-                    "audio_rms must be a finite numeric value or None."
-                )
-
-            if audio_rms < 0.0:
-                raise ValueError("audio_rms cannot be negative.")
-
-        # ------------------------------------------------------
+        # --------------------------------------------------
         # Model inference
-        # ------------------------------------------------------
+        # --------------------------------------------------
 
         start = time.perf_counter()
 
         with torch.no_grad():
-            logits = self.model(spectrogram)
+
+            logits = self.model(
+                spectrogram
+            )
 
         inference_time_ms = (
-            time.perf_counter() - start
+
+            time.perf_counter()
+
+            - start
+
         ) * 1000.0
 
-        # ------------------------------------------------------
-        # Standard closed-set prediction
-        # ------------------------------------------------------
+        # --------------------------------------------------
+        # Standard prediction processing
+        # --------------------------------------------------
 
-        raw_result = self.postprocessor.process(
-            logits,
-            top_k=top_k,
-            inference_time_ms=inference_time_ms,
+        result = (
+            self.postprocessor.process(
+
+                logits,
+
+                top_k=top_k,
+
+                inference_time_ms=(
+                    inference_time_ms
+                ),
+
+            )
         )
 
-        self.last_raw_prediction = raw_result
-
-        # ------------------------------------------------------
-        # Open-set discovery
-        # ------------------------------------------------------
-
-        self.last_discovery_result = None
-
-        if self.discovery_manager is None:
-            return raw_result
+        # --------------------------------------------------
+        # Full probability vector
+        # --------------------------------------------------
 
         probabilities = F.softmax(
             logits,
@@ -245,127 +344,158 @@ class Predictor:
             .numpy()
         )
 
-        discovery_result = self.discovery_manager.process(
-            probabilities=probability_vector,
-            spectrogram=spectrogram,
-            audio_path=(
-                str(audio_path)
-                if audio_path is not None
-                else None
-            ),
-            audio_rms=audio_rms,
+        # --------------------------------------------------
+        # Multi-event acoustic analysis
+        # --------------------------------------------------
+        #
+        # Analyze the complete softmax vector. Temporal
+        # persistence is handled inside MultiEventAnalyzer.
+        # This supplements, but does not replace, the primary
+        # classifier result.
+        # --------------------------------------------------
+
+        self.last_multi_event_result = (
+            self.multi_event_analyzer.analyze(
+                probability_vector
+            )
         )
 
-        self.last_discovery_result = discovery_result
+        # --------------------------------------------------
+        # Unknown Sound Discovery
+        # --------------------------------------------------
 
-        # ------------------------------------------------------
-        # IMPORTANT:
-        # Open-set rejection overrides the closed-set class.
-        #
-        # The original raw result remains available through
-        # last_raw_prediction and the discovery decision.
-        # ------------------------------------------------------
+        self.last_discovery_result = None
 
-        decision = discovery_result.decision
+        if self.discovery_manager is not None:
 
-        if decision.is_unknown:
-            return PredictionResult(
-                label=self.UNKNOWN_LABEL,
-                class_id=self.UNKNOWN_CLASS_ID,
-                confidence=float(raw_result.confidence),
-                top_k=raw_result.top_k,
-                inference_time_ms=raw_result.inference_time_ms,
+            # Forward acoustic RMS and source audio metadata
+            # to the unknown-discovery pipeline.
+            self.last_discovery_result = (
+                self.discovery_manager.process(
+                    probabilities=(
+                        probability_vector
+                    ),
+                    spectrogram=spectrogram,
+                    audio_path=(
+                        str(audio_path)
+                        if audio_path is not None
+                        else None
+                    ),
+                    audio_rms=audio_rms,
+                )
             )
 
-        return raw_result
+        return result
 
     # ==========================================================
+    # Multi-Event Information
+    # ==========================================================
+
+    def get_last_multi_event_result(self) -> dict:
+        """Return the latest multi-event acoustic analysis."""
+        if self.last_multi_event_result is None:
+            return {
+                "enabled": True,
+                "primary_event": None,
+                "simultaneous_events": [],
+                "candidates": [],
+                "frame_count": 0,
+                "explanation": (
+                    "No inference has been analyzed yet."
+                ),
+            }
+        return self.last_multi_event_result
+
+    def reset_multi_event_history(self) -> None:
+        """Clear temporal multi-event evidence."""
+        self.multi_event_analyzer.reset()
+        self.last_multi_event_result = (
+            self.multi_event_analyzer.get_last_result()
+        )
+
+    # ======================================================
     # Discovery Information
-    # ==========================================================
+    # ======================================================
 
-    def get_last_discovery_result(self):
-        """Return the discovery result from the latest prediction."""
-        return self.last_discovery_result
-
-    def get_last_raw_prediction(self):
+    def get_last_discovery_result(
+        self,
+    ):
         """
-        Return the original closed-set CNN prediction.
+        Return the unknown-discovery result generated
+        by the most recent prediction.
 
-        Useful for diagnostics when the public prediction was overridden
-        to ``Unknown`` by the open-set gate.
+        Returns
+        -------
+        DiscoveryResult | None
         """
-        return self.last_raw_prediction
+
+        return (
+            self.last_discovery_result
+        )
+
+    def unknown_buffer_size(
+        self,
+    ) -> int:
+        """
+        Return the number of unknown samples currently
+        stored in the discovery buffer.
+        """
+
+        if self.discovery_manager is None:
+
+            return 0
+
+        return (
+            self.discovery_manager.buffer_size()
+        )
+
+    def clear_unknown_buffer(
+        self,
+    ) -> None:
+        """
+        Clear all currently buffered unknown samples.
+        """
+
+        if self.discovery_manager is not None:
+
+            self.discovery_manager.clear()
 
     def get_unknown_discovery_status(self) -> dict:
-        """Return complete dashboard/API discovery state."""
+        """
+        Return the current unknown-sound discovery status.
+
+        This is used by the FastAPI dashboard/status endpoint.
+        """
+
         if self.discovery_manager is None:
             return {
                 "enabled": False,
-                "buffer_size": 0,
-                "clusters": [],
+                "message": "Unknown discovery is disabled.",
             }
 
         return self.discovery_manager.status()
 
-    def get_unknown_clusters(self) -> list[dict]:
-        """Return persistent discovered clusters."""
-        if self.discovery_manager is None:
-            return []
-
-        return self.discovery_manager.get_clusters()
-
-    def label_unknown_cluster(
-        self,
-        cluster_id: str,
-        label: str,
-        notes: str = "",
-    ) -> dict:
-        """Apply a human label to a discovered cluster."""
-        if self.discovery_manager is None:
-            raise RuntimeError(
-                "Unknown discovery is disabled."
-            )
-
-        return self.discovery_manager.label_cluster(
-            cluster_id=cluster_id,
-            label=label,
-            notes=notes,
-        )
-
-    def unlabel_unknown_cluster(
-        self,
-        cluster_id: str,
-    ) -> dict:
-        """Remove a human label from a discovered cluster."""
-        if self.discovery_manager is None:
-            raise RuntimeError(
-                "Unknown discovery is disabled."
-            )
-
-        return self.discovery_manager.unlabel_cluster(
-            cluster_id=cluster_id,
-        )
-
-    def unknown_buffer_size(self) -> int:
-        """Return the number of pending unknown observations."""
-        if self.discovery_manager is None:
-            return 0
-
-        return self.discovery_manager.buffer_size()
-
-    def clear_unknown_buffer(self) -> None:
-        """Clear pending unknown observations without deleting clusters."""
-        if self.discovery_manager is not None:
-            self.discovery_manager.clear()
-
-    # ==========================================================
+    # ======================================================
     # Model Information
-    # ==========================================================
+    # ======================================================
 
-    def get_model_name(self) -> str:
-        """Return the currently loaded model name."""
+    def get_model_name(
+        self,
+    ) -> str:
+        """
+        Return the currently loaded model name.
+        """
+
         return self.model_name
 
-    def get_checkpoint_path(self) -> Path:
-        """Return the checkpoint used by the predictor."""
-        return self.model_loader.get_checkpoint_path()
+    def get_checkpoint_path(
+        self,
+    ) -> Path:
+        """
+        Return the checkpoint used by the predictor.
+        """
+
+        return (
+            self.model_loader
+            .get_checkpoint_path()
+        )

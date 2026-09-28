@@ -1191,6 +1191,51 @@ def _get_discovery_predictor():
     return predictor
 
 
+def _get_last_raw_prediction_compat(predictor):
+    """Return the latest raw prediction when supported by Predictor."""
+    getter = getattr(predictor, "get_last_raw_prediction", None)
+    if callable(getter):
+        return getter()
+
+    # Older Predictor versions did not expose a raw-prediction getter.
+    # Returning None keeps the status endpoint backward compatible.
+    return None
+
+
+def _get_unknown_clusters_compat(predictor):
+    """Return persistent unknown clusters across supported Predictor versions."""
+    getter = getattr(predictor, "get_unknown_clusters", None)
+    if callable(getter):
+        return getter()
+
+    manager = getattr(predictor, "discovery_manager", None)
+    if manager is None:
+        return []
+
+    getter = getattr(manager, "get_clusters", None)
+    if callable(getter):
+        return getter()
+
+    return []
+
+
+def _get_unknown_manager(predictor):
+    """Resolve the active unknown-discovery manager."""
+    manager = getattr(predictor, "discovery_manager", None)
+    if manager is not None:
+        return manager
+
+    manager = getattr(predictor, "unknown_discovery_manager", None)
+    if manager is not None:
+        return manager
+
+    manager = getattr(predictor, "unknown_manager", None)
+    if manager is not None:
+        return manager
+
+    return None
+
+
 @app.get(
     "/api/v1/edge/unknown/status"
 )
@@ -1203,8 +1248,10 @@ def unknown_discovery_status():
         return {
             "success": True,
             "discovery": predictor.get_unknown_discovery_status(),
-            "last_raw_prediction": predictor.get_last_raw_prediction(),
-            "last_discovery_result": predictor.get_last_discovery_result(),
+            "last_raw_prediction":
+                _get_last_raw_prediction_compat(predictor),
+            "last_discovery_result":
+                predictor.get_last_discovery_result(),
         }
     except Exception as exc:
         raise HTTPException(
@@ -1224,7 +1271,7 @@ def unknown_discovery_clusters():
     try:
         return {
             "success": True,
-            "clusters": predictor.get_unknown_clusters(),
+            "clusters": _get_unknown_clusters_compat(predictor),
         }
     except Exception as exc:
         raise HTTPException(
@@ -1257,11 +1304,42 @@ def label_unknown_cluster(
     predictor = _get_discovery_predictor()
 
     try:
-        cluster = predictor.label_unknown_cluster(
-            cluster_id=cluster_id,
-            label=request.label,
-            notes=request.notes,
+        predictor_label = getattr(
+            predictor,
+            "label_unknown_cluster",
+            None,
         )
+
+        if callable(predictor_label):
+            cluster = predictor_label(
+                cluster_id=cluster_id,
+                label=request.label,
+                notes=request.notes,
+            )
+        else:
+            manager = _get_unknown_manager(predictor)
+            if manager is None:
+                raise RuntimeError(
+                    "Unknown discovery manager is unavailable."
+                )
+
+            manager_label = getattr(
+                manager,
+                "label_cluster",
+                None,
+            )
+
+            if not callable(manager_label):
+                raise RuntimeError(
+                    "Human cluster labeling is not supported by the "
+                    "current unknown-discovery manager."
+                )
+
+            cluster = manager_label(
+                cluster_id=cluster_id,
+                label=request.label,
+                notes=request.notes,
+            )
 
         return {
             "success": True,
@@ -1307,9 +1385,38 @@ def unlabel_unknown_cluster(
     predictor = _get_discovery_predictor()
 
     try:
-        cluster = predictor.unlabel_unknown_cluster(
-            cluster_id=cluster_id,
+        predictor_unlabel = getattr(
+            predictor,
+            "unlabel_unknown_cluster",
+            None,
         )
+
+        if callable(predictor_unlabel):
+            cluster = predictor_unlabel(
+                cluster_id=cluster_id,
+            )
+        else:
+            manager = _get_unknown_manager(predictor)
+            if manager is None:
+                raise RuntimeError(
+                    "Unknown discovery manager is unavailable."
+                )
+
+            manager_unlabel = getattr(
+                manager,
+                "unlabel_cluster",
+                None,
+            )
+
+            if not callable(manager_unlabel):
+                raise RuntimeError(
+                    "Human cluster unlabeling is not supported by the "
+                    "current unknown-discovery manager."
+                )
+
+            cluster = manager_unlabel(
+                cluster_id=cluster_id,
+            )
 
         return {
             "success": True,
@@ -1374,25 +1481,7 @@ def unknown_cluster_samples(
         )
 
     predictor = _get_discovery_predictor()
-    manager = getattr(
-        predictor,
-        "discovery_manager",
-        None,
-    )
-
-    if manager is None:
-        manager = getattr(
-            predictor,
-            "unknown_discovery_manager",
-            None,
-        )
-
-    if manager is None:
-        manager = getattr(
-            predictor,
-            "unknown_manager",
-            None,
-        )
+    manager = _get_unknown_manager(predictor)
 
     if manager is None:
         raise HTTPException(
@@ -1506,25 +1595,7 @@ def unknown_sample(
         )
 
     predictor = _get_discovery_predictor()
-    manager = getattr(
-        predictor,
-        "discovery_manager",
-        None,
-    )
-
-    if manager is None:
-        manager = getattr(
-            predictor,
-            "unknown_discovery_manager",
-            None,
-        )
-
-    if manager is None:
-        manager = getattr(
-            predictor,
-            "unknown_manager",
-            None,
-        )
+    manager = _get_unknown_manager(predictor)
 
     if manager is None:
         raise HTTPException(
@@ -1629,25 +1700,7 @@ def unknown_sample_audio(
         )
 
     predictor = _get_discovery_predictor()
-    manager = getattr(
-        predictor,
-        "discovery_manager",
-        None,
-    )
-
-    if manager is None:
-        manager = getattr(
-            predictor,
-            "unknown_discovery_manager",
-            None,
-        )
-
-    if manager is None:
-        manager = getattr(
-            predictor,
-            "unknown_manager",
-            None,
-        )
+    manager = _get_unknown_manager(predictor)
 
     if manager is None:
         raise HTTPException(

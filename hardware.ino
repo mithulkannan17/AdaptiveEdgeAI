@@ -13,6 +13,8 @@
     MAX17048    -> I2C GPIO8/9
     SW-420      -> GPIO16
     INMP441     -> GPIO4/5/6
+    MQ-2        -> GPIO1 (ADC)
+    MQ-135      -> GPIO2 (ADC)
     NEO-6M      -> UART GPIO17/18
     MicroSD     -> SPI GPIO10/11/12/13
 
@@ -123,6 +125,12 @@ const double FALLBACK_ACCURACY = 0.0;
 // DHT11
 #define DHT_PIN 14
 
+// MQ gas sensors (analog outputs)
+// IMPORTANT: Use a proper voltage divider if the MQ module is powered from 5V
+// so that the ESP32-S3 ADC pin never receives more than 3.3V.
+#define MQ2_PIN 1
+#define MQ135_PIN 2
+
 // ============================================================
 // SENSOR ADDRESSES
 // ============================================================
@@ -226,6 +234,14 @@ float batteryVoltage = 0.0;
 bool vibrationDetected = false;
 
 int microphoneLevel = 0;
+
+// ---------------- MQ-2 / MQ-135 ----------------
+int mq2Raw = 0;
+int mq135Raw = 0;
+float mq2Voltage = 0.0f;
+float mq135Voltage = 0.0f;
+bool mq2OK = false;
+bool mq135OK = false;
 
 // ---------------- GPS ----------------
 
@@ -484,6 +500,48 @@ void readDHT()
     humidity = h;
 
     temperatureC = t;
+}
+
+// ============================================================
+// MQ-2 / MQ-135 GAS SENSORS
+// ============================================================
+//
+// These sensors provide an analog resistance-related signal.
+// The values below are intentionally reported as RAW ADC and
+// ADC voltage. They are NOT ppm values until the individual
+// sensors are calibrated with a known reference gas/environment.
+//
+// ADC pins are configured for the ESP32-S3 12-bit range:
+//     0 ... 4095
+//
+
+int readAveragedADC(int pin)
+{
+    const int samples = 20;
+    uint32_t total = 0;
+
+    for (int i = 0; i < samples; i++)
+    {
+        total += analogRead(pin);
+        delayMicroseconds(200);
+    }
+
+    return (int)(total / samples);
+}
+
+void readGasSensors()
+{
+    mq2Raw = readAveragedADC(MQ2_PIN);
+    mq135Raw = readAveragedADC(MQ135_PIN);
+
+    // Convert ADC counts to the configured ADC input voltage range.
+    // This is the voltage seen by the ESP32 ADC pin, not necessarily
+    // the MQ module AO voltage if a voltage divider is being used.
+    mq2Voltage = (mq2Raw / 4095.0f) * 3.3f;
+    mq135Voltage = (mq135Raw / 4095.0f) * 3.3f;
+
+    mq2OK = true;
+    mq135OK = true;
 }
 
 // ============================================================
@@ -1205,6 +1263,18 @@ String createPayload()
     status["vibration_detected"] =
         vibrationDetected;
 
+    status["mq2_raw"] =
+        mq2Raw;
+
+    status["mq2_adc_voltage"] =
+        mq2Voltage;
+
+    status["mq135_raw"] =
+        mq135Raw;
+
+    status["mq135_adc_voltage"] =
+        mq135Voltage;
+
     JsonObject location =
         doc.createNestedObject(
             "location");
@@ -1299,6 +1369,16 @@ String createPayload()
     health["Telemetry_Backend"] =
         telemetryBackendOK
             ? "WORKING"
+            : "NOT_WORKING";
+
+    health["MQ-2"] =
+        mq2OK
+            ? "READABLE"
+            : "NOT_WORKING";
+
+    health["MQ-135"] =
+        mq135OK
+            ? "READABLE"
             : "NOT_WORKING";
 
     bool overallHardware =
@@ -2152,6 +2232,24 @@ void printTelemetry()
     Serial.println(
         microphoneLevel);
 
+    Serial.print(
+        "MQ-2 Smoke/Gas     : ");
+
+    Serial.print(
+        mq2Raw);
+
+    Serial.println(
+        " ADC");
+
+    Serial.print(
+        "MQ-135 Gas/VOC     : ");
+
+    Serial.print(
+        mq135Raw);
+
+    Serial.println(
+        " ADC");
+
     Serial.println();
 
     Serial.println(
@@ -2239,6 +2337,22 @@ void printTelemetry()
     Serial.println(
         dhtOK
             ? "WORKING"
+            : "NOT_WORKING");
+
+    Serial.print(
+        "MQ-2               : ");
+
+    Serial.println(
+        mq2OK
+            ? "READABLE"
+            : "NOT_WORKING");
+
+    Serial.print(
+        "MQ-135             : ");
+
+    Serial.println(
+        mq135OK
+            ? "READABLE"
             : "NOT_WORKING");
 
     Serial.print(
@@ -2374,8 +2488,26 @@ void setup()
         "================================================");
 
     // ----------------------------------------------------------
-    // GPIO
+    // GPIO / ADC
     // ----------------------------------------------------------
+
+    analogReadResolution(12);
+
+    analogSetPinAttenuation(
+        MQ2_PIN,
+        ADC_11db);
+
+    analogSetPinAttenuation(
+        MQ135_PIN,
+        ADC_11db);
+
+    pinMode(
+        MQ2_PIN,
+        INPUT);
+
+    pinMode(
+        MQ135_PIN,
+        INPUT);
 
     pinMode(
         VIBRATION_PIN,
@@ -2479,6 +2611,8 @@ void setup()
 
     microphoneLevel =
         readMicrophone();
+
+    readGasSensors();
 
     readGPS();
 
