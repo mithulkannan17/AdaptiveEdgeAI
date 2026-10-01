@@ -1273,16 +1273,16 @@ def render_siren_audio_synthesizer(is_active: bool = True, threat_label: str = "
     let isSirenPlaying = false;
     let sirenInterval = null;
 
-    function startSirenSound() {
-        try {
+    function startSirenSound() {{
+        try {{
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             if (!AudioContext) return;
-            if (!auraAudioCtx) {
+            if (!auraAudioCtx) {{
                 auraAudioCtx = new AudioContext();
-            }
-            if (auraAudioCtx.state === 'suspended') {
+            }}
+            if (auraAudioCtx.state === 'suspended') {{
                 auraAudioCtx.resume();
-            }
+            }}
 
             if (isSirenPlaying) return;
             isSirenPlaying = true;
@@ -1296,16 +1296,16 @@ def render_siren_audio_synthesizer(is_active: bool = True, threat_label: str = "
             let high = true;
             auraOsc.frequency.setValueAtTime(960, auraAudioCtx.currentTime);
             
-            sirenInterval = setInterval(() => {
+            sirenInterval = setInterval(() => {{
                 if (!isSirenPlaying || !auraAudioCtx || !auraOsc) return;
                 const now = auraAudioCtx.currentTime;
-                if (high) {
+                if (high) {{
                     auraOsc.frequency.exponentialRampToValueAtTime(680, now + 0.22);
-                } else {
+                }} else {{
                     auraOsc.frequency.exponentialRampToValueAtTime(960, now + 0.22);
-                }
+                }}
                 high = !high;
-            }, 280);
+            }}, 280);
 
             auraOsc.connect(auraGain);
             auraGain.connect(auraAudioCtx.destination);
@@ -1313,36 +1313,36 @@ def render_siren_audio_synthesizer(is_active: bool = True, threat_label: str = "
 
             const btn = document.getElementById("auraSirenBtn");
             if (btn) btn.innerText = "🔇 MUTE SIREN";
-        } catch (e) {
+        }} catch (e) {{
             console.warn("AuraForest Siren Audio:", e);
-        }
-    }
+        }}
+    }}
 
-    function stopSirenSound() {
+    function stopSirenSound() {{
         if (sirenInterval) clearInterval(sirenInterval);
-        if (auraOsc) {
-            try { auraOsc.stop(); } catch(e) {}
-            try { auraOsc.disconnect(); } catch(e) {}
+        if (auraOsc) {{
+            try {{ auraOsc.stop(); }} catch(e) {{}}
+            try {{ auraOsc.disconnect(); }} catch(e) {{}}
             auraOsc = null;
-        }
+        }}
         isSirenPlaying = false;
         const btn = document.getElementById("auraSirenBtn");
         if (btn) btn.innerText = "🚨 PLAY SIREN";
-    }
+    }}
 
-    function toggleAuraSiren() {
-        if (isSirenPlaying) {
+    function toggleAuraSiren() {{
+        if (isSirenPlaying) {{
             stopSirenSound();
-        } else {
+        }} else {{
             startSirenSound();
-        }
-    }
+        }}
+    }}
 
     // Auto-start on load & unlock on user click
     setTimeout(startSirenSound, 80);
-    document.addEventListener('click', () => {
+    document.addEventListener('click', () => {{
         if (!isSirenPlaying) startSirenSound();
-    }, { once: true });
+    }}, {{ once: true }});
     </script>
     """
     components.html(siren_component_html, height=52)
