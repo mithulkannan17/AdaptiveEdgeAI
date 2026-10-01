@@ -1215,7 +1215,12 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    # 5. Log Out Button
+    # 5. Audio Siren Quick Test
+    if st.button("🚨 Test Siren Sound", use_container_width=True, key="btn_sidebar_test_siren"):
+        st.session_state["manual_siren_trigger"] = time.time()
+        st.toast("🚨 Playing tactical alarm siren sound...", icon="🔊")
+
+    # 6. Log Out Button
     if st.button("🚪 Sign Out", use_container_width=True, key="btn_sidebar_logout"):
         st.session_state["authenticated"] = False
         st.session_state["aura_auth_token"] = None
@@ -1246,6 +1251,102 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+def render_siren_audio_synthesizer(is_active: bool = True, threat_label: str = "Threat") -> None:
+    """In-browser Web Audio API tactical alarm siren synthesizer (Dual-Tone 960Hz/680Hz)."""
+    if not is_active:
+        return
+
+    siren_component_html = f"""
+    <div style="background: rgba(255, 112, 112, 0.12); border: 1.5px solid #ff7070; border-radius: 10px; padding: 8px 14px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 0 20px rgba(255,112,112,0.2);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="display: inline-block; width: 12px; height: 12px; background: #ff7070; border-radius: 50%; box-shadow: 0 0 10px #ff7070;"></span>
+            <span style="color: #ff7070; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 12px; font-weight: 800; letter-spacing: 0.05em;">🔊 TACTICAL SIREN ALARM ACTIVE ({threat_label.upper()})</span>
+        </div>
+        <button id="auraSirenBtn" onclick="toggleAuraSiren()" style="background: #ff7070; color: #060a0c; font-weight: 800; font-size: 11px; border: none; border-radius: 6px; padding: 6px 14px; cursor: pointer; font-family: sans-serif; transition: all 0.2s; box-shadow: 0 2px 8px rgba(255,112,112,0.4);">
+            🚨 MUTE / PLAY SIREN
+        </button>
+    </div>
+    <script>
+    let auraAudioCtx = null;
+    let auraOsc = null;
+    let auraGain = null;
+    let isSirenPlaying = false;
+    let sirenInterval = null;
+
+    function startSirenSound() {
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return;
+            if (!auraAudioCtx) {
+                auraAudioCtx = new AudioContext();
+            }
+            if (auraAudioCtx.state === 'suspended') {
+                auraAudioCtx.resume();
+            }
+
+            if (isSirenPlaying) return;
+            isSirenPlaying = true;
+
+            auraOsc = auraAudioCtx.createOscillator();
+            auraGain = auraAudioCtx.createGain();
+            auraOsc.type = 'sawtooth';
+            auraGain.gain.setValueAtTime(0.18, auraAudioCtx.currentTime);
+
+            // Dual tone warble sweep (960Hz <-> 680Hz)
+            let high = true;
+            auraOsc.frequency.setValueAtTime(960, auraAudioCtx.currentTime);
+            
+            sirenInterval = setInterval(() => {
+                if (!isSirenPlaying || !auraAudioCtx || !auraOsc) return;
+                const now = auraAudioCtx.currentTime;
+                if (high) {
+                    auraOsc.frequency.exponentialRampToValueAtTime(680, now + 0.22);
+                } else {
+                    auraOsc.frequency.exponentialRampToValueAtTime(960, now + 0.22);
+                }
+                high = !high;
+            }, 280);
+
+            auraOsc.connect(auraGain);
+            auraGain.connect(auraAudioCtx.destination);
+            auraOsc.start();
+
+            const btn = document.getElementById("auraSirenBtn");
+            if (btn) btn.innerText = "🔇 MUTE SIREN";
+        } catch (e) {
+            console.warn("AuraForest Siren Audio:", e);
+        }
+    }
+
+    function stopSirenSound() {
+        if (sirenInterval) clearInterval(sirenInterval);
+        if (auraOsc) {
+            try { auraOsc.stop(); } catch(e) {}
+            try { auraOsc.disconnect(); } catch(e) {}
+            auraOsc = null;
+        }
+        isSirenPlaying = false;
+        const btn = document.getElementById("auraSirenBtn");
+        if (btn) btn.innerText = "🚨 PLAY SIREN";
+    }
+
+    function toggleAuraSiren() {
+        if (isSirenPlaying) {
+            stopSirenSound();
+        } else {
+            startSirenSound();
+        }
+    }
+
+    // Auto-start on load & unlock on user click
+    setTimeout(startSirenSound, 80);
+    document.addEventListener('click', () => {
+        if (!isSirenPlaying) startSirenSound();
+    }, { once: true });
+    </script>
+    """
+    components.html(siren_component_html, height=52)
+
 # Active alert notification banner
 if active_alerts:
     top_alert = active_alerts[0]
@@ -1254,6 +1355,9 @@ if active_alerts:
     al_lat = top_alert.get("location_lat")
     al_lon = top_alert.get("location_lon")
     al_coords = f"{al_lat:.5f}°N, {al_lon:.5f}°E" if al_lat is not None and al_lon is not None else "Coordinates Acquired"
+
+    # Play in-browser tactical siren sound
+    render_siren_audio_synthesizer(is_active=True, threat_label=al_threat)
 
     b_c1, b_c2 = st.columns([3.5, 1.2])
     with b_c1:
@@ -1281,6 +1385,11 @@ if active_alerts:
                 db.acknowledge_emergency_alert(top_alert.get("alert_id"), acknowledged_by=user_display)
                 st.success("Siren silenced.")
                 st.rerun()
+
+elif st.session_state.get("manual_siren_trigger"):
+    if time.time() - float(st.session_state.get("manual_siren_trigger", 0)) < 15:
+        render_siren_audio_synthesizer(is_active=True, threat_label="Tactical Siren Audio Test")
+        st.info("🚨 Playing manual siren audio test (Web Audio API). Click Silence / Mute to stop.")
 
 # Build map dataframe
 def build_map_data() -> pd.DataFrame:
