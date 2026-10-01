@@ -1391,22 +1391,57 @@ elif st.session_state.get("manual_siren_trigger"):
         render_siren_audio_synthesizer(is_active=True, threat_label="Tactical Siren Audio Test")
         st.info("🚨 Playing manual siren audio test (Web Audio API). Click Silence / Mute to stop.")
 
-# Build map dataframe
+# Build map dataframe with color-coded tactical markers
 def build_map_data() -> pd.DataFrame:
     records = [
-        {"latitude": float(sent_lat), "longitude": float(sent_lon), "Entity": f"📡 Primary Sentinel: {device_id}", "Category": "🟢 Sentinel Node (Active)", "Coordinates": f"{sent_lat:.5f}°N, {sent_lon:.5f}°E", "Status": "ONLINE"},
-        {"latitude": float(sent_lat + 0.0042), "longitude": float(sent_lon + 0.0035), "Entity": "📡 Sentinel-02 (North Ridge)", "Category": "🟢 Sentinel Node (Mesh)", "Coordinates": f"{(sent_lat + 0.0042):.5f}°N, {(sent_lon + 0.0035):.5f}°E", "Status": "ONLINE"},
-        {"latitude": float(sent_lat - 0.0038), "longitude": float(sent_lon - 0.0044), "Entity": "📡 Sentinel-03 (West Creek)", "Category": "🟢 Sentinel Node (Mesh)", "Coordinates": f"{(sent_lat - 0.0038):.5f}°N, {(sent_lon - 0.0044):.5f}°E", "Status": "ONLINE"},
+        {"latitude": float(sent_lat), "longitude": float(sent_lon), "Entity": f"📡 Primary Sentinel: {device_id}", "Category": "🟢 Sentinel Node (Active)", "Coordinates": f"{sent_lat:.5f}°N, {sent_lon:.5f}°E", "Status": "ONLINE", "color": "#7cf0b2", "size": 35},
+        {"latitude": float(sent_lat + 0.0042), "longitude": float(sent_lon + 0.0035), "Entity": "📡 Sentinel-02 (North Ridge)", "Category": "🟢 Sentinel Node (Mesh)", "Coordinates": f"{(sent_lat + 0.0042):.5f}°N, {(sent_lon + 0.0035):.5f}°E", "Status": "ONLINE", "color": "#7cf0b2", "size": 25},
+        {"latitude": float(sent_lat - 0.0038), "longitude": float(sent_lon - 0.0044), "Entity": "📡 Sentinel-03 (West Creek)", "Category": "🟢 Sentinel Node (Mesh)", "Coordinates": f"{(sent_lat - 0.0038):.5f}°N, {(sent_lon - 0.0044):.5f}°E", "Status": "ONLINE", "color": "#7cf0b2", "size": 25},
     ]
     for al in active_alerts:
         if al.get("location_lat") and al.get("location_lon"):
-            records.append({"latitude": float(al["location_lat"]), "longitude": float(al["location_lon"]), "Entity": f"🚨 {al.get('threat_type')} Alert", "Category": "🔴 Active Threat", "Coordinates": f"{float(al['location_lat']):.5f}°N, {float(al['location_lon']):.5f}°E", "Status": f"PRIORITY: {al.get('risk_level', 'CRITICAL')}"})
-    for rng in field_rangers:
-        if rng.get("latitude") and rng.get("longitude"):
-            records.append({"latitude": float(rng["latitude"]), "longitude": float(rng["longitude"]), "Entity": f"🛡️ {rng.get('name')} ({rng.get('callsign')})", "Category": "🔵 Field Ranger Patrol", "Coordinates": f"{float(rng['latitude']):.5f}°N, {float(rng['longitude']):.5f}°E", "Status": f"{rng.get('status')} · {rng.get('battery')}% BATT"})
+            records.append({"latitude": float(al["location_lat"]), "longitude": float(al["location_lon"]), "Entity": f"🚨 {al.get('threat_type')} Alert", "Category": "🔴 Active Threat", "Coordinates": f"{float(al['location_lat']):.5f}°N, {float(al['location_lon']):.5f}°E", "Status": f"PRIORITY: {al.get('risk_level', 'CRITICAL')}", "color": "#ff7070", "size": 45})
+
+    # Ensure field rangers list is always populated with relative coordinates if not set
+    rangers_to_plot = field_rangers
+    if not rangers_to_plot:
+        db._seed_default_rangers()
+        rangers_to_plot = db.get_field_rangers()
+
+    # Offsets around primary sentinel to place field rangers in active sanctuary sectors
+    ranger_offsets = [
+        (0.0025, 0.0028),
+        (-0.0032, -0.0025),
+        (0.0045, -0.0035),
+        (-0.0018, 0.0042),
+    ]
+
+    for idx, rng in enumerate(rangers_to_plot):
+        lat_val = rng.get("latitude")
+        lon_val = rng.get("longitude")
+        # If coordinates are missing, default, or far away from sanctuary sent_lat, anchor nearby
+        if lat_val is None or lon_val is None or abs(float(lat_val)) < 0.1 or abs(float(lat_val) - sent_lat) > 0.5:
+            off_lat, off_lon = ranger_offsets[idx % len(ranger_offsets)]
+            lat_val = sent_lat + off_lat
+            lon_val = sent_lon + off_lon
+        else:
+            lat_val = float(lat_val)
+            lon_val = float(lon_val)
+
+        records.append({
+            "latitude": lat_val,
+            "longitude": lon_val,
+            "Entity": f"🛡️ {rng.get('name')} ({rng.get('callsign')})",
+            "Category": "🔵 Field Ranger Patrol",
+            "Coordinates": f"{lat_val:.5f}°N, {lon_val:.5f}°E",
+            "Status": f"{rng.get('status')} · {rng.get('battery')}% BATT · {rng.get('sector')}",
+            "color": "#73d9e8",
+            "size": 35,
+        })
+
     for rep in db.get_citizen_reports():
         if rep.get("location_lat") and rep.get("location_lon"):
-            records.append({"latitude": float(rep["location_lat"]), "longitude": float(rep["location_lon"]), "Entity": f"📸 Citizen Tip: {rep.get('threat_category')}", "Category": "🟠 Citizen GPS Report", "Coordinates": f"{float(rep['location_lat']):.5f}°N, {float(rep['location_lon']):.5f}°E", "Status": f"Status: {rep.get('status', 'PENDING')}"})
+            records.append({"latitude": float(rep["location_lat"]), "longitude": float(rep["location_lon"]), "Entity": f"📸 Citizen Tip: {rep.get('threat_category')}", "Category": "🟠 Citizen GPS Report", "Coordinates": f"{float(rep['location_lat']):.5f}°N, {float(rep['location_lon']):.5f}°E", "Status": f"Status: {rep.get('status', 'PENDING')}", "color": "#f2c66d", "size": 30})
     return pd.DataFrame(records)
 
 map_dataframe = build_map_data()
@@ -1492,9 +1527,19 @@ if current_role == "admin":
 
     elif active_page == "🗺️ Tactical Map & Dispatch":
         st.markdown('<div class="section"><div class="section-title">Live Tactical Map & Field Ranger Dispatch</div><div class="section-meta">GPS SENTINEL NODES · ACTIVE THREATS · NEARBY FIELD RANGERS</div></div>', unsafe_allow_html=True)
-        map_col, dispatch_col = st.columns([2.2, 1.3])
         with map_col:
-            st.map(map_dataframe[["latitude", "longitude"]], zoom=13, use_container_width=True)
+            st.map(map_dataframe, latitude="latitude", longitude="longitude", color="color", size="size", zoom=13, use_container_width=True)
+            st.markdown(
+                """
+                <div style="display:flex;gap:14px;flex-wrap:wrap;background:rgba(12,20,23,0.8);border:1px solid rgba(32,54,62,0.7);border-radius:10px;padding:8px 14px;margin-top:8px;margin-bottom:12px;font-size:11px;">
+                    <span style="color:#73d9e8;font-weight:700;">● 🔵 Field Ranger Patrol Units</span>
+                    <span style="color:#7cf0b2;font-weight:700;">● 🟢 Sentinel AI Base Nodes</span>
+                    <span style="color:#ff7070;font-weight:700;">● 🔴 Active Threats</span>
+                    <span style="color:#f2c66d;font-weight:700;">● 🟠 Citizen GPS Reports</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
             st.dataframe(map_dataframe[["Entity", "Category", "Coordinates", "Status"]], use_container_width=True, hide_index=True)
         with dispatch_col:
             st.markdown('<div class="panel"><div class="panel-title">Nearby Field Rangers Roster</div>', unsafe_allow_html=True)
@@ -1919,7 +1964,18 @@ elif current_role == "ranger":
 
     elif active_page == "🗺️ Sector Map & Near Rangers":
         st.markdown('<div class="section"><div class="section-title">Tactical Sector Map & Near My Rangers Radar</div><div class="section-meta">LIVE PATROL BUDDY PROXIMITY · TARGET THREAT COORDINATES</div></div>', unsafe_allow_html=True)
-        st.map(map_dataframe[["latitude", "longitude"]], zoom=14, use_container_width=True)
+        st.map(map_dataframe, latitude="latitude", longitude="longitude", color="color", size="size", zoom=14, use_container_width=True)
+        st.markdown(
+            """
+            <div style="display:flex;gap:14px;flex-wrap:wrap;background:rgba(12,20,23,0.8);border:1px solid rgba(32,54,62,0.7);border-radius:10px;padding:8px 14px;margin-top:8px;margin-bottom:12px;font-size:11px;">
+                <span style="color:#73d9e8;font-weight:700;">● 🔵 Field Ranger Patrol Units</span>
+                <span style="color:#7cf0b2;font-weight:700;">● 🟢 Sentinel AI Base Nodes</span>
+                <span style="color:#ff7070;font-weight:700;">● 🔴 Active Threats</span>
+                <span style="color:#f2c66d;font-weight:700;">● 🟠 Citizen GPS Reports</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         st.markdown("<div style='font-size:13px;font-weight:700;color:#73d9e8;margin-top:14px;margin-bottom:8px;'>👥 Near My Rangers (Live Radar):</div>", unsafe_allow_html=True)
         r_cols = st.columns(len(field_rangers))
         for idx, rng in enumerate(field_rangers):
