@@ -1436,6 +1436,53 @@ def build_map_data() -> pd.DataFrame:
         },
     ]
 
+# Build map dataframe with rich hover metadata, color-coded markers, and nodes/alerts/responding units
+def build_map_data() -> tuple[pd.DataFrame, list[dict[str, Any]]]:
+    records = [
+        {
+            "latitude": float(sent_lat),
+            "longitude": float(sent_lon),
+            "Entity": f"📡 Primary Sentinel Base Node ({device_id})",
+            "label_short": f"📡 Sentinel-01",
+            "Category": "🟢 Sentinel AI Base Node",
+            "Coordinates": f"{sent_lat:.5f}°N, {sent_lon:.5f}°E",
+            "Status": "ONLINE & ARMED",
+            "Details": f"Live Perception: {label} ({confidence(conf)}) · ESP32-S3 DMA",
+            "color": [124, 240, 178, 240],
+            "radius": 95,
+            "size": 38,
+        },
+        {
+            "latitude": float(sent_lat + 0.0042),
+            "longitude": float(sent_lon + 0.0035),
+            "Entity": "📡 Sentinel-02 Mesh Node (North Ridge)",
+            "label_short": "📡 Sentinel-02",
+            "Category": "🟢 Sentinel AI Base Node",
+            "Coordinates": f"{(sent_lat + 0.0042):.5f}°N, {(sent_lon + 0.0035):.5f}°E",
+            "Status": "ONLINE (Mesh Hop 1)",
+            "Details": "LoRa 868MHz Mesh Relay · Solar 98% · Perimeter Secured",
+            "color": [124, 240, 178, 210],
+            "radius": 80,
+            "size": 28,
+        },
+        {
+            "latitude": float(sent_lat - 0.0038),
+            "longitude": float(sent_lon - 0.0044),
+            "Entity": "📡 Sentinel-03 Mesh Node (West Creek)",
+            "label_short": "📡 Sentinel-03",
+            "Category": "🟢 Sentinel AI Base Node",
+            "Coordinates": f"{(sent_lat - 0.0038):.5f}°N, {(sent_lon - 0.0044):.5f}°E",
+            "Status": "ONLINE (Mesh Hop 2)",
+            "Details": "LoRa 868MHz Mesh Relay · Solar 92% · Perimeter Secured",
+            "color": [124, 240, 178, 210],
+            "radius": 80,
+            "size": 28,
+        },
+    ]
+
+    dispatch_routes: list[dict[str, Any]] = []
+    alert_loc_map: dict[str, tuple[float, float, str]] = {}
+
     # Plot all active threats and emergency alerts
     if active_alerts:
         for al in active_alerts:
@@ -1444,24 +1491,42 @@ def build_map_data() -> pd.DataFrame:
             if a_lat and a_lon:
                 a_th = al.get("threat_type", "Threat")
                 a_risk = al.get("risk_level", "CRITICAL")
-                a_rname = al.get("assigned_ranger_name") or "UNASSIGNED (Chief Dispatch Required)"
-                records.append({
-                    "latitude": float(a_lat),
-                    "longitude": float(a_lon),
-                    "Entity": f"🚨 {a_th} Emergency Alert",
-                    "label_short": f"🚨 {a_th}",
-                    "Category": f"🔴 Active Threat ({a_risk})",
-                    "Coordinates": f"{float(a_lat):.5f}°N, {float(a_lon):.5f}°E",
-                    "Status": f"PRIORITY: {a_risk} · Assigned: {a_rname}",
-                    "Details": f"Confidence: {safe_num(al.get('confidence', 0.96))*100:.1f}% · ID: {al.get('alert_id')}",
-                    "color": [255, 80, 80, 245],
-                    "radius": 130,
-                    "size": 48,
-                })
+                a_rname = al.get("assigned_ranger_name")
+                a_id = al.get("alert_id")
+                alert_loc_map[str(a_id)] = (float(a_lat), float(a_lon), a_th)
+
+                if a_rname:
+                    records.append({
+                        "latitude": float(a_lat),
+                        "longitude": float(a_lon),
+                        "Entity": f"🚨 {a_th} Threat Alert [RESPONDING: {a_rname}]",
+                        "label_short": f"🚨 {a_th} (Assigned: {a_rname.split()[0]})",
+                        "Category": f"🔴 Active Threat ({a_risk})",
+                        "Coordinates": f"{float(a_lat):.5f}°N, {float(a_lon):.5f}°E",
+                        "Status": f"⚡ RESPONDING UNIT: Ranger {a_rname} (EN ROUTE)",
+                        "Details": f"Assigned Ranger: {a_rname} · Priority: {a_risk} · Interception Active",
+                        "color": [255, 75, 75, 250],
+                        "radius": 135,
+                        "size": 50,
+                    })
+                else:
+                    records.append({
+                        "latitude": float(a_lat),
+                        "longitude": float(a_lon),
+                        "Entity": f"🚨 {a_th} Emergency Alert (Unassigned)",
+                        "label_short": f"🚨 {a_th}",
+                        "Category": f"🔴 Active Threat ({a_risk})",
+                        "Coordinates": f"{float(a_lat):.5f}°N, {float(a_lon):.5f}°E",
+                        "Status": f"PRIORITY: {a_risk} · AWAITING RANGER DISPATCH",
+                        "Details": f"Confidence: {safe_num(al.get('confidence', 0.96))*100:.1f}% · ID: {a_id}",
+                        "color": [255, 80, 80, 245],
+                        "radius": 130,
+                        "size": 48,
+                    })
     elif detected or str(cadie.get("risk_level", "")).upper() in ["HIGH", "CRITICAL"]:
-        # If live AI perception detected a threat but not yet written to DB
         live_th_lat = float(sent_lat + 0.0022)
         live_th_lon = float(sent_lon + 0.0025)
+        alert_loc_map["live_ai_threat"] = (live_th_lat, live_th_lon, label)
         records.append({
             "latitude": live_th_lat,
             "longitude": live_th_lon,
@@ -1506,21 +1571,53 @@ def build_map_data() -> pd.DataFrame:
         r_call = rng.get("callsign", f"UNIT-{idx+1}")
         r_sec = rng.get("sector", "Sanctuary Perimeter")
         r_batt = rng.get("battery", 100)
-        r_stat = rng.get("status", "PATROL READY")
+        r_stat = str(rng.get("status", "PATROL READY")).upper()
+        r_asgn = rng.get("assigned_alert")
 
-        records.append({
-            "latitude": lat_val,
-            "longitude": lon_val,
-            "Entity": f"🛡️ Ranger {r_name} ({r_call})",
-            "label_short": f"{r_name.split()[0]} ({r_call})",
-            "Category": "🔵 Field Ranger Patrol",
-            "Coordinates": f"{lat_val:.5f}°N, {lon_val:.5f}°E",
-            "Status": f"{r_stat} · 🔋 {r_batt}% BATT",
-            "Details": f"Assigned Sector: {r_sec} · Callsign: {r_call} · 📞 {rng.get('phone', 'N/A')}",
-            "color": [115, 217, 232, 235],
-            "radius": 90,
-            "size": 36,
-        })
+        # Check if ranger is currently responding to an active alert
+        is_responding = "RESPONDING" in r_stat or bool(r_asgn)
+
+        if is_responding:
+            dest_lat, dest_lon, dest_th = sent_lat, sent_lon, "Threat"
+            if r_asgn and str(r_asgn) in alert_loc_map:
+                dest_lat, dest_lon, dest_th = alert_loc_map[str(r_asgn)]
+            elif alert_loc_map:
+                dest_lat, dest_lon, dest_th = next(iter(alert_loc_map.values()))
+
+            dispatch_routes.append({
+                "source_coords": [lon_val, lat_val],
+                "target_coords": [dest_lon, dest_lat],
+                "color": [255, 195, 0, 230],
+                "Entity": f"⚡ Tactical Response Vector: Ranger {r_name} ➔ {dest_th} Alert",
+            })
+
+            records.append({
+                "latitude": lat_val,
+                "longitude": lon_val,
+                "Entity": f"🛡️ Ranger {r_name} ({r_call}) ⚡ [RESPONDING UNIT]",
+                "label_short": f"⚡ {r_name.split()[0]} (RESPONDING)",
+                "Category": "🔵 Field Ranger [DISPATCHED TO THREAT]",
+                "Coordinates": f"{lat_val:.5f}°N, {lon_val:.5f}°E",
+                "Status": f"⚡ RESPONDING (EN ROUTE TO {dest_th.upper()}) · 🔋 {r_batt}% BATT",
+                "Details": f"⚡ Active Interception · Sector: {r_sec} · Callsign: {r_call} · 📞 {rng.get('phone', 'N/A')}",
+                "color": [255, 195, 0, 245],
+                "radius": 110,
+                "size": 42,
+            })
+        else:
+            records.append({
+                "latitude": lat_val,
+                "longitude": lon_val,
+                "Entity": f"🛡️ Ranger {r_name} ({r_call})",
+                "label_short": f"{r_name.split()[0]} ({r_call})",
+                "Category": "🔵 Field Ranger Patrol",
+                "Coordinates": f"{lat_val:.5f}°N, {lon_val:.5f}°E",
+                "Status": f"{r_stat} · 🔋 {r_batt}% BATT",
+                "Details": f"Assigned Sector: {r_sec} · Callsign: {r_call} · 📞 {rng.get('phone', 'N/A')}",
+                "color": [115, 217, 232, 235],
+                "radius": 90,
+                "size": 36,
+            })
 
     for rep in db.get_citizen_reports():
         if rep.get("location_lat") and rep.get("location_lon"):
@@ -1538,15 +1635,31 @@ def build_map_data() -> pd.DataFrame:
                 "radius": 75,
                 "size": 30,
             })
-    return pd.DataFrame(records)
+    return pd.DataFrame(records), dispatch_routes
 
-map_dataframe = build_map_data()
+map_dataframe, map_dispatch_routes = build_map_data()
 
-def render_tactical_pydeck_map(df: pd.DataFrame, center_lat: float, center_lon: float, zoom: float = 13.5):
-    """Render high-contrast tactical map with interactive hover tooltips showing ranger names, sentinel node locations, and threat alerts."""
+def render_tactical_pydeck_map(df: pd.DataFrame, center_lat: float, center_lon: float, zoom: float = 13.5, routes: list | None = None):
+    """Render high-contrast tactical map with interactive hover tooltips showing ranger names, sentinel node locations, threat alerts, and dispatch response vectors."""
     if df is None or df.empty:
         st.info("No GPS telemetry coordinates available for map rendering.")
         return
+
+    layers = []
+
+    if routes:
+        routes_df = pd.DataFrame(routes)
+        line_layer = pdk.Layer(
+            "LineLayer",
+            data=routes_df,
+            get_source_position="source_coords",
+            get_target_position="target_coords",
+            get_color="color",
+            get_width=6,
+            pickable=True,
+            auto_highlight=True,
+        )
+        layers.append(line_layer)
 
     scatter_layer = pdk.Layer(
         "ScatterplotLayer",
@@ -1556,23 +1669,25 @@ def render_tactical_pydeck_map(df: pd.DataFrame, center_lat: float, center_lon: 
         get_radius="radius",
         radius_scale=1,
         radius_min_pixels=9,
-        radius_max_pixels=28,
+        radius_max_pixels=30,
         pickable=True,
         auto_highlight=True,
     )
+    layers.append(scatter_layer)
 
     text_layer = pdk.Layer(
         "TextLayer",
         data=df,
         get_position="[longitude, latitude]",
         get_text="label_short",
-        get_color=[255, 255, 255, 230],
+        get_color=[255, 255, 255, 235],
         get_size=11,
         get_alignment_baseline="'bottom'",
         get_text_anchor="'middle'",
         get_pixel_offset=[0, -14],
         pickable=False,
     )
+    layers.append(text_layer)
 
     view_state = pdk.ViewState(
         latitude=float(center_lat),
@@ -1599,7 +1714,7 @@ def render_tactical_pydeck_map(df: pd.DataFrame, center_lat: float, center_lon: 
     }
 
     deck = pdk.Deck(
-        layers=[scatter_layer, text_layer],
+        layers=layers,
         initial_view_state=view_state,
         map_style="dark",
         tooltip=tooltip,
@@ -1689,11 +1804,12 @@ if current_role == "admin":
         st.markdown('<div class="section"><div class="section-title">Live Tactical Map & Field Ranger Dispatch</div><div class="section-meta">GPS SENTINEL NODES · ACTIVE THREATS · NEARBY FIELD RANGERS</div></div>', unsafe_allow_html=True)
         map_col, dispatch_col = st.columns([2.2, 1.3])
         with map_col:
-            render_tactical_pydeck_map(map_dataframe, sent_lat, sent_lon, zoom=13.5)
+            render_tactical_pydeck_map(map_dataframe, sent_lat, sent_lon, zoom=13.5, routes=map_dispatch_routes)
             st.markdown(
                 """
                 <div style="display:flex;gap:14px;flex-wrap:wrap;background:rgba(12,20,23,0.8);border:1px solid rgba(32,54,62,0.7);border-radius:10px;padding:8px 14px;margin-top:8px;margin-bottom:12px;font-size:11px;">
                     <span style="color:#73d9e8;font-weight:700;">● 🔵 Field Ranger Patrol Units</span>
+                    <span style="color:#ffc300;font-weight:700;">● ⚡ Responding Units (Dispatched Route)</span>
                     <span style="color:#7cf0b2;font-weight:700;">● 🟢 Sentinel AI Base Nodes</span>
                     <span style="color:#ff7070;font-weight:700;">● 🔴 Active Threats</span>
                     <span style="color:#f2c66d;font-weight:700;">● 🟠 Citizen GPS Reports</span>
@@ -1716,12 +1832,17 @@ if current_role == "admin":
                 with st.container(border=True):
                     st.markdown(f"**{r_name}** (`{r_call}`)")
                     st.caption(f"📍 {rng.get('sector')} · 🔋 {rng.get('battery')}% · 📞 {rng.get('phone')}")
-                    st.markdown(f"Status: `{rng.get('status')}` · **Distance to Threat:** `{format_gps_distance(d_val)}`")
+                    r_stat_raw = str(rng.get('status', 'STANDBY')).upper()
+                    if "RESPONDING" in r_stat_raw or rng.get("assigned_alert"):
+                        st.markdown(f"<span style='background:rgba(255,195,0,0.2);color:#ffc300;padding:3px 8px;border-radius:6px;font-weight:700;font-size:11px;'>⚡ RESPONDING (EN ROUTE TO THREAT)</span>", unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"Status: `{r_stat_raw}` · **Distance to Threat:** `{format_gps_distance(d_val)}`")
                     if active_alerts:
                         top_a_id = active_alerts[0].get("alert_id")
-                        if st.button(f"⚡ Assign Alert to {r_call}", key=f"btn_assign_{r_id}_{top_a_id}", use_container_width=True):
-                            db.assign_emergency_alert(top_a_id, r_id, r_name)
-                            st.success(f"Alert assigned to {r_name}!")
+                        top_a_th = active_alerts[0].get("threat_type", "Threat")
+                        if st.button(f"⚡ Dispatch {r_call} to Threat", key=f"btn_assign_{r_id}_{top_a_id}", use_container_width=True, type="primary" if "RESPONDING" not in r_stat_raw else "secondary"):
+                            db.assign_emergency_alert(top_a_id, r_id, r_name, assigned_by=user_display)
+                            st.success(f"🚨 {top_a_th} Alert dispatched to {r_name}! Live response vector armed.")
                             st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1985,17 +2106,17 @@ SMTP_SSL=false
                 st.success("Emergency Alert broadcast to all field sentinels and ranger units!")
                 st.rerun()
 
-        st.markdown("<div style='margin-top:14px;font-size:13px;font-weight:700;'>Alert Broadcast History:</div>", unsafe_allow_html=True)
+        st.markdown("<div style='margin-top:14px;font-size:13px;font-weight:700;'>Alert Broadcast & Dispatch History Log:</div>", unsafe_allow_html=True)
         hist_rows = []
-        for a_item in db.get_emergency_alert_history(limit=10):
+        for a_item in db.get_emergency_alert_history(limit=15):
             hist_rows.append({
                 "ALERT ID": a_item.get("alert_id"),
                 "THREAT": a_item.get("threat_type"),
-                "RISK": a_item.get("risk_level"),
-                "CONFIDENCE": f"{safe_num(a_item.get('confidence')) * 100:.1f}%",
+                "PRIORITY": a_item.get("risk_level"),
                 "STATUS": a_item.get("status"),
-                "ASSIGNED RANGER": a_item.get("assigned_ranger_name") or "Unassigned",
-                "RESOLVED BY": a_item.get("resolved_by") or "—",
+                "RESPONDING RANGER": a_item.get("assigned_ranger_name") or "Awaiting Dispatch",
+                "ADDRESSED & RESOLVED BY": a_item.get("resolved_by") or ("En Route / Addressing" if a_item.get("assigned_ranger_name") else "Unassigned"),
+                "RESOLUTION NOTES": a_item.get("resolution_notes") or "—",
             })
         st.dataframe(hist_rows, use_container_width=True, hide_index=True)
 
@@ -2049,17 +2170,17 @@ SMTP_SSL=false
             metric("Discovered Clusters", "3", "classes", "DBSCAN clusters", accent="purple")
 
     elif active_page == "🔒 Security & Audit Log":
-        st.markdown('<div class="section"><div class="section-title">Security & Authentication Audit Log</div><div class="section-meta">IMMUTABLE RECORD OF LOGINS, DISPATCHES, AND RESOLUTIONS</div></div>', unsafe_allow_html=True)
+        st.markdown('<div class="section"><div class="section-title">Security & Authentication Audit Log</div><div class="section-meta">IMMUTABLE RECORD OF LOGINS, DISPATCHES, AND RANGER INCIDENT RESOLUTIONS</div></div>', unsafe_allow_html=True)
         logs = db.get_auth_audit_log(limit=50)
         if logs:
             l_rows = []
             for l in logs:
                 l_rows.append({
                     "TIMESTAMP": str(l.get("created_at", ""))[:19].replace("T", " "),
-                    "USER": l.get("username"),
+                    "USER / RANGER": l.get("username"),
                     "ROLE": str(l.get("role")).upper(),
-                    "ACTION": l.get("action"),
-                    "DETAILS": l.get("details"),
+                    "ACTION TYPE": l.get("action"),
+                    "OFFICIAL AUDIT STATEMENT": l.get("details"),
                 })
             st.dataframe(l_rows, use_container_width=True, hide_index=True)
         else:
@@ -2125,11 +2246,12 @@ elif current_role == "ranger":
 
     elif active_page == "🗺️ Sector Map & Near Rangers":
         st.markdown('<div class="section"><div class="section-title">Tactical Sector Map & Near My Rangers Radar</div><div class="section-meta">LIVE PATROL BUDDY PROXIMITY · TARGET THREAT COORDINATES</div></div>', unsafe_allow_html=True)
-        render_tactical_pydeck_map(map_dataframe, sent_lat, sent_lon, zoom=14.0)
+        render_tactical_pydeck_map(map_dataframe, sent_lat, sent_lon, zoom=14.0, routes=map_dispatch_routes)
         st.markdown(
             """
             <div style="display:flex;gap:14px;flex-wrap:wrap;background:rgba(12,20,23,0.8);border:1px solid rgba(32,54,62,0.7);border-radius:10px;padding:8px 14px;margin-top:8px;margin-bottom:12px;font-size:11px;">
                 <span style="color:#73d9e8;font-weight:700;">● 🔵 Field Ranger Patrol Units</span>
+                <span style="color:#ffc300;font-weight:700;">● ⚡ Responding Units (Dispatched Route)</span>
                 <span style="color:#7cf0b2;font-weight:700;">● 🟢 Sentinel AI Base Nodes</span>
                 <span style="color:#ff7070;font-weight:700;">● 🔴 Active Threats</span>
                 <span style="color:#f2c66d;font-weight:700;">● 🟠 Citizen GPS Reports</span>

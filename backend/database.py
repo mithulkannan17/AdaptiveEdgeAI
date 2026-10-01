@@ -1782,10 +1782,19 @@ class RuntimeDatabase:
         resolution_notes: str = "Threat addressed and resolved on site.",
     ) -> bool:
         """
-        Mark an emergency alert as RESOLVED/SOLVED by a field ranger or chief ranger.
+        Mark an emergency alert as RESOLVED/SOLVED by a field ranger or chief ranger,
+        sync ranger status back to ready, and record an immutable resolution audit log.
         """
         now_iso = datetime.now(timezone.utc).isoformat()
+        threat_type = "Threat"
         with self._connect() as connection:
+            al_row = connection.execute(
+                "SELECT threat_type, assigned_ranger_name FROM emergency_alerts WHERE alert_id = ?",
+                (alert_id.strip(),),
+            ).fetchone()
+            if al_row:
+                threat_type = al_row["threat_type"] or "Threat"
+
             cursor = connection.execute(
                 """
                 UPDATE emergency_alerts
@@ -1797,19 +1806,49 @@ class RuntimeDatabase:
                 """,
                 (now_iso, resolved_by.strip(), resolution_notes.strip(), alert_id.strip()),
             )
+            # Free up field ranger
+            connection.execute(
+                """
+                UPDATE field_rangers
+                SET status = 'PATROL READY',
+                    assigned_alert = NULL,
+                    updated_at = ?
+                WHERE assigned_alert = ? OR name = ?
+                """,
+                (now_iso, alert_id.strip(), resolved_by.strip()),
+            )
             connection.commit()
-            return cursor.rowcount > 0
+
+        # Record explicit resolution statement in security audit log
+        self.insert_auth_audit_log(
+            username=resolved_by.strip(),
+            role="ranger",
+            action="ALERT_ADDRESSED_RESOLVED",
+            details=f"Ranger {resolved_by.strip()} has addressed and resolved {threat_type} Alert ({alert_id.strip()}). Action Notes: {resolution_notes.strip()}",
+        )
+        return cursor.rowcount > 0
 
     def assign_emergency_alert(
         self,
         alert_id: str,
         ranger_id: str,
         ranger_name: str,
+        assigned_by: str = "Chief Ranger",
     ) -> bool:
         """
-        Assign an active emergency alert to a nearby field ranger unit.
+        Assign an active emergency alert to a nearby field ranger unit,
+        set ranger status to RESPONDING, and record a dispatch audit log.
         """
+        now_iso = datetime.now(timezone.utc).isoformat()
+        threat_type = "Threat"
         with self._connect() as connection:
+            al_row = connection.execute(
+                "SELECT threat_type FROM emergency_alerts WHERE alert_id = ?",
+                (alert_id.strip(),),
+            ).fetchone()
+            if al_row:
+                threat_type = al_row["threat_type"] or "Threat"
+
             cursor = connection.execute(
                 """
                 UPDATE emergency_alerts
@@ -1820,8 +1859,27 @@ class RuntimeDatabase:
                 """,
                 (ranger_id.strip(), ranger_name.strip(), alert_id.strip()),
             )
+            # Set field ranger status to RESPONDING
+            connection.execute(
+                """
+                UPDATE field_rangers
+                SET status = 'RESPONDING',
+                    assigned_alert = ?,
+                    updated_at = ?
+                WHERE ranger_id = ? OR name = ?
+                """,
+                (alert_id.strip(), now_iso, ranger_id.strip(), ranger_name.strip()),
+            )
             connection.commit()
-            return cursor.rowcount > 0
+
+        # Log dispatch action into audit log
+        self.insert_auth_audit_log(
+            username=assigned_by.strip(),
+            role="admin",
+            action="DISPATCH_ASSIGNED",
+            details=f"🚨 {threat_type} Alert ({alert_id.strip()}) assigned to responding unit: Ranger {ranger_name.strip()} ({ranger_id.strip()})",
+        )
+        return cursor.rowcount > 0
 
     # ==========================================================
     # PUBLIC CITIZEN REPORTS
