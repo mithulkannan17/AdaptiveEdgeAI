@@ -681,10 +681,12 @@ def verify_otp_and_signup_call(contact: str, otp: str, username: str, password: 
         return True, f"Account '{username}' created successfully! You may now login."
     return False, "Failed to create user account."
 
-def chief_create_ranger_call(full_name: str, callsign: str, rank: str, sector: str, phone: str) -> tuple[bool, dict, str]:
-    """Chief creates new Field Ranger account."""
+def chief_create_ranger_call(full_name: str, callsign: str, rank: str, sector: str, phone: str = "", email: str = "") -> tuple[bool, dict, str]:
+    """Chief creates new Field Ranger account and emails credentials."""
+    from backend.email_service import email_service
     res = api_request("/api/v1/auth/ranger/create", method="POST", payload={
         "full_name": full_name,
+        "email": email,
         "callsign": callsign,
         "rank": rank,
         "sector": sector,
@@ -698,10 +700,34 @@ def chief_create_ranger_call(full_name: str, callsign: str, rank: str, sector: s
     clean_f = "".join(c for c in (first_token[0] if first_token else full_name.split()[0]) if c.isalnum()).lower()
     username = f"ranger.{clean_f}{random.randint(10, 99)}"
     password = f"Aura#Ranger{random.randint(100, 999)}"
-    created = db.create_user(username=username, password=password, role="ranger", full_name=full_name, email_or_phone=phone, callsign=callsign, rank=rank, sector=sector, created_by="chief")
+    contact_val = email.strip() or phone.strip()
+    created = db.create_user(username=username, password=password, role="ranger", full_name=full_name, email_or_phone=contact_val, callsign=callsign, rank=rank, sector=sector, created_by="chief")
+
+    deliv = {}
+    if email.strip() and "@" in email:
+        deliv = email_service.send_ranger_credentials_email(
+            recipient_email=email.strip(),
+            full_name=full_name,
+            username=username,
+            password=password,
+            callsign=callsign,
+            rank=rank,
+            sector=sector,
+        )
+
     if created:
-        db.insert_auth_audit_log(username="chief", role="admin", action="CHIEF_CREATE_RANGER", details=f"Chief created Ranger {full_name} ({username}).")
-        return True, {"username": username, "password": password, "full_name": full_name, "callsign": callsign, "rank": rank, "sector": sector, "phone": phone}, "Field Ranger account created!"
+        db.insert_auth_audit_log(username="chief", role="admin", action="CHIEF_CREATE_RANGER", details=f"Chief created Ranger {full_name} ({username}) -> Dispatched to {contact_val}.")
+        return True, {
+            "username": username,
+            "password": password,
+            "full_name": full_name,
+            "callsign": callsign,
+            "rank": rank,
+            "sector": sector,
+            "phone": phone,
+            "email": email,
+            "delivery": deliv,
+        }, f"Field Ranger account created! Credentials dispatched to {contact_val}."
     return False, {}, "Failed to create field ranger."
 
 def get_all_users_call() -> list[dict]:
@@ -1240,7 +1266,7 @@ if current_role == "admin":
         with cr_tab1:
             with st.container(border=True):
                 st.markdown("<div style='font-size:15px;font-weight:800;color:#7cf0b2;margin-bottom:8px;'>👑 Add New Field Ranger Unit</div>", unsafe_allow_html=True)
-                st.caption("Chief enters the ranger's name and details. The system automatically creates a unique username and secure password.")
+                st.caption("Chief enters the ranger's details. The system automatically creates a unique username, secure password, and dispatches an official appointment email.")
                 rg_c1, rg_c2 = st.columns(2)
                 with rg_c1:
                     n_name = st.text_input("Ranger Full Name", placeholder="e.g. Rajesh Varma", key="chief_r_name")
@@ -1248,23 +1274,30 @@ if current_role == "admin":
                     n_rank = st.selectbox("Rank / Designation", ["Field Ranger", "Senior Wildlife Tracker", "Rapid Response Lead", "Acoustic Sentry Officer", "Patrol Commander"], key="chief_r_rank")
                 with rg_c2:
                     n_sec = st.selectbox("Assigned Sector", ["Sector 4 (Tiger Corridor)", "Sector 2 (River Ridge)", "Sector 7 (North Boundary)", "Sector 1 (Sanctuary Core)", "Sector 6 (Bamboo Basin)"], key="chief_r_sec")
-                    n_phone = st.text_input("Contact Phone Number", placeholder="e.g. +91 99887 76655", key="chief_r_phone")
+                    n_email = st.text_input("Ranger Email Address (Credentials will be emailed here)", placeholder="e.g. rajesh.varma@auraforest.gov.in", key="chief_r_email")
+                    n_phone = st.text_input("Contact Phone Number (Optional)", placeholder="e.g. +91 99887 76655", key="chief_r_phone")
 
-                if st.button("⚡ Generate Ranger Login & Password", type="primary", use_container_width=True, key="btn_gen_ranger"):
+                if st.button("⚡ Generate Ranger Login & Dispatch Email", type="primary", use_container_width=True, key="btn_gen_ranger"):
                     if not n_name.strip():
                         st.error("Please enter the Ranger's full name.")
                     else:
-                        ok, r_data, msg = chief_create_ranger_call(n_name.strip(), n_call.strip(), n_rank, n_sec, n_phone.strip())
+                        ok, r_data, msg = chief_create_ranger_call(n_name.strip(), n_call.strip(), n_rank, n_sec, phone=n_phone.strip(), email=n_email.strip())
                         if ok:
                             st.session_state["newly_generated_ranger"] = r_data
-                            st.success("Field Ranger account generated successfully!")
+                            st.success(f"✅ {msg}")
 
                 if "newly_generated_ranger" in st.session_state:
                     ngr = st.session_state["newly_generated_ranger"]
+                    deliv = ngr.get("delivery", {})
+                    target_em = ngr.get("email") or ngr.get("phone")
+
                     st.markdown(
                         f"""
                         <div style="background: linear-gradient(135deg, rgba(124, 240, 178, 0.16), rgba(115, 217, 232, 0.1)); border: 1.5px solid #7cf0b2; border-radius: 14px; padding: 16px 20px; margin-top: 14px; box-shadow: 0 0 25px rgba(124,240,178,0.25);">
-                            <div style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:#7cf0b2;">🎉 NEW FIELD RANGER CREDENTIALS ISSUED</div>
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:#7cf0b2;">🎉 NEW FIELD RANGER COMMISSIONED & CREDENTIALS ISSUED</div>
+                                <div style="font-size:10px; color:#73d9e8; font-weight:700;">🟢 DISPATCHED TO RANGER</div>
+                            </div>
                             <div style="font-size:16px; font-weight:800; color:#fff; margin-top:4px;">{ngr.get('full_name')} ({ngr.get('rank')}) · Callsign: {ngr.get('callsign')}</div>
                             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px; background:rgba(0,0,0,0.3); padding:12px; border-radius:10px;">
                                 <div>
@@ -1277,12 +1310,16 @@ if current_role == "admin":
                                 </div>
                             </div>
                             <div style="font-size:11px; color:#edf6f3; margin-top:8px;">
-                                Hand these credentials to the ranger. They can log in immediately from any mobile device or workstation.
+                                📬 Login credentials, tactical callsign, and sector instructions have been emailed to <b>{target_em or 'Ranger Terminal'}</b>.
                             </div>
                         </div>
                         """,
                         unsafe_allow_html=True,
                     )
+
+                    if deliv.get("html_preview"):
+                        with st.expander("📨 Click to Preview Official Commissioning Email Sent to Ranger", expanded=False):
+                            st.components.v1.html(deliv.get("html_preview"), height=380, scrolling=True)
 
         with cr_tab2:
             all_users = get_all_users_call()

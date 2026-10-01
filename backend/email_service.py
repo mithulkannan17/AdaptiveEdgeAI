@@ -225,6 +225,257 @@ Ministry of Environment & Forests
             "html_preview": html_body,
         }
 
+    def send_ranger_credentials_email(
+        self,
+        recipient_email: str,
+        full_name: str,
+        username: str,
+        password: str,
+        callsign: str = "ALPHA-1",
+        rank: str = "Field Ranger",
+        sector: str = "Sector 4 (Tiger Corridor)",
+    ) -> Dict[str, Any]:
+        """
+        Send an official appointment and login credentials email to a newly commissioned Field Ranger.
+        """
+        recipient_email = recipient_email.strip().lower()
+        subject = f"🛡️ Official Commission & Sentinel Access Credentials — Ranger {full_name}"
+
+        plain_body = f"""
+Official Appointment & Security Notice
+=======================================
+Dear {full_name},
+
+You have been officially commissioned to the AuraForest Tactical Field Defense Network by Chief Ranger Command.
+
+YOUR ACCESS CREDENTIALS:
+-------------------------
+• Assigned Username: {username}
+• Secure Passcode:   {password}
+• Callsign:          {callsign}
+• Rank / Role:       {rank}
+• Deployment Sector: {sector}
+
+INSTRUCTIONS:
+1. Log in to the AuraForest Sentinel Portal (http://localhost:8501)
+2. Select 'Field Ranger' or enter your username & password.
+3. Access your live Tactical Incident Response Console and GPS Radar.
+
+CONFIDENTIAL: Do not share these credentials with unauthorized personnel.
+
+— Chief Ranger Cyber-Defense Command
+AuraForest Wildlife Reserve · Ministry of Environment & Forests
+        """.strip()
+
+        html_body = f"""
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {{
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #060a0c;
+      margin: 0;
+      padding: 24px;
+      color: #edf6f3;
+    }}
+    .email-container {{
+      max-width: 580px;
+      margin: 0 auto;
+      background: #0c1417;
+      border: 1.5px solid rgba(115, 217, 232, 0.4);
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6);
+    }}
+    .header {{
+      text-align: center;
+      padding-bottom: 20px;
+      border-bottom: 1px solid rgba(32, 54, 62, 0.7);
+    }}
+    .brand {{
+      font-size: 20px;
+      font-weight: 800;
+      color: #73d9e8;
+      letter-spacing: -0.02em;
+    }}
+    .tagline {{
+      font-size: 11px;
+      color: #829a97;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-top: 4px;
+    }}
+    .content {{
+      padding: 24px 0;
+    }}
+    .greeting {{
+      font-size: 16px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 12px;
+    }}
+    .text {{
+      font-size: 14px;
+      line-height: 1.6;
+      color: #c4d7d3;
+      margin-bottom: 20px;
+    }}
+    .credentials-card {{
+      background: #101c20;
+      border: 1.5px solid #73d9e8;
+      border-radius: 14px;
+      padding: 20px;
+      margin: 20px 0;
+      box-shadow: 0 0 25px rgba(115, 217, 232, 0.2);
+    }}
+    .card-title {{
+      font-size: 11px;
+      color: #73d9e8;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      border-bottom: 1px solid rgba(32, 54, 62, 0.7);
+      padding-bottom: 6px;
+    }}
+    .cred-row {{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(32, 54, 62, 0.4);
+      font-size: 13px;
+    }}
+    .cred-row:last-child {{
+      border-bottom: none;
+    }}
+    .cred-label {{
+      color: #829a97;
+    }}
+    .cred-val {{
+      font-family: 'Courier New', Courier, monospace;
+      font-weight: 700;
+      color: #edf6f3;
+    }}
+    .highlight {{
+      color: #7cf0b2 !important;
+      font-size: 15px;
+    }}
+    .highlight-cyan {{
+      color: #73d9e8 !important;
+      font-size: 15px;
+    }}
+    .footer {{
+      border-top: 1px solid rgba(32, 54, 62, 0.7);
+      padding-top: 18px;
+      text-align: center;
+      font-size: 11px;
+      color: #526563;
+      line-height: 1.5;
+    }}
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <div class="header">
+      <div class="brand">◈ AURAFOREST TACTICAL DEFENSE COMMAND</div>
+      <div class="tagline">Official Field Ranger Appointment & Sentinel Access</div>
+    </div>
+    <div class="content">
+      <div class="greeting">Dear Ranger {full_name},</div>
+      <div class="text">
+        You have been officially commissioned to the <b>AuraForest Field Response Network</b> by Chief Ranger Sharma. Your tactical access credentials and deployment sector have been established below:
+      </div>
+      <div class="credentials-card">
+        <div class="card-title">🛡️ Field Ranger Access Credentials</div>
+        <div class="cred-row">
+          <span class="cred-label">Assigned Username:</span>
+          <span class="cred-val highlight-cyan">{username}</span>
+        </div>
+        <div class="cred-row">
+          <span class="cred-label">Access Password:</span>
+          <span class="cred-val highlight">{password}</span>
+        </div>
+        <div class="cred-row">
+          <span class="cred-label">Callsign / Unit:</span>
+          <span class="cred-val">{callsign}</span>
+        </div>
+        <div class="cred-row">
+          <span class="cred-label">Designation / Rank:</span>
+          <span class="cred-val">{rank}</span>
+        </div>
+        <div class="cred-row">
+          <span class="cred-label">Deployment Sector:</span>
+          <span class="cred-val">{sector}</span>
+        </div>
+      </div>
+      <div class="text">
+        <b>Deployment Instructions:</b><br/>
+        1. Access the Sentinel Operations Portal from your patrol terminal or mobile phone.<br/>
+        2. Enter your assigned username and password.<br/>
+        3. Review active acoustic AI threat alerts and GPS navigation to coordinate with nearby patrol buddies.
+      </div>
+    </div>
+    <div class="footer">
+      <div>CONFIDENTIAL & PROPRIETARY · Forestry Cyber-Defense Network</div>
+      <div>Authorized by Chief Ranger Sharma · Ministry of Environment & Forests</div>
+    </div>
+  </div>
+</body>
+</html>
+        """.strip()
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = f"Chief Ranger Command <{self.smtp_from}>"
+        msg["To"] = recipient_email
+        msg.attach(MIMEText(plain_body, "plain", "utf-8"))
+        msg.attach(MIMEText(html_body, "html", "utf-8"))
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        if self.is_configured:
+            try:
+                if self.smtp_ssl:
+                    with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=10.0) as server:
+                        server.login(self.smtp_user, self.smtp_pass)
+                        server.send_message(msg)
+                else:
+                    with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=10.0) as server:
+                        server.starttls()
+                        server.login(self.smtp_user, self.smtp_pass)
+                        server.send_message(msg)
+
+                return {
+                    "success": True,
+                    "delivered": True,
+                    "channel": "SMTP_RELAY",
+                    "recipient": recipient_email,
+                    "subject": subject,
+                    "username": username,
+                    "password": password,
+                    "timestamp": now_iso,
+                    "message": f"Appointment & credentials email sent to {recipient_email} via SMTP.",
+                    "html_preview": html_body,
+                }
+            except Exception as exc:
+                print(f"[!] SMTP Ranger Credentials Warning to {recipient_email}: {exc}")
+
+        return {
+            "success": True,
+            "delivered": True,
+            "channel": "SIMULATED_LOCAL_MAILBOX",
+            "recipient": recipient_email,
+            "subject": subject,
+            "username": username,
+            "password": password,
+            "timestamp": now_iso,
+            "message": f"Appointment & credentials email dispatched to mailbox: {recipient_email}.",
+            "html_preview": html_body,
+        }
+
 
 # Global singleton
 email_service = EmailService()

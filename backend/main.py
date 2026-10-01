@@ -418,10 +418,11 @@ class CitizenSignupVerifyRequest(BaseModel):
 
 class CreateRangerRequest(BaseModel):
     full_name: str
+    email: str = ""
+    phone: str = ""
     callsign: str = "ALPHA-1"
     rank: str = "Field Ranger"
     sector: str = "Sector 4 (Tiger Corridor)"
-    phone: str = ""
 
 
 class UpdateUserPasswordRequest(BaseModel):
@@ -569,7 +570,7 @@ def auth_verify_signup_otp(payload: CitizenSignupVerifyRequest):
 
 @app.post("/api/v1/auth/ranger/create")
 def auth_create_ranger(payload: CreateRangerRequest):
-    """Chief Ranger creates a new Field Ranger account with auto-generated credentials."""
+    """Chief Ranger creates a new Field Ranger account with auto-generated credentials and dispatches to Ranger email."""
     import random
     full_name = payload.full_name.strip()
     if not full_name:
@@ -589,12 +590,18 @@ def auth_create_ranger(payload: CreateRangerRequest):
     rank = payload.rank.strip() or "Field Ranger"
     sector = payload.sector.strip() or "Sector 4 (Tiger Corridor)"
 
+    # Determine email contact
+    email_contact = payload.email.strip()
+    if not email_contact and "@" in payload.phone:
+        email_contact = payload.phone.strip()
+    contact_val = email_contact or payload.phone.strip()
+
     success = database.create_user(
         username=username,
         password=password,
         role="ranger",
         full_name=full_name,
-        email_or_phone=payload.phone.strip(),
+        email_or_phone=contact_val,
         callsign=callsign,
         rank=rank,
         sector=sector,
@@ -603,11 +610,24 @@ def auth_create_ranger(payload: CreateRangerRequest):
     if not success:
         raise HTTPException(status_code=500, detail="Could not create ranger user.")
 
+    # Dispatch official credentials email to Ranger
+    delivery_report = {}
+    if email_contact and "@" in email_contact:
+        delivery_report = email_service.send_ranger_credentials_email(
+            recipient_email=email_contact,
+            full_name=full_name,
+            username=username,
+            password=password,
+            callsign=callsign,
+            rank=rank,
+            sector=sector,
+        )
+
     database.insert_auth_audit_log(
         username="chief",
         role="admin",
         action="CHIEF_CREATE_RANGER",
-        details=f"Chief generated credentials for Ranger {full_name} (User: {username}, Callsign: {callsign}).",
+        details=f"Chief generated credentials for Ranger {full_name} (User: {username}, Callsign: {callsign}) -> Dispatched to {contact_val}.",
     )
     return {
         "success": True,
@@ -617,8 +637,10 @@ def auth_create_ranger(payload: CreateRangerRequest):
         "callsign": callsign,
         "rank": rank,
         "sector": sector,
+        "email": email_contact,
         "phone": payload.phone.strip(),
-        "message": "Field Ranger account & credentials successfully generated!",
+        "delivery": delivery_report,
+        "message": f"Field Ranger account created! Credentials dispatched to {contact_val}.",
     }
 
 

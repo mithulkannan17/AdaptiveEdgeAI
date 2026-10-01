@@ -288,3 +288,31 @@ def test_email_otp_generation_and_html_delivery(tmp_path, monkeypatch):
     assert "AuraForest Sentinel" in deliv["subject"]
 
 
+def test_ranger_credentials_dispatched_to_email(tmp_path, monkeypatch):
+    client, db = create_test_client(tmp_path, monkeypatch)
+
+    ranger_email = "rajesh.varma@auraforest.gov.in"
+
+    # Chief creates ranger account and supplies email
+    payload = {
+        "full_name": "Ranger Rajesh Varma",
+        "email": ranger_email,
+        "callsign": "DELTA-9",
+        "rank": "Senior Wildlife Tracker",
+        "sector": "Sector 6 (Bamboo Basin)",
+    }
+    create_resp = client.post("/api/v1/auth/ranger/create", json=payload)
+    assert create_resp.status_code == 200
+    res_data = create_resp.json()
+    assert res_data["success"] is True
+    assert res_data["email"] == ranger_email
+    assert "delivery" in res_data
+    deliv = res_data["delivery"]
+    assert deliv["recipient"] == ranger_email
+    assert "Official Commission" in deliv["subject"]
+    assert res_data["username"] in deliv["html_preview"]
+    assert res_data["password"] in deliv["html_preview"]
+    assert "DELTA-9" in deliv["html_preview"]
+
+
+
