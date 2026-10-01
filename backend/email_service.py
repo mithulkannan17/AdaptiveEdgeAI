@@ -58,19 +58,59 @@ class EmailService:
         self.reload_config()
 
     def reload_config(self) -> None:
-        """Reload configuration from environment variables."""
+        """Reload configuration from environment variables and Streamlit st.secrets."""
         _load_env_file()
-        self.smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com").strip()
-        self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
-        self.smtp_user = os.getenv("SMTP_USER", "").strip()
-        raw_pass = os.getenv("SMTP_PASS", "").strip()
+        
+        # Check Streamlit Cloud st.secrets directly
+        st_user = ""
+        st_pass = ""
+        st_host = ""
+        st_port = ""
+        st_from = ""
+        st_ssl = ""
+
+        try:
+            import streamlit as st
+            if hasattr(st, "secrets") and st.secrets:
+                # Top-level check
+                st_user = str(st.secrets.get("SMTP_USER") or st.secrets.get("smtp_user") or "")
+                st_pass = str(st.secrets.get("SMTP_PASS") or st.secrets.get("smtp_pass") or "")
+                st_host = str(st.secrets.get("SMTP_HOST") or st.secrets.get("smtp_host") or "")
+                st_port = str(st.secrets.get("SMTP_PORT") or st.secrets.get("smtp_port") or "")
+                st_from = str(st.secrets.get("SMTP_FROM") or st.secrets.get("smtp_from") or "")
+                st_ssl = str(st.secrets.get("SMTP_SSL") or st.secrets.get("smtp_ssl") or "")
+
+                # Nested [smtp] / [SMTP] check if present
+                if not st_user and ("smtp" in st.secrets or "SMTP" in st.secrets):
+                    sec_dict = st.secrets.get("smtp") or st.secrets.get("SMTP") or {}
+                    if isinstance(sec_dict, dict):
+                        st_user = str(sec_dict.get("user") or sec_dict.get("SMTP_USER") or "")
+                        st_pass = str(sec_dict.get("pass") or sec_dict.get("SMTP_PASS") or "")
+                        st_host = str(sec_dict.get("host") or sec_dict.get("SMTP_HOST") or "")
+                        st_port = str(sec_dict.get("port") or sec_dict.get("SMTP_PORT") or "")
+                        st_from = str(sec_dict.get("from") or sec_dict.get("SMTP_FROM") or "")
+        except Exception:
+            pass
+
+        self.smtp_host = (st_host or os.getenv("SMTP_HOST", "smtp.gmail.com")).strip()
+        port_val = st_port or os.getenv("SMTP_PORT", "587")
+        try:
+            self.smtp_port = int(str(port_val).strip())
+        except Exception:
+            self.smtp_port = 587
+
+        self.smtp_user = (st_user or os.getenv("SMTP_USER", "")).strip()
+        raw_pass = (st_pass or os.getenv("SMTP_PASS", "")).strip()
+        
         # Clean up spaces in 16-character Google App Passwords
         if "gmail" in self.smtp_host.lower():
             self.smtp_pass = raw_pass.replace(" ", "")
         else:
             self.smtp_pass = raw_pass
-        self.smtp_from = os.getenv("SMTP_FROM", self.smtp_user or "no-reply@auraforest.gov.in").strip()
-        self.smtp_ssl = os.getenv("SMTP_SSL", "false").lower() in ("true", "1", "yes")
+
+        self.smtp_from = (st_from or os.getenv("SMTP_FROM", self.smtp_user or "no-reply@auraforest.gov.in")).strip()
+        ssl_val = (st_ssl or os.getenv("SMTP_SSL", "false")).lower()
+        self.smtp_ssl = ssl_val in ("true", "1", "yes")
 
     def configure(
         self,
@@ -85,7 +125,7 @@ class EmailService:
         self.smtp_host = smtp_host.strip()
         self.smtp_port = int(smtp_port)
         self.smtp_user = smtp_user.strip()
-        self.smtp_pass = smtp_pass.strip()
+        self.smtp_pass = smtp_pass.replace(" ", "").strip() if "gmail" in smtp_host.lower() else smtp_pass.strip()
         self.smtp_from = (smtp_from or smtp_user or "no-reply@auraforest.gov.in").strip()
         self.smtp_ssl = smtp_ssl
 
@@ -94,10 +134,46 @@ class EmailService:
         """Return True if real SMTP server credentials are provided."""
         return bool(self.smtp_host and self.smtp_user and self.smtp_pass)
 
+    def test_connection(self) -> Dict[str, Any]:
+        """Test live SMTP connection and authentication."""
+        self.reload_config()
+        if not self.is_configured:
+            return {
+                "success": False,
+                "message": f"SMTP not configured (Host: {self.smtp_host}, User: '{self.smtp_user}', Pass: {'[SET]' if self.smtp_pass else '[EMPTY]'}). Please check Streamlit Secrets.",
+                "host": self.smtp_host,
+                "port": self.smtp_port,
+                "user": self.smtp_user,
+            }
+        try:
+            if self.smtp_ssl or self.smtp_port == 465:
+                with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=10.0) as server:
+                    server.login(self.smtp_user, self.smtp_pass)
+            else:
+                with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=10.0) as server:
+                    server.starttls()
+                    server.login(self.smtp_user, self.smtp_pass)
+            return {
+                "success": True,
+                "message": f"✅ SMTP Connection & Authentication Successful ({self.smtp_host}:{self.smtp_port} as {self.smtp_user})!",
+                "host": self.smtp_host,
+                "port": self.smtp_port,
+                "user": self.smtp_user,
+            }
+        except Exception as exc:
+            return {
+                "success": False,
+                "message": f"❌ SMTP Authentication Failed: {exc}",
+                "host": self.smtp_host,
+                "port": self.smtp_port,
+                "user": self.smtp_user,
+            }
+
     def send_otp_email(self, recipient_email: str, otp_code: str, user_name: str = "Citizen Observer") -> Dict[str, Any]:
         """
         Send a 6-digit OTP verification email to the user's email address.
         """
+        self.reload_config()
         recipient_email = recipient_email.strip().lower()
         subject = f"🔐 Your AuraForest Sentinel Verification Code: {otp_code}"
 
@@ -244,7 +320,7 @@ Ministry of Environment & Forests
         # Real SMTP Delivery if credentials provided
         if self.is_configured:
             try:
-                if self.smtp_ssl:
+                if self.smtp_ssl or self.smtp_port == 465:
                     with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=10.0) as server:
                         server.login(self.smtp_user, self.smtp_pass)
                         server.send_message(msg)
@@ -266,19 +342,30 @@ Ministry of Environment & Forests
                     "html_preview": html_body,
                 }
             except Exception as exc:
-                # Log error and fall back to local delivery receipt
-                print(f"[!] SMTP Delivery Warning to {recipient_email}: {exc}")
+                print(f"[!] SMTP Delivery Error to {recipient_email}: {exc}")
+                return {
+                    "success": False,
+                    "delivered": False,
+                    "channel": "SMTP_ERROR",
+                    "recipient": recipient_email,
+                    "subject": subject,
+                    "otp_code": otp_code,
+                    "timestamp": now_iso,
+                    "error": str(exc),
+                    "message": f"SMTP Error sending to {recipient_email}: {exc}",
+                    "html_preview": html_body,
+                }
 
-        # Local Delivery / Sandbox Delivery Record
+        # Not configured
         return {
-            "success": True,
-            "delivered": True,
-            "channel": "SIMULATED_LOCAL_MAILBOX",
+            "success": False,
+            "delivered": False,
+            "channel": "NOT_CONFIGURED",
             "recipient": recipient_email,
             "subject": subject,
             "otp_code": otp_code,
             "timestamp": now_iso,
-            "message": f"Verification email dispatched to mailbox: {recipient_email}.",
+            "message": "SMTP credentials not configured. Please add SMTP_USER & SMTP_PASS in Streamlit Cloud Secrets.",
             "html_preview": html_body,
         }
 
@@ -495,7 +582,7 @@ AuraForest Wildlife Reserve · Ministry of Environment & Forests
 
         if self.is_configured:
             try:
-                if self.smtp_ssl:
+                if self.smtp_ssl or self.smtp_port == 465:
                     with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=10.0) as server:
                         server.login(self.smtp_user, self.smtp_pass)
                         server.send_message(msg)
@@ -518,18 +605,31 @@ AuraForest Wildlife Reserve · Ministry of Environment & Forests
                     "html_preview": html_body,
                 }
             except Exception as exc:
-                print(f"[!] SMTP Ranger Credentials Warning to {recipient_email}: {exc}")
+                print(f"[!] SMTP Ranger Credentials Error to {recipient_email}: {exc}")
+                return {
+                    "success": False,
+                    "delivered": False,
+                    "channel": "SMTP_ERROR",
+                    "recipient": recipient_email,
+                    "subject": subject,
+                    "username": username,
+                    "password": password,
+                    "timestamp": now_iso,
+                    "error": str(exc),
+                    "message": f"SMTP delivery failed to {recipient_email}: {exc}",
+                    "html_preview": html_body,
+                }
 
         return {
-            "success": True,
-            "delivered": True,
-            "channel": "SIMULATED_LOCAL_MAILBOX",
+            "success": False,
+            "delivered": False,
+            "channel": "NOT_CONFIGURED",
             "recipient": recipient_email,
             "subject": subject,
             "username": username,
             "password": password,
             "timestamp": now_iso,
-            "message": f"Appointment & credentials email dispatched to mailbox: {recipient_email}.",
+            "message": "SMTP credentials not configured in Streamlit Cloud Secrets.",
             "html_preview": html_body,
         }
 
@@ -740,7 +840,8 @@ Ministry of Environment, Forest and Climate Change
         """.strip()
 
         # Attempt SMTP delivery
-        if self.smtp_host and self.smtp_user and self.smtp_pass:
+        self.reload_config()
+        if self.is_configured:
             try:
                 msg = MIMEMultipart("alternative")
                 msg["Subject"] = subject
@@ -772,18 +873,31 @@ Ministry of Environment, Forest and Climate Change
                     "html_preview": html_body,
                 }
             except Exception as exc:
-                print(f"[!] SMTP Chief Credentials Warning to {recipient_email}: {exc}")
+                print(f"[!] SMTP Chief Credentials Error to {recipient_email}: {exc}")
+                return {
+                    "success": False,
+                    "delivered": False,
+                    "channel": "SMTP_ERROR",
+                    "recipient": recipient_email,
+                    "subject": subject,
+                    "username": username,
+                    "password": password,
+                    "timestamp": now_iso,
+                    "error": str(exc),
+                    "message": f"Chief credentials email failed: {exc}",
+                    "html_preview": html_body,
+                }
 
         return {
-            "success": True,
-            "delivered": True,
-            "channel": "SIMULATED_LOCAL_MAILBOX",
+            "success": False,
+            "delivered": False,
+            "channel": "NOT_CONFIGURED",
             "recipient": recipient_email,
             "subject": subject,
             "username": username,
             "password": password,
             "timestamp": now_iso,
-            "message": f"Chief credentials dispatched to mailbox: {recipient_email}.",
+            "message": "SMTP credentials not configured in Streamlit Cloud Secrets.",
             "html_preview": html_body,
         }
 

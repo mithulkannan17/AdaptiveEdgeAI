@@ -661,19 +661,23 @@ def generate_otp_call(phone_or_email: str) -> tuple[bool, str, dict, str]:
     print(f"[AuraForest Sentinel AUTH] 🔐 OTP DISPATCHED TO: {contact}", flush=True)
     print(f"[AuraForest Sentinel AUTH] 🔑 6-DIGIT OTP CODE: {otp}", flush=True)
     print(f"[AuraForest Sentinel AUTH] ⏱️ VALIDITY: 15 MINUTES (900 seconds)", flush=True)
+    print(f"[AuraForest Sentinel AUTH] 📡 DELIVERY RESULT: {deliv.get('message', 'N/A')}", flush=True)
     print(f"[AuraForest Sentinel AUTH] ========================================\n", flush=True)
 
     db.insert_auth_audit_log(
         username=contact,
         role="public",
         action="GENERATE_OTP",
-        details=f"Generated OTP verification code for {contact} (Channel: {'EMAIL' if is_email else 'SMS'})",
+        details=f"Generated OTP for {contact} (Delivery: {deliv.get('channel', 'SMS')})",
     )
 
     # 3. Synchronize with API if running
     api_request("/api/v1/auth/signup/otp/generate", method="POST", payload={"phone_or_email": contact})
 
-    return True, otp, deliv, f"Verification code dispatched to {contact} via {'Email Server' if is_email else 'SMS Gateway'}."
+    if is_email and not deliv.get("success", False):
+        return False, otp, deliv, deliv.get("message", "Email delivery failed.")
+
+    return True, otp, deliv, f"Verification code dispatched to {contact} via {'Gmail SMTP' if deliv.get('channel') == 'SMTP_RELAY' else 'SMS Gateway'}."
 
 def validate_otp_call(contact: str, otp: str) -> tuple[bool, str]:
     """Validate the 6-digit OTP code across Session, Database, and Backend API."""
@@ -919,17 +923,27 @@ if not st.session_state.get("authenticated", False):
                 st.markdown("<div style='margin-top:14px; border-top:1px solid rgba(32,54,62,0.6); padding-top:10px;'></div>", unsafe_allow_html=True)
                 with st.expander("👑 Need Chief Credentials? Email Master Passcode to Admin", expanded=False):
                     c_mail = st.text_input("Administrator Email Address", value="mithulkannan5@gmail.com", key="send_chief_email_inp")
-                    if st.button("📧 Send Chief Credentials to My Email", use_container_width=True, key="btn_send_chief_creds"):
-                        from backend.email_service import email_service
-                        if not c_mail.strip() or "@" not in c_mail:
-                            st.error("Please enter a valid email address.")
-                        else:
-                            with st.spinner("Dispatching master credentials email..."):
-                                res = email_service.send_chief_credentials_email(c_mail.strip())
-                                if res.get("success"):
-                                    st.success(f"✅ Chief Master credentials successfully sent to **{c_mail.strip()}**! Check your inbox.")
-                                else:
-                                    st.error("Failed to send email. Please check SMTP settings.")
+                    col_send, col_diag = st.columns([1.5, 1])
+                    with col_send:
+                        if st.button("📧 Send Chief Credentials", use_container_width=True, key="btn_send_chief_creds"):
+                            from backend.email_service import email_service
+                            if not c_mail.strip() or "@" not in c_mail:
+                                st.error("Please enter a valid email address.")
+                            else:
+                                with st.spinner("Dispatching master credentials email..."):
+                                    res = email_service.send_chief_credentials_email(c_mail.strip())
+                                    if res.get("success"):
+                                        st.success(f"✅ Chief Master credentials successfully sent to **{c_mail.strip()}**! Check your inbox.")
+                                    else:
+                                        st.error(f"❌ {res.get('message', 'Failed to send email.')}")
+                    with col_diag:
+                        if st.button("🔍 Test SMTP", use_container_width=True, key="btn_test_smtp_diag"):
+                            from backend.email_service import email_service
+                            diag = email_service.test_connection()
+                            if diag.get("success"):
+                                st.success(diag.get("message"))
+                            else:
+                                st.error(diag.get("message"))
 
         # ----------------------------------------------------
         # TAB 2: PUBLIC CITIZEN SIGN-UP (WITH EMAIL OTP)
@@ -966,6 +980,8 @@ if not st.session_state.get("authenticated", False):
                                 st.session_state["active_expected_email"] = s_contact.strip().lower()
                                 st.session_state.pop("citizen_email_verified", None)
                                 st.success(f"✅ 6-digit OTP sent to **{s_contact.strip()}**! Please check your email inbox (and spam folder) and enter the code below.")
+                            else:
+                                st.error(f"❌ {msg}")
 
                 # Status Banner if OTP was sent
                 if st.session_state.get("otp_sent_to") == s_contact.strip().lower() and not st.session_state.get("citizen_email_verified"):
