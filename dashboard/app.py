@@ -502,6 +502,70 @@ button[kind="primary"], button[kind="secondary"] {
         padding: 12px 14px !important;
     }
 }
+
+/* Tactical Map Red Alert Blinking Strobe System */
+@keyframes radarEmergencyStrobe {
+    0%, 100% {
+        background: linear-gradient(135deg, rgba(255, 30, 30, 0.38), rgba(180, 10, 10, 0.48));
+        border-color: #ff3333;
+        box-shadow: 0 0 35px rgba(255, 40, 40, 0.85), inset 0 0 25px rgba(255, 30, 30, 0.5);
+        transform: scale(1);
+    }
+    50% {
+        background: linear-gradient(135deg, rgba(120, 10, 10, 0.22), rgba(80, 5, 5, 0.3));
+        border-color: rgba(255, 60, 60, 0.45);
+        box-shadow: 0 0 14px rgba(255, 40, 40, 0.3);
+        transform: scale(0.998);
+    }
+}
+
+@keyframes radarRedBeaconPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 40, 40, 0.95);
+        transform: scale(0.95);
+    }
+    70% {
+        box-shadow: 0 0 0 16px rgba(255, 40, 40, 0);
+        transform: scale(1.2);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 40, 40, 0);
+        transform: scale(0.95);
+    }
+}
+
+@keyframes textFastFlash {
+    0%, 100% { opacity: 1; color: #ffffff; text-shadow: 0 0 14px #ff3333; }
+    50% { opacity: 0.35; color: #ff9999; text-shadow: none; }
+}
+
+.strobe-alert-hud {
+    animation: radarEmergencyStrobe 1.1s infinite ease-in-out;
+    border-radius: 14px;
+    border: 2px solid #ff3333;
+    padding: 14px 18px;
+    margin-bottom: 14px;
+    position: relative;
+    overflow: hidden;
+}
+
+.pulse-beacon-dot {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #ff2222;
+    animation: radarRedBeaconPulse 1.1s infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+.flash-alert-title {
+    animation: textFastFlash 0.9s infinite alternate;
+    font-size: 15px;
+    font-weight: 900;
+    letter-spacing: 0.4px;
+}
 </style>
 """,
     unsafe_allow_html=True,
@@ -1674,6 +1738,44 @@ def render_tactical_pydeck_map(df: pd.DataFrame, center_lat: float, center_lon: 
 
     layers = []
 
+    # 1. High-Visibility Animated Blinking / Pulsing Crimson Red Threat Beacon Layers
+    threat_mask = df["Category"].str.contains("Active Threat|Live AI Threat", case=False, na=False)
+    threat_df = df[threat_mask]
+    if not threat_df.empty:
+        # Outer expanding shockwave danger zone
+        outer_blast_layer = pdk.Layer(
+            "ScatterplotLayer",
+            data=threat_df,
+            get_position="[longitude, latitude]",
+            get_fill_color=[255, 0, 0, 40],
+            get_line_color=[255, 40, 40, 210],
+            get_line_width=3,
+            stroked=True,
+            filled=True,
+            get_radius=500,
+            radius_min_pixels=32,
+            radius_max_pixels=110,
+            pickable=False,
+        )
+        layers.append(outer_blast_layer)
+
+        # Mid pulsing neon red strobe ring
+        strobe_pulse_layer = pdk.Layer(
+            "ScatterplotLayer",
+            data=threat_df,
+            get_position="[longitude, latitude]",
+            get_fill_color=[255, 0, 0, 115],
+            get_line_color=[255, 20, 20, 255],
+            get_line_width=5,
+            stroked=True,
+            filled=True,
+            get_radius=270,
+            radius_min_pixels=20,
+            radius_max_pixels=65,
+            pickable=False,
+        )
+        layers.append(strobe_pulse_layer)
+
     if routes:
         routes_df = pd.DataFrame(routes)
         line_layer = pdk.Layer(
@@ -1747,6 +1849,56 @@ def render_tactical_pydeck_map(df: pd.DataFrame, center_lat: float, center_lon: 
         tooltip=tooltip,
     )
     st.pydeck_chart(deck, use_container_width=True)
+
+
+def render_active_threat_map_hud(active_alerts: list[dict[str, Any]], detected: bool, cadie: dict[str, Any], label: str, sent_lat: float, sent_lon: float, conf_val: float):
+    """Render high-intensity animated pulsing red alert banner above tactical radar whenever active threats exist."""
+    has_active = bool(active_alerts) or detected or str(cadie.get("risk_level", "")).upper() in ["HIGH", "CRITICAL"]
+    if not has_active:
+        return
+
+    top_title = "CRITICAL THREAT SIGNAL"
+    top_coords = f"{sent_lat:.5f}°N, {sent_lon:.5f}°E"
+    assigned_info = "⚡ Awaiting Rapid Field Patrol Dispatch"
+    risk_tag = "CRITICAL"
+
+    if active_alerts:
+        al = active_alerts[0]
+        top_title = al.get("threat_type", "Acoustic Threat")
+        risk_tag = al.get("risk_level", "CRITICAL")
+        lat = al.get("location_lat", sent_lat)
+        lon = al.get("location_lon", sent_lon)
+        top_coords = f"{float(lat):.5f}°N, {float(lon):.5f}°E"
+        rname = al.get("assigned_ranger_name")
+        if rname:
+            assigned_info = f"⚡ RESPONDING: Ranger {rname} (Active Interception Vector Armed)"
+        else:
+            assigned_info = "⚠️ UNASSIGNED: Immediate Ranger Dispatch Required"
+    elif detected:
+        top_title = f"{label} (Perception Confidence: {confidence(conf_val)})"
+        top_coords = f"{(sent_lat + 0.0022):.5f}°N, {(sent_lon + 0.0025):.5f}°E"
+        assigned_info = f"CADIE Action: {cadie.get('action', 'DISPATCH')} · Edge Alert Armed"
+        risk_tag = str(cadie.get("risk_level", "HIGH")).upper()
+
+    st.markdown(
+        f"""
+        <div class="strobe-alert-hud">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="pulse-beacon-dot"></span>
+                    <span class="flash-alert-title">🚨 ACTIVE EMERGENCY THREAT DETECTED — RADAR BLINKING IN RED</span>
+                </div>
+                <span style="background:#ff2b2b; color:#fff; font-weight:800; font-size:11px; padding:4px 12px; border-radius:6px; letter-spacing:0.5px; box-shadow:0 0 14px #ff2b2b; animation:textFastFlash 0.9s infinite alternate;">{risk_tag} INTERCEPTION PRIORITY</span>
+            </div>
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:8px; margin-top:8px; background:rgba(0,0,0,0.4); padding:10px 14px; border-radius:8px; font-size:12px;">
+                <div>🎯 <b>Threat Target:</b> <span style="color:#ff8585; font-weight:700;">{top_title}</span></div>
+                <div>📍 <b>GPS Beacon:</b> <span style="color:#73d9e8; font-family:'JetBrains Mono',monospace;">{top_coords}</span></div>
+                <div>🛡️ <b>Response Status:</b> <span style="color:#f2c66d; font-weight:700;">{assigned_info}</span></div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 def render_incident_archive_page():
     """Render comprehensive historical archive of all solved threats and citizen incidents."""
@@ -1922,6 +2074,7 @@ if current_role == "admin":
 
     elif active_page == "🗺️ Tactical Map & Dispatch":
         st.markdown('<div class="section"><div class="section-title">Live Tactical Map & Field Ranger Dispatch</div><div class="section-meta">GPS SENTINEL NODES · ACTIVE THREATS · NEARBY FIELD RANGERS</div></div>', unsafe_allow_html=True)
+        render_active_threat_map_hud(active_alerts, detected, cadie, label, sent_lat, sent_lon, conf)
         map_col, dispatch_col = st.columns([2.2, 1.3])
         with map_col:
             render_tactical_pydeck_map(map_dataframe, sent_lat, sent_lon, zoom=13.5, routes=map_dispatch_routes)
@@ -2377,6 +2530,7 @@ elif current_role == "ranger":
 
     elif active_page == "🗺️ Sector Map & Near Rangers":
         st.markdown('<div class="section"><div class="section-title">Tactical Sector Map & Near My Rangers Radar</div><div class="section-meta">LIVE PATROL BUDDY PROXIMITY · TARGET THREAT COORDINATES</div></div>', unsafe_allow_html=True)
+        render_active_threat_map_hud(active_alerts, detected, cadie, label, sent_lat, sent_lon, conf)
         render_tactical_pydeck_map(map_dataframe, sent_lat, sent_lon, zoom=14.0, routes=map_dispatch_routes)
         st.markdown(
             """
