@@ -1165,9 +1165,37 @@ risk_raw = str(cadie.get("risk_level") or "LOW").upper()
 threat_class = "threat-critical" if risk_raw in ["HIGH", "CRITICAL"] else ("threat-elevated" if risk_raw in ["ELEVATED", "MEDIUM"] else "threat-nominal")
 conf_color = "#ff7070" if risk_raw in ["HIGH", "CRITICAL"] else ("#f2c66d" if risk_raw in ["ELEVATED", "MEDIUM"] else "#7cf0b2")
 
-# Active emergency alerts
+# Ingest live device GPS from browser/mobile device query parameters
+query_params = getattr(st, "query_params", None)
+if query_params:
+    dev_lat = query_params.get("device_lat") or query_params.get("lat")
+    dev_lon = query_params.get("device_lon") or query_params.get("lon")
+    if dev_lat and dev_lon:
+        try:
+            d_lat = float(dev_lat)
+            d_lon = float(dev_lon)
+            if -90.0 <= d_lat <= 90.0 and -180.0 <= d_lon <= 180.0 and (abs(d_lat) > 0.001 or abs(d_lon) > 0.001):
+                st.session_state["client_gps_lat"] = d_lat
+                st.session_state["client_gps_lon"] = d_lon
+                st.session_state["client_gps_accuracy"] = float(query_params.get("gps_acc", 10.0))
+                st.session_state["client_gps_acquired"] = True
+        except (ValueError, TypeError):
+            pass
+
+# Active emergency alerts & Field Rangers
 active_alerts = db.get_active_emergency_alerts()
 field_rangers = db.get_field_rangers()
+
+# If user is a logged-in Field Ranger, automatically sync their live GPS location into database
+if current_role == "ranger" and "client_gps_lat" in st.session_state and "client_gps_lon" in st.session_state:
+    c_lat = float(st.session_state["client_gps_lat"])
+    c_lon = float(st.session_state["client_gps_lon"])
+    r_id = "rng_" + username_active.replace(".", "_")
+    db.update_ranger_location(r_id, c_lat, c_lon, status="LIVE_GPS_ACTIVE")
+    for r in field_rangers:
+        if r.get("ranger_id") == r_id or username_active.lower() in str(r.get("phone", "")).lower() or username_active.lower() in str(r.get("name", "")).lower():
+            db.update_ranger_location(r.get("ranger_id"), c_lat, c_lon, status="LIVE_GPS_ACTIVE")
+    field_rangers = db.get_field_rangers()
 
 # GPS Coordinates
 loc_dict = state.get("location") or telemetry.get("location") or {}
@@ -1458,49 +1486,76 @@ elif st.session_state.get("manual_siren_trigger"):
         render_siren_audio_synthesizer(is_active=True, threat_label="Tactical Siren Audio Test")
         st.info("🚨 Playing manual siren audio test (Web Audio API). Click Silence / Mute to stop.")
 
-# Build map dataframe with rich hover metadata, color-coded markers, and nodes/alerts
-def build_map_data() -> pd.DataFrame:
-    records = [
-        {
-            "latitude": float(sent_lat),
-            "longitude": float(sent_lon),
-            "Entity": f"📡 Primary Sentinel Base Node ({device_id})",
-            "label_short": f"📡 Sentinel-01",
-            "Category": "🟢 Sentinel AI Base Node",
-            "Coordinates": f"{sent_lat:.5f}°N, {sent_lon:.5f}°E",
-            "Status": "ONLINE & ARMED",
-            "Details": f"Live Perception: {label} ({confidence(conf)}) · ESP32-S3 DMA",
-            "color": [124, 240, 178, 240],
-            "radius": 95,
-            "size": 38,
-        },
-        {
-            "latitude": float(sent_lat + 0.0042),
-            "longitude": float(sent_lon + 0.0035),
-            "Entity": "📡 Sentinel-02 Mesh Node (North Ridge)",
-            "label_short": "📡 Sentinel-02",
-            "Category": "🟢 Sentinel AI Base Node",
-            "Coordinates": f"{(sent_lat + 0.0042):.5f}°N, {(sent_lon + 0.0035):.5f}°E",
-            "Status": "ONLINE (Mesh Hop 1)",
-            "Details": "LoRa 868MHz Mesh Relay · Solar 98% · Perimeter Secured",
-            "color": [124, 240, 178, 210],
-            "radius": 80,
-            "size": 28,
-        },
-        {
-            "latitude": float(sent_lat - 0.0038),
-            "longitude": float(sent_lon - 0.0044),
-            "Entity": "📡 Sentinel-03 Mesh Node (West Creek)",
-            "label_short": "📡 Sentinel-03",
-            "Category": "🟢 Sentinel AI Base Node",
-            "Coordinates": f"{(sent_lat - 0.0038):.5f}°N, {(sent_lon - 0.0044):.5f}°E",
-            "Status": "ONLINE (Mesh Hop 2)",
-            "Details": "LoRa 868MHz Mesh Relay · Solar 92% · Perimeter Secured",
-            "color": [124, 240, 178, 210],
-            "radius": 80,
-            "size": 28,
-        },
-    ]
+def render_geolocation_sentry(title: str = "LIVE DEVICE GPS SENTRY", auto_capture: bool = True) -> None:
+    """In-browser HTML5 High-Accuracy Geolocation synchronizer."""
+    gps_lat_curr = st.session_state.get("client_gps_lat")
+    gps_lon_curr = st.session_state.get("client_gps_lon")
+    gps_acc_curr = st.session_state.get("client_gps_accuracy", 12)
+    has_fix = gps_lat_curr is not None and gps_lon_curr is not None
+
+    status_init = f"✅ Satellite Fix Acquired: {gps_lat_curr:.5f}°N, {gps_lon_curr:.5f}°E (±{int(gps_acc_curr)}m)" if has_fix else "🛰️ Standby — Click 'Capture My Live GPS' to lock device coordinates."
+
+    geo_html = f"""
+    <div style="background: linear-gradient(135deg, rgba(16, 32, 38, 0.95), rgba(8, 18, 22, 0.98)); border: 1.5px solid rgba(124, 240, 178, 0.45); border-radius: 12px; padding: 10px 16px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="display: inline-block; width: 10px; height: 10px; background: #7cf0b2; border-radius: 50%; box-shadow: 0 0 10px #7cf0b2;"></span>
+            <div>
+                <div style="color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; font-weight: 800; letter-spacing: 0.04em;">📍 {title}</div>
+                <div id="auraGpsLabel" style="color: #7cf0b2; font-family: 'JetBrains Mono', monospace; font-size: 11px; margin-top: 2px;">{status_init}</div>
+            </div>
+        </div>
+        <button id="auraGpsBtn" onclick="requestBrowserGps()" style="background: linear-gradient(135deg, #7cf0b2, #73d9e8); color: #060a0c; font-weight: 800; font-size: 11px; border: none; border-radius: 8px; padding: 7px 16px; cursor: pointer; font-family: sans-serif; transition: all 0.2s; box-shadow: 0 2px 10px rgba(124,240,178,0.35);">
+            📡 Capture My Live GPS
+        </button>
+    </div>
+    <script>
+    function requestBrowserGps() {{
+        const lbl = document.getElementById("auraGpsLabel");
+        const btn = document.getElementById("auraGpsBtn");
+        if (!navigator.geolocation) {{
+            if (lbl) lbl.innerHTML = "❌ Geolocation API not supported by your browser.";
+            return;
+        }}
+        if (lbl) lbl.innerHTML = "🛰️ Requesting device GPS coordinates from browser...";
+        if (btn) btn.innerText = "⏳ Acquiring GPS...";
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {{
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                const acc = Math.round(position.coords.accuracy);
+                if (lbl) lbl.innerHTML = `✅ Lat: <b>${{lat.toFixed(5)}}°</b>, Lon: <b>${{lon.toFixed(5)}}°</b> (±${{acc}}m accuracy)`;
+                if (btn) btn.innerText = "✅ GPS Acquired!";
+
+                try {{
+                    const url = new URL(window.parent.location.href);
+                    const oldLat = url.searchParams.get('device_lat');
+                    const oldLon = url.searchParams.get('device_lon');
+                    if (!oldLat || Math.abs(parseFloat(oldLat) - lat) > 0.0001 || Math.abs(parseFloat(oldLon) - lon) > 0.0001) {{
+                        url.searchParams.set('device_lat', lat.toFixed(6));
+                        url.searchParams.set('device_lon', lon.toFixed(6));
+                        url.searchParams.set('gps_acc', acc);
+                        window.parent.location.href = url.toString();
+                    }}
+                }} catch(e) {{
+                    console.warn("GPS parent sync:", e);
+                }}
+            }},
+            (error) => {{
+                if (lbl) lbl.innerHTML = `⚠️ GPS Error: ${{error.message}} (Please grant Location permission in browser settings).`;
+                if (btn) btn.innerText = "📡 Retry Live GPS";
+            }},
+            {{ enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }}
+        );
+    }}
+
+    // Auto-attempt low-friction capture if not yet acquired
+    if ({str(not has_fix).lower()} && {str(auto_capture).lower()}) {{
+        setTimeout(requestBrowserGps, 600);
+    }}
+    </script>
+    """
+    components.html(geo_html, height=64)
 
 # Build map dataframe with rich hover metadata, color-coded markers, and nodes/alerts/responding units
 def build_map_data() -> tuple[pd.DataFrame, list[dict[str, Any]]]:
@@ -1545,6 +1600,25 @@ def build_map_data() -> tuple[pd.DataFrame, list[dict[str, Any]]]:
             "size": 28,
         },
     ]
+
+    # If logged-in user is a citizen with live device GPS, plot their real location
+    if current_role == "viewer" and "client_gps_lat" in st.session_state and "client_gps_lon" in st.session_state:
+        u_lat = float(st.session_state["client_gps_lat"])
+        u_lon = float(st.session_state["client_gps_lon"])
+        u_acc = int(st.session_state.get("client_gps_accuracy", 10))
+        records.append({
+            "latitude": u_lat,
+            "longitude": u_lon,
+            "Entity": f"👁️ You ({user_display}) [LIVE USER GPS]",
+            "label_short": f"📍 You ({user_display.split()[0]})",
+            "Category": "🔵 Live Citizen Observer Location",
+            "Coordinates": f"{u_lat:.5f}°N, {u_lon:.5f}°E",
+            "Status": "ONLINE · VERIFIED DEVICE GPS",
+            "Details": f"Live Device Geolocation · GPS Fix Acquired (±{u_acc}m accuracy)",
+            "color": [115, 217, 232, 255],
+            "radius": 110,
+            "size": 44,
+        })
 
     dispatch_routes: list[dict[str, Any]] = []
     alert_loc_map: dict[str, tuple[float, float, str]] = {}
@@ -1624,14 +1698,20 @@ def build_map_data() -> tuple[pd.DataFrame, list[dict[str, Any]]]:
     for idx, rng in enumerate(rangers_to_plot):
         lat_val = rng.get("latitude")
         lon_val = rng.get("longitude")
-        # If coordinates are missing, default, or far away from sanctuary sent_lat, anchor nearby
-        if lat_val is None or lon_val is None or abs(float(lat_val)) < 0.1 or abs(float(lat_val) - sent_lat) > 0.5:
+        valid_gps = False
+        if lat_val is not None and lon_val is not None:
+            try:
+                lat_val = float(lat_val)
+                lon_val = float(lon_val)
+                if abs(lat_val) > 0.001 or abs(lon_val) > 0.001:
+                    valid_gps = True
+            except (ValueError, TypeError):
+                valid_gps = False
+
+        if not valid_gps:
             off_lat, off_lon = ranger_offsets[idx % len(ranger_offsets)]
             lat_val = sent_lat + off_lat
             lon_val = sent_lon + off_lon
-        else:
-            lat_val = float(lat_val)
-            lon_val = float(lon_val)
 
         r_name = rng.get("name", "Field Ranger")
         r_call = rng.get("callsign", f"UNIT-{idx+1}")
@@ -1642,6 +1722,7 @@ def build_map_data() -> tuple[pd.DataFrame, list[dict[str, Any]]]:
 
         # Check if ranger is currently responding to an active alert
         is_responding = "RESPONDING" in r_stat or bool(r_asgn)
+        is_me = username_active.lower() in str(rng.get("phone", "")).lower() or username_active.lower() in str(r_name).lower() or ("rng_" + username_active.replace(".", "_") == rng.get("ranger_id"))
 
         if is_responding:
             dest_lat, dest_lon, dest_th = sent_lat, sent_lon, "Threat"
@@ -1660,8 +1741,8 @@ def build_map_data() -> tuple[pd.DataFrame, list[dict[str, Any]]]:
             records.append({
                 "latitude": lat_val,
                 "longitude": lon_val,
-                "Entity": f"🛡️ Ranger {r_name} ({r_call}) ⚡ [RESPONDING UNIT]",
-                "label_short": f"⚡ {r_name.split()[0]} (RESPONDING)",
+                "Entity": f"🛡️ {'You (' + r_name + ')' if is_me else 'Ranger ' + r_name} ({r_call}) ⚡ [RESPONDING UNIT]",
+                "label_short": f"⚡ {'You' if is_me else r_name.split()[0]} (RESPONDING)",
                 "Category": "🔵 Field Ranger [DISPATCHED TO THREAT]",
                 "Coordinates": f"{lat_val:.5f}°N, {lon_val:.5f}°E",
                 "Status": f"⚡ RESPONDING (EN ROUTE TO {dest_th.upper()}) · 🔋 {r_batt}% BATT",
@@ -1674,15 +1755,15 @@ def build_map_data() -> tuple[pd.DataFrame, list[dict[str, Any]]]:
             records.append({
                 "latitude": lat_val,
                 "longitude": lon_val,
-                "Entity": f"🛡️ Ranger {r_name} ({r_call})",
-                "label_short": f"{r_name.split()[0]} ({r_call})",
-                "Category": "🔵 Field Ranger Patrol",
+                "Entity": f"🛡️ {'You (' + r_name + ')' if is_me else 'Ranger ' + r_name} ({r_call})",
+                "label_short": f"{'You' if is_me else r_name.split()[0]} ({r_call})",
+                "Category": "🔵 Field Ranger Patrol" + (" [LIVE GPS ACTIVE]" if is_me else ""),
                 "Coordinates": f"{lat_val:.5f}°N, {lon_val:.5f}°E",
                 "Status": f"{r_stat} · 🔋 {r_batt}% BATT",
                 "Details": f"Assigned Sector: {r_sec} · Callsign: {r_call} · 📞 {rng.get('phone', 'N/A')}",
-                "color": [115, 217, 232, 235],
-                "radius": 90,
-                "size": 36,
+                "color": [124, 240, 178, 250] if is_me else [115, 217, 232, 235],
+                "radius": 100 if is_me else 90,
+                "size": 40 if is_me else 36,
             })
 
     for rep in db.get_citizen_reports():
@@ -1818,9 +1899,20 @@ def render_tactical_pydeck_map(df: pd.DataFrame, center_lat: float, center_lon: 
     )
     layers.append(text_layer)
 
+    # Calculate dynamic tactical map center
+    c_lat, c_lon = float(center_lat), float(center_lon)
+    if "client_gps_lat" in st.session_state and "client_gps_lon" in st.session_state:
+        c_lat = float(st.session_state["client_gps_lat"])
+        c_lon = float(st.session_state["client_gps_lon"])
+    elif not df.empty:
+        valid_coords = df[df["latitude"].notnull() & df["longitude"].notnull()]
+        if not valid_coords.empty:
+            c_lat = float(valid_coords["latitude"].mean())
+            c_lon = float(valid_coords["longitude"].mean())
+
     view_state = pdk.ViewState(
-        latitude=float(center_lat),
-        longitude=float(center_lon),
+        latitude=c_lat,
+        longitude=c_lon,
         zoom=zoom,
         pitch=25,
         bearing=0,
@@ -2074,6 +2166,7 @@ if current_role == "admin":
 
     elif active_page == "🗺️ Tactical Map & Dispatch":
         st.markdown('<div class="section"><div class="section-title">Live Tactical Map & Field Ranger Dispatch</div><div class="section-meta">GPS SENTINEL NODES · ACTIVE THREATS · NEARBY FIELD RANGERS</div></div>', unsafe_allow_html=True)
+        render_geolocation_sentry("COMMAND HQ / CHIEF GPS SENTRY", auto_capture=False)
         render_active_threat_map_hud(active_alerts, detected, cadie, label, sent_lat, sent_lon, conf)
         map_col, dispatch_col = st.columns([2.2, 1.3])
         with map_col:
@@ -2477,6 +2570,7 @@ SMTP_SSL=false
 elif current_role == "ranger":
     if active_page == "🚨 Incident & Citizen Response":
         st.markdown('<div class="section"><div class="section-title">Active Threats & Citizen Incidents Response</div><div class="section-meta">ON-SITE INVESTIGATION AND RESOLUTION</div></div>', unsafe_allow_html=True)
+        render_geolocation_sentry("FIELD RANGER LIVE GPS TELEMETRY", auto_capture=True)
 
         # 1. Edge Alerts
         st.markdown("<div style='font-size:13px;font-weight:700;color:#ff7070;margin-bottom:8px;'>📡 Sentinel Edge AI Threat Alerts:</div>", unsafe_allow_html=True)
@@ -2530,6 +2624,7 @@ elif current_role == "ranger":
 
     elif active_page == "🗺️ Sector Map & Near Rangers":
         st.markdown('<div class="section"><div class="section-title">Tactical Sector Map & Near My Rangers Radar</div><div class="section-meta">LIVE PATROL BUDDY PROXIMITY · TARGET THREAT COORDINATES</div></div>', unsafe_allow_html=True)
+        render_geolocation_sentry("FIELD RANGER LIVE GPS TELEMETRY", auto_capture=True)
         render_active_threat_map_hud(active_alerts, detected, cadie, label, sent_lat, sent_lon, conf)
         render_tactical_pydeck_map(map_dataframe, sent_lat, sent_lon, zoom=14.0, routes=map_dispatch_routes)
         st.markdown(
@@ -2599,6 +2694,7 @@ elif current_role == "viewer":
 
     elif active_page == "📸 Report Illegal Activity":
         st.markdown('<div class="section"><div class="section-title">Citizen Tip: Report Illegal Forest Activity</div><div class="section-meta">REPORT CHAINSAWS, POACHING, OR FIRES DIRECTLY TO CHIEF RANGER</div></div>', unsafe_allow_html=True)
+        render_geolocation_sentry("CITIZEN LIVE GPS SENTRY (GEO-TAGGED EVIDENCE)", auto_capture=True)
 
         with st.container(border=True):
             r_col1, r_col2 = st.columns(2)
@@ -2618,11 +2714,14 @@ elif current_role == "viewer":
                 if cit_file is not None:
                     st.image(cit_file, caption=f"📸 Evidence Attached: {cit_file.name}", width=220)
 
+            live_user_lat = float(st.session_state.get("client_gps_lat", sent_lat))
+            live_user_lon = float(st.session_state.get("client_gps_lon", sent_lon))
+
             g_c1, g_c2 = st.columns(2)
             with g_c1:
-                rep_lat = st.number_input("Incident Latitude (Phone GPS)", value=sent_lat, format="%.6f")
+                rep_lat = st.number_input("Incident Latitude (Live Phone GPS)", value=live_user_lat, format="%.6f", key="inp_cit_lat")
             with g_c2:
-                rep_lon = st.number_input("Incident Longitude (Phone GPS)", value=sent_lon, format="%.6f")
+                rep_lon = st.number_input("Incident Longitude (Live Phone GPS)", value=live_user_lon, format="%.6f", key="inp_cit_lon")
 
             is_already_sent = st.session_state.get("citizen_report_just_sent", False)
             btn_label = "✅ Report & Evidence Sent to Chief Ranger!" if is_already_sent else "📤 Send Report & GPS Coordinates to Chief Ranger"
