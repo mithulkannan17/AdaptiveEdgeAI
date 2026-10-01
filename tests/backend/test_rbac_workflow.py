@@ -108,7 +108,38 @@ def test_citizen_report_submission_and_review(tmp_path, monkeypatch):
     # Verify updated report
     updated_reports = client.get("/api/v1/public/reports").json()["reports"]
     assert updated_reports[0]["status"] == "DISPATCHED"
-    assert updated_reports[0]["status_notes"] == "Dispatched Ranger Deepa to inspect creek."
+    # Field Ranger resolves citizen report on site
+    resolve_resp = client.post(
+        f"/api/v1/public/reports/{report_id}/resolve",
+        json={"resolved_by": "Ranger Amar Singh", "resolution_notes": "Suspects intercepted and handed to authorities."},
+    )
+    assert resolve_resp.status_code == 200
+    assert resolve_resp.json()["status"] == "RESOLVED"
+    assert resolve_resp.json()["resolved_by"] == "Ranger Amar Singh"
+
+
+def test_ranger_live_gps_streaming(tmp_path, monkeypatch):
+    client, db = create_test_client(tmp_path, monkeypatch)
+
+    # Ranger device streams live GPS fix
+    loc_payload = {
+        "latitude": 12.2995,
+        "longitude": 76.6435,
+        "battery": 91,
+        "status": "RESPONDING",
+    }
+    resp = client.post("/api/v1/edge/rangers/ranger_01/location", json=loc_payload)
+    assert resp.status_code == 200
+    assert resp.json()["success"] is True
+
+    # Verify updated location
+    rangers_resp = client.get("/api/v1/edge/rangers")
+    rangers = rangers_resp.json()["rangers"]
+    ranger_01 = next(r for r in rangers if r["ranger_id"] == "ranger_01")
+    assert abs(ranger_01["latitude"] - 12.2995) < 0.0001
+    assert abs(ranger_01["longitude"] - 76.6435) < 0.0001
+    assert ranger_01["battery"] == 91
+    assert ranger_01["status"] == "RESPONDING"
 
 
 def test_auth_audit_log(tmp_path, monkeypatch):

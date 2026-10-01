@@ -979,6 +979,54 @@ def update_citizen_report_status_from_dashboard(report_id: str, status: str, not
         return False, str(e)
 
 
+def resolve_citizen_report_from_dashboard(report_id: str, resolved_by: str, notes: str) -> tuple[bool, str]:
+    """Field ranger marks citizen reported threat as solved."""
+    try:
+        res = discovery_api(
+            f"/api/v1/public/reports/{report_id}/resolve",
+            method="POST",
+            payload={"resolved_by": resolved_by, "resolution_notes": notes},
+        )
+        if res.get("success"):
+            return True, f"Citizen incident {report_id} successfully marked as SOLVED."
+        return False, str(res)
+    except Exception as e:
+        return False, str(e)
+
+
+def update_ranger_location_from_dashboard(ranger_id: str, latitude: float, longitude: float, battery: int = 95, status: str = "ON_PATROL") -> bool:
+    """Stream live phone GPS location from field ranger device."""
+    try:
+        res = discovery_api(
+            f"/api/v1/edge/rangers/{ranger_id}/location",
+            method="POST",
+            payload={"latitude": latitude, "longitude": longitude, "battery": battery, "status": status},
+        )
+        return bool(res.get("success"))
+    except Exception:
+        return False
+
+
+def calculate_haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate distance in meters between two GPS coordinates using Haversine formula."""
+    try:
+        r_earth = 6371000.0  # meters
+        d_lat = math.radians(lat2 - lat1)
+        d_lon = math.radians(lon2 - lon1)
+        a = math.sin(d_lat / 2.0) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(d_lon / 2.0) ** 2
+        c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(max(0.0, 1.0 - a)))
+        return r_earth * c
+    except Exception:
+        return 0.0
+
+
+def format_gps_distance(meters: float) -> str:
+    """Format meters into user-friendly string."""
+    if meters < 1000.0:
+        return f"{int(round(meters))}m away"
+    return f"{meters / 1000.0:.2f}km away"
+
+
 def get_auth_audit_log_from_dashboard() -> list[dict]:
     try:
         res = discovery_api("/api/v1/auth/audit_log")
@@ -1608,10 +1656,13 @@ if current_role == "admin":
             st.markdown(
                 """
                 <div class="panel">
-                    <div class="panel-title">Nearby Field Rangers Roster</div>
+                    <div class="panel-title">Nearby Field Rangers Roster (Live GPS)</div>
                 """,
                 unsafe_allow_html=True,
             )
+            top_threat_lat = active_alerts[0].get("location_lat", sent_lat) if active_alerts else sent_lat
+            top_threat_lon = active_alerts[0].get("location_lon", sent_lon) if active_alerts else sent_lon
+
             for rng in field_rangers:
                 r_id = rng.get("ranger_id")
                 r_name = rng.get("name")
@@ -1620,11 +1671,17 @@ if current_role == "admin":
                 r_status = rng.get("status")
                 r_batt = rng.get("battery")
                 r_phone = rng.get("phone", "—")
+                r_lat = float(safe_num(rng.get("latitude"), sent_lat))
+                r_lon = float(safe_num(rng.get("longitude"), sent_lon))
+
+                # Distance to active threat
+                d_threat = calculate_haversine_distance(r_lat, r_lon, top_threat_lat, top_threat_lon)
+                d_str = format_gps_distance(d_threat)
 
                 with st.container(border=True):
                     st.markdown(f"**{r_name}** (`{r_call}`)")
                     st.caption(f"📍 {r_sec} · 🔋 {r_batt}% · 📞 {r_phone}")
-                    st.markdown(f"Status: `{r_status}`")
+                    st.markdown(f"Status: `{r_status}` · **Distance to Threat:** `{d_str}`")
 
                     if active_alerts:
                         top_a_id = active_alerts[0].get("alert_id")
@@ -1815,37 +1872,90 @@ if current_role == "admin":
 # ============================================================
 
 elif current_role == "ranger":
+    # ------------------------------------------------------
+    # Live Ranger Device GPS Tracker & Telemetry Bridge
+    # ------------------------------------------------------
+    ranger_unit_id = st.session_state.get("aura_ranger_unit_id", "ranger_01")
+    ranger_gps_bridge_html = f"""
+    <div style="background:rgba(115, 217, 232, 0.08); border:1.5px solid rgba(115, 217, 232, 0.35); border-radius:12px; padding:12px 16px; margin-bottom:14px; font-family:'JetBrains Mono',monospace; font-size:11px; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+            <div id="ranger-gps-badge" style="color:#73d9e8; font-weight:700;">📡 Field Ranger Mobile GPS Armed (Unit: {ranger_unit_id.upper()})</div>
+            <div id="ranger-coords-detail" style="color:#edf6f3; font-size:10px; margin-top:2px;">Streaming live patrol coordinates to Chief Dispatch & Near Patrol Buddies...</div>
+        </div>
+        <button onclick="syncRangerLiveGPS()" style="background:#13262b; color:#73d9e8; border:1px solid #73d9e8; border-radius:8px; padding:6px 14px; font-size:10px; font-weight:700; cursor:pointer;">
+            📍 Force GPS Sync
+        </button>
+    </div>
+
+    <script>
+    function syncRangerLiveGPS() {{
+        if ("geolocation" in navigator) {{
+            navigator.geolocation.getCurrentPosition(
+                function(pos) {{
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
+                    const acc = pos.coords.accuracy ? Math.round(pos.coords.accuracy) : 6;
+                    document.getElementById("ranger-gps-badge").innerHTML = "🟢 Live Patrol GPS Locked (±" + acc + "m accuracy)";
+                    document.getElementById("ranger-coords-detail").innerHTML = "Lat: " + lat.toFixed(6) + "°N · Lon: " + lon.toFixed(6) + "°E · Live Patrol Satellite Fix";
+
+                    // Sync to backend
+                    try {{
+                        fetch("/api/v1/edge/rangers/{ranger_unit_id}/location", {{
+                            method: "POST",
+                            headers: {{"Content-Type": "application/json"}},
+                            body: JSON.stringify({{ latitude: lat, longitude: lon, battery: 94, status: "ON_PATROL" }})
+                        }}).catch(function(){{}});
+                    }} catch(e) {{}}
+                }},
+                function(err) {{
+                    document.getElementById("ranger-gps-badge").innerHTML = "🟡 Patrol GPS Standby (Using Sector Grid Fix)";
+                }},
+                {{ enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }}
+            );
+        }}
+    }}
+    syncRangerLiveGPS();
+    </script>
+    """
+    components.html(ranger_gps_bridge_html, height=78)
+
     r_tab1, r_tab2, r_tab3, r_tab4 = st.tabs([
-        "🚨 Tactical Alert Response & Resolution",
-        "🗺️ Patrol Sector Map & GPS Nav",
+        "🚨 Tactical Alert & Citizen Incident Response",
+        "🗺️ Patrol Sector Map & Near My Rangers",
         "📡 Field Telemetry & Gas Sentry",
         "📊 Acoustic Frequency Monitor",
     ])
 
-    # Tab 1: Alert Response & Resolve
+    # Tab 1: Alert & Citizen Incident Response
     with r_tab1:
         st.markdown(
-            '<div class="section"><div class="section-title">Assigned Threat Incidents & Tactical Resolution</div>'
-            '<div class="section-meta">ADDRESS ACTIVE EMERGENCY ALERTS · SECURE PERIMETER · MARK AS SOLVED</div></div>',
+            '<div class="section"><div class="section-title">Active Threats & Citizen Incidents Response</div>'
+            '<div class="section-meta">RESPOND TO SENTINEL AI ALERTS AND GEOTAGGED CITIZEN TIPS · ON-SITE RESOLUTION</div></div>',
             unsafe_allow_html=True,
         )
+
+        # 1. Sentinel Edge AI Alerts
+        st.markdown("<div style='font-size:13px;font-weight:700;color:#ff7070;margin-bottom:8px;'>📡 Sentinel Edge AI Threat Alerts:</div>", unsafe_allow_html=True)
         if not active_alerts:
-            st.success("🟢 No active emergency alerts in your sector. Perimeter is secure.")
+            st.success("🟢 No unacknowledged Sentinel edge alerts in your sector.")
         else:
             for al in active_alerts:
                 al_id = al.get("alert_id")
                 al_th = str(al.get("threat_type")).upper()
                 al_cf = safe_num(al.get("confidence")) * 100
-                al_lat = al.get("location_lat", sent_lat)
-                al_lon = al.get("location_lon", sent_lon)
+                al_lat = float(safe_num(al.get("location_lat"), sent_lat))
+                al_lon = float(safe_num(al.get("location_lon"), sent_lon))
                 al_stat = al.get("status")
+
+                d_val = calculate_haversine_distance(sent_lat, sent_lon, al_lat, al_lon)
+                d_str = format_gps_distance(d_val)
 
                 with st.container(border=True):
                     st.markdown(
                         f"""
                         <div style="background:rgba(255,112,112,0.12); border-left:4px solid #ff7070; padding:12px 16px; border-radius:10px; margin-bottom:12px;">
                             <div style="font-size:16px; font-weight:800; color:#ff7070;">🚨 THREAT: {al_th} ({al_cf:.1f}% Confidence)</div>
-                            <div style="font-size:12px; color:#edf6f3; margin-top:4px;">Coordinates: {al_lat:.5f}°N, {al_lon:.5f}°E · Alert ID: <code>{al_id}</code></div>
+                            <div style="font-size:12px; color:#edf6f3; margin-top:4px;">📍 Pinpoint: {al_lat:.5f}°N, {al_lon:.5f}°E · <b>Distance: {d_str}</b> · Alert ID: <code>{al_id}</code></div>
                             <div style="font-size:11px; color:#829a97; margin-top:2px;">Assigned: {al.get('assigned_ranger_name') or 'Field Unit'} · Status: {al_stat}</div>
                         </div>
                         """,
@@ -1855,31 +1965,101 @@ elif current_role == "ranger":
                     with res_col1:
                         res_notes = st.text_input(
                             "On-Site Action / Resolution Notes",
-                            value="Threat investigated, perpetrators deterred, location secured.",
-                            key=f"notes_{al_id}",
+                            value="Threat investigated, perpetrators deterred, perimeter secured.",
+                            key=f"notes_alert_{al_id}",
                         )
                     with res_col2:
                         st.write("")
-                        if st.button("✅ Mark Alert as Solved", key=f"btn_res_{al_id}", use_container_width=True, type="primary"):
+                        if st.button("✅ Mark Alert as Solved", key=f"btn_res_al_{al_id}", use_container_width=True, type="primary"):
                             ok, msg = resolve_alert_from_dashboard(al_id, resolved_by=st.session_state.get("aura_user_name", "Field Ranger"), notes=res_notes)
                             if ok:
                                 st.success(msg)
                                 st.rerun()
 
-    # Tab 2: Sector Map
+        # 2. Public Citizen Incidents Pending Field Resolution
+        st.markdown("<div style='font-size:13px;font-weight:700;color:#f2c66d;margin-top:20px;margin-bottom:8px;'>📸 Citizen-Reported Field Incidents (Photo & Phone GPS):</div>", unsafe_allow_html=True)
+        all_cit_reports = get_citizen_reports_from_dashboard()
+        unresolved_cit = [c for c in all_cit_reports if str(c.get("status", "")).upper() != "RESOLVED"]
+
+        if not unresolved_cit:
+            st.info("🟢 No pending citizen reports in the forest reserve. All clear.")
+        else:
+            for rep in unresolved_cit:
+                c_id = rep.get("report_id")
+                c_name = rep.get("reporter_name", "Anonymous")
+                c_contact = rep.get("contact_info", "—")
+                c_cat = rep.get("threat_category", "Illegal Activity")
+                c_desc = rep.get("description", "")
+                c_stat = str(rep.get("status", "PENDING")).upper()
+                c_photo = rep.get("photo_filename")
+                c_lat = float(safe_num(rep.get("location_lat"), sent_lat))
+                c_lon = float(safe_num(rep.get("location_lon"), sent_lon))
+                c_time = str(rep.get("created_at", ""))[:19].replace("T", " ")
+
+                dist_to_cit = calculate_haversine_distance(sent_lat, sent_lon, c_lat, c_lon)
+                dist_cit_str = format_gps_distance(dist_to_cit)
+
+                with st.container(border=True):
+                    cit_c1, cit_c2, cit_c3 = st.columns([1.2, 1.8, 1.2])
+
+                    # Photo Evidence Preview
+                    with cit_c1:
+                        if c_photo and c_photo != "no_photo.jpg":
+                            if c_photo.startswith("data:image"):
+                                st.image(c_photo, caption=f"📸 Citizen Photo: {c_cat}", use_container_width=True)
+                            elif os.path.exists(c_photo):
+                                st.image(c_photo, caption=f"📸 Citizen Photo: {c_cat}", use_container_width=True)
+                            elif os.path.exists(os.path.join(str(PROJECT_ROOT), "data", "evidence_photos", c_photo)):
+                                st.image(os.path.join(str(PROJECT_ROOT), "data", "evidence_photos", c_photo), caption=f"📸 Citizen Photo: {c_cat}", use_container_width=True)
+                            else:
+                                st.markdown(f"<div style='background:rgba(255,112,112,0.08); border:1px dashed #ff7070; border-radius:10px; padding:18px 12px; text-align:center; color:#ff7070; font-size:11px;'>📸 Attached File:<br/><code>{c_photo[:25]}...</code></div>", unsafe_allow_html=True)
+                        else:
+                            st.markdown("<div style='background:rgba(255,255,255,0.03); border:1px dashed var(--line); border-radius:10px; padding:24px 12px; text-align:center; color:var(--muted); font-size:11px;'>📷 No photo attached</div>", unsafe_allow_html=True)
+
+                    # Description & Location
+                    with cit_c2:
+                        st.markdown(f"**Threat:** `{c_cat}`")
+                        st.markdown(f"**Report ID:** `{c_id}` · **Logged:** {c_time}")
+                        st.markdown(f"**Reporter:** {c_name} (📞 `{c_contact}`)")
+                        st.markdown(f"**Description:** {c_desc}")
+                        st.markdown(f"📍 **Phone GPS:** [`{c_lat:.6f}°N, {c_lon:.6f}°E`](https://maps.google.com/?q={c_lat},{c_lon}) · **Distance: `{dist_cit_str}`**")
+
+                    # Resolution Controls
+                    with cit_c3:
+                        st.markdown(f"<div style='font-size:11px;font-weight:700;color:#f2c66d;'>STATUS: {c_stat}</div>", unsafe_allow_html=True)
+                        cit_notes = st.text_input("On-Site Resolution Notes", value="Inspected coordinates, secured area.", key=f"notes_cit_{c_id}")
+                        if st.button("✅ Mark Incident as Solved", key=f"btn_res_cit_{c_id}", use_container_width=True, type="primary"):
+                            ok, msg = resolve_citizen_report_from_dashboard(c_id, resolved_by=st.session_state.get("aura_user_name", "Field Ranger"), notes=cit_notes)
+                            if ok:
+                                st.success(f"✅ {msg}")
+                                st.rerun()
+
+    # Tab 2: Sector Map & Near My Rangers
     with r_tab2:
         st.markdown(
-            '<div class="section"><div class="section-title">Tactical Sector Map & Navigation</div>'
-            '<div class="section-meta">FIELD RANGER GPS · TARGET THREAT COORDINATES · PATROL BUDDY POSITIONS</div></div>',
+            '<div class="section"><div class="section-title">Tactical Sector Map & Near My Rangers Radar</div>'
+            '<div class="section-meta">LIVE PATROL BUDDY PROXIMITY · TARGET THREAT COORDINATES · FIELD NAVIGATION</div></div>',
             unsafe_allow_html=True,
         )
         st.map(map_dataframe[["latitude", "longitude"]], zoom=14, use_container_width=True)
-        st.caption("🟢 Sentinel Edge Nodes | 🔴 Active Threat Incident Pins | 🔵 Patrol Ranger Positions")
-        st.dataframe(
-            map_dataframe[["Entity", "Category", "Coordinates", "Status"]],
-            use_container_width=True,
-            hide_index=True,
-        )
+        st.caption("🟢 Sentinel Edge Nodes | 🔴 Active Threat Incident Pins | 🟠 Citizen Phone GPS Tips | 🔵 Patrol Ranger Positions")
+
+        # Near My Rangers Proximity Matrix
+        st.markdown("<div style='font-size:13px;font-weight:700;color:#73d9e8;margin-top:16px;margin-bottom:8px;'>👥 Near My Rangers (Live Proximity Radar):</div>", unsafe_allow_html=True)
+        r_cols = st.columns(len(field_rangers))
+        for idx, rng in enumerate(field_rangers):
+            with r_cols[idx]:
+                rg_lat = float(safe_num(rng.get("latitude"), sent_lat))
+                rg_lon = float(safe_num(rng.get("longitude"), sent_lon))
+                rg_dist = calculate_haversine_distance(sent_lat, sent_lon, rg_lat, rg_lon)
+                rg_dist_str = format_gps_distance(rg_dist)
+
+                with st.container(border=True):
+                    st.markdown(f"**{rng.get('name')}**")
+                    st.caption(f"Callsign: `{rng.get('callsign')}` · Rank: {rng.get('rank')}")
+                    st.markdown(f"📍 **Proximity:** `{rg_dist_str}`")
+                    st.markdown(f"🔋 Battery: `{rng.get('battery')}%` · Status: `{rng.get('status')}`")
+                    st.markdown(f"📞 `{rng.get('phone')}`")
 
     # Tab 3: Field Telemetry
     with r_tab3:

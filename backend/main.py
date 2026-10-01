@@ -2462,6 +2462,39 @@ def get_field_rangers():
     }
 
 
+class RangerLocationUpdateRequest(BaseModel):
+    latitude: float
+    longitude: float
+    battery: int | None = None
+    status: str | None = None
+
+
+@app.post(
+    "/api/v1/edge/rangers/{ranger_id}/location"
+)
+def update_ranger_location(
+    ranger_id: str,
+    payload: RangerLocationUpdateRequest = Body(...),
+):
+    """Stream live phone/device GPS location and battery from on-patrol field ranger."""
+    success = database.update_ranger_location(
+        ranger_id=ranger_id,
+        latitude=payload.latitude,
+        longitude=payload.longitude,
+        battery=payload.battery,
+        status=payload.status,
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Ranger '{ranger_id}' not found.")
+    return {
+        "success": True,
+        "ranger_id": ranger_id,
+        "latitude": payload.latitude,
+        "longitude": payload.longitude,
+        "status": payload.status or "UPDATED",
+    }
+
+
 # ==========================================================
 # PUBLIC CITIZEN TIP & REPORT ENDPOINTS
 # ==========================================================
@@ -2481,6 +2514,11 @@ class CitizenReportRequest(BaseModel):
 class UpdateReportStatusRequest(BaseModel):
     status: str = "VERIFIED"
     notes: str = ""
+
+
+class ResolveCitizenReportRequest(BaseModel):
+    resolved_by: str = "Field Ranger Unit"
+    resolution_notes: str = "Citizen-reported threat investigated and secured on site."
 
 
 @app.post(
@@ -2552,6 +2590,39 @@ def update_citizen_report_status(
         "success": True,
         "report_id": report_id,
         "status": payload.status,
+    }
+
+
+@app.post(
+    "/api/v1/public/reports/{report_id}/resolve"
+)
+def resolve_citizen_report(
+    report_id: str,
+    payload: ResolveCitizenReportRequest = Body(default_factory=ResolveCitizenReportRequest),
+):
+    """Mark a citizen-reported incident as resolved by Field Ranger."""
+    success = database.update_citizen_report_status(
+        report_id=report_id,
+        status="RESOLVED",
+        notes=payload.resolution_notes,
+    )
+    if not success:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Report '{report_id}' not found.",
+        )
+    database.insert_auth_audit_log(
+        username=payload.resolved_by,
+        role="ranger",
+        action="RESOLVE_CITIZEN_REPORT",
+        details=f"Citizen report {report_id} resolved: {payload.resolution_notes}",
+    )
+    return {
+        "success": True,
+        "report_id": report_id,
+        "status": "RESOLVED",
+        "resolved_by": payload.resolved_by,
+        "notes": payload.resolution_notes,
     }
 
 

@@ -384,6 +384,42 @@ class RuntimeDatabase:
             )
 
             # --------------------------------------------------
+            # Field Rangers Active Roster & GPS Geolocation
+            # --------------------------------------------------
+
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS field_rangers (
+
+                    ranger_id TEXT PRIMARY KEY,
+
+                    name TEXT NOT NULL,
+
+                    callsign TEXT NOT NULL,
+
+                    rank TEXT NOT NULL,
+
+                    sector TEXT NOT NULL,
+
+                    latitude REAL NOT NULL,
+
+                    longitude REAL NOT NULL,
+
+                    status TEXT NOT NULL,
+
+                    battery INTEGER NOT NULL,
+
+                    assigned_alert TEXT,
+
+                    phone TEXT,
+
+                    updated_at TEXT NOT NULL
+
+                )
+                """
+            )
+
+            # --------------------------------------------------
             # Indexes
             # --------------------------------------------------
 
@@ -1886,51 +1922,102 @@ class RuntimeDatabase:
     # FIELD RANGERS ROSTER & GEOLOCATION
     # ==========================================================
 
+    def _seed_default_rangers(self) -> None:
+        """Seed initial field patrol ranger roster if empty."""
+        now_iso = datetime.now(timezone.utc).isoformat()
+        default_rangers = [
+            ("ranger_01", "Ranger Amar Singh", "ALPHA-1", "Senior Field Ranger", "Sector 4 (Tiger Corridor)", 12.2980, 76.6420, "ON_PATROL", 92, None, "+91 98450 12345", now_iso),
+            ("ranger_02", "Ranger Deepa Rao", "BRAVO-2", "Rapid Response Lead", "Sector 2 (River Ridge)", 12.2920, 76.6340, "RESPONDING", 85, "alert_chainsaw_01", "+91 98450 23456", now_iso),
+            ("ranger_03", "Ranger Vikrant Kumar", "SIERRA-3", "Acoustic Sentry Officer", "Sector 7 (North Boundary)", 12.3020, 76.6450, "STANDBY", 98, None, "+91 98450 34567", now_iso),
+        ]
+        with self._connect() as connection:
+            for r in default_rangers:
+                connection.execute(
+                    """
+                    INSERT OR REPLACE INTO field_rangers (
+                        ranger_id, name, callsign, rank, sector, latitude, longitude,
+                        status, battery, assigned_alert, phone, updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    r,
+                )
+            connection.commit()
+
     def get_field_rangers(self) -> list[dict[str, Any]]:
         """
-        Return active field ranger units, their current GPS coordinates, and patrol status.
+        Return active field ranger units, their current live GPS coordinates, and patrol status.
         """
-        return [
-            {
-                "ranger_id": "ranger_01",
-                "name": "Ranger Amar Singh",
-                "callsign": "ALPHA-1",
-                "rank": "Senior Field Ranger",
-                "sector": "Sector 4 (Tiger Corridor)",
-                "latitude": 12.2980,
-                "longitude": 76.6420,
-                "status": "ON_PATROL",
-                "battery": 92,
-                "assigned_alert": None,
-                "phone": "+91 98450 12345",
-            },
-            {
-                "ranger_id": "ranger_02",
-                "name": "Ranger Deepa Rao",
-                "callsign": "BRAVO-2",
-                "rank": "Rapid Response Lead",
-                "sector": "Sector 2 (River Ridge)",
-                "latitude": 12.2920,
-                "longitude": 76.6340,
-                "status": "RESPONDING",
-                "battery": 85,
-                "assigned_alert": "alert_chainsaw_01",
-                "phone": "+91 98450 23456",
-            },
-            {
-                "ranger_id": "ranger_03",
-                "name": "Ranger Vikrant Kumar",
-                "callsign": "SIERRA-3",
-                "rank": "Acoustic Sentry Officer",
-                "sector": "Sector 7 (North Boundary)",
-                "latitude": 12.3020,
-                "longitude": 76.6450,
-                "status": "STANDBY",
-                "battery": 98,
-                "assigned_alert": None,
-                "phone": "+91 98450 34567",
-            },
-        ]
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM field_rangers ORDER BY ranger_id ASC"
+            ).fetchall()
+
+        if not rows:
+            self._seed_default_rangers()
+            with self._connect() as connection:
+                rows = connection.execute(
+                    "SELECT * FROM field_rangers ORDER BY ranger_id ASC"
+                ).fetchall()
+
+        return [dict(r) for r in rows]
+
+    def update_ranger_location(
+        self,
+        ranger_id: str,
+        latitude: float,
+        longitude: float,
+        battery: int | None = None,
+        status: str | None = None,
+    ) -> bool:
+        """
+        Update a field ranger's live device GPS coordinates and telemetry.
+        """
+        now_iso = datetime.now(timezone.utc).isoformat()
+        with self._connect() as connection:
+            # If ranger not in DB yet, seed first
+            existing = connection.execute("SELECT 1 FROM field_rangers WHERE ranger_id = ?", (ranger_id,)).fetchone()
+            if not existing:
+                self._seed_default_rangers()
+
+            if battery is not None and status is not None:
+                cursor = connection.execute(
+                    """
+                    UPDATE field_rangers
+                    SET latitude = ?, longitude = ?, battery = ?, status = ?, updated_at = ?
+                    WHERE ranger_id = ?
+                    """,
+                    (float(latitude), float(longitude), int(battery), status.strip(), now_iso, ranger_id.strip()),
+                )
+            elif battery is not None:
+                cursor = connection.execute(
+                    """
+                    UPDATE field_rangers
+                    SET latitude = ?, longitude = ?, battery = ?, updated_at = ?
+                    WHERE ranger_id = ?
+                    """,
+                    (float(latitude), float(longitude), int(battery), now_iso, ranger_id.strip()),
+                )
+            elif status is not None:
+                cursor = connection.execute(
+                    """
+                    UPDATE field_rangers
+                    SET latitude = ?, longitude = ?, status = ?, updated_at = ?
+                    WHERE ranger_id = ?
+                    """,
+                    (float(latitude), float(longitude), status.strip(), now_iso, ranger_id.strip()),
+                )
+            else:
+                cursor = connection.execute(
+                    """
+                    UPDATE field_rangers
+                    SET latitude = ?, longitude = ?, updated_at = ?
+                    WHERE ranger_id = ?
+                    """,
+                    (float(latitude), float(longitude), now_iso, ranger_id.strip()),
+                )
+            connection.commit()
+            return cursor.rowcount > 0
 
     # ==========================================================
     # DATABASE METRICS & STATS
