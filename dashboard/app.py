@@ -19,6 +19,7 @@ import os
 import base64
 import random
 import pandas as pd
+import pydeck as pdk
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 from urllib.parse import quote
@@ -1391,18 +1392,91 @@ elif st.session_state.get("manual_siren_trigger"):
         render_siren_audio_synthesizer(is_active=True, threat_label="Tactical Siren Audio Test")
         st.info("🚨 Playing manual siren audio test (Web Audio API). Click Silence / Mute to stop.")
 
-# Build map dataframe with color-coded tactical markers
+# Build map dataframe with rich hover metadata, color-coded markers, and nodes/alerts
 def build_map_data() -> pd.DataFrame:
     records = [
-        {"latitude": float(sent_lat), "longitude": float(sent_lon), "Entity": f"📡 Primary Sentinel: {device_id}", "Category": "🟢 Sentinel Node (Active)", "Coordinates": f"{sent_lat:.5f}°N, {sent_lon:.5f}°E", "Status": "ONLINE", "color": "#7cf0b2", "size": 35},
-        {"latitude": float(sent_lat + 0.0042), "longitude": float(sent_lon + 0.0035), "Entity": "📡 Sentinel-02 (North Ridge)", "Category": "🟢 Sentinel Node (Mesh)", "Coordinates": f"{(sent_lat + 0.0042):.5f}°N, {(sent_lon + 0.0035):.5f}°E", "Status": "ONLINE", "color": "#7cf0b2", "size": 25},
-        {"latitude": float(sent_lat - 0.0038), "longitude": float(sent_lon - 0.0044), "Entity": "📡 Sentinel-03 (West Creek)", "Category": "🟢 Sentinel Node (Mesh)", "Coordinates": f"{(sent_lat - 0.0038):.5f}°N, {(sent_lon - 0.0044):.5f}°E", "Status": "ONLINE", "color": "#7cf0b2", "size": 25},
+        {
+            "latitude": float(sent_lat),
+            "longitude": float(sent_lon),
+            "Entity": f"📡 Primary Sentinel Base Node ({device_id})",
+            "label_short": f"📡 Sentinel-01",
+            "Category": "🟢 Sentinel AI Base Node",
+            "Coordinates": f"{sent_lat:.5f}°N, {sent_lon:.5f}°E",
+            "Status": "ONLINE & ARMED",
+            "Details": f"Live Perception: {label} ({confidence(conf)}) · ESP32-S3 DMA",
+            "color": [124, 240, 178, 240],
+            "radius": 95,
+            "size": 38,
+        },
+        {
+            "latitude": float(sent_lat + 0.0042),
+            "longitude": float(sent_lon + 0.0035),
+            "Entity": "📡 Sentinel-02 Mesh Node (North Ridge)",
+            "label_short": "📡 Sentinel-02",
+            "Category": "🟢 Sentinel AI Base Node",
+            "Coordinates": f"{(sent_lat + 0.0042):.5f}°N, {(sent_lon + 0.0035):.5f}°E",
+            "Status": "ONLINE (Mesh Hop 1)",
+            "Details": "LoRa 868MHz Mesh Relay · Solar 98% · Perimeter Secured",
+            "color": [124, 240, 178, 210],
+            "radius": 80,
+            "size": 28,
+        },
+        {
+            "latitude": float(sent_lat - 0.0038),
+            "longitude": float(sent_lon - 0.0044),
+            "Entity": "📡 Sentinel-03 Mesh Node (West Creek)",
+            "label_short": "📡 Sentinel-03",
+            "Category": "🟢 Sentinel AI Base Node",
+            "Coordinates": f"{(sent_lat - 0.0038):.5f}°N, {(sent_lon - 0.0044):.5f}°E",
+            "Status": "ONLINE (Mesh Hop 2)",
+            "Details": "LoRa 868MHz Mesh Relay · Solar 92% · Perimeter Secured",
+            "color": [124, 240, 178, 210],
+            "radius": 80,
+            "size": 28,
+        },
     ]
-    for al in active_alerts:
-        if al.get("location_lat") and al.get("location_lon"):
-            records.append({"latitude": float(al["location_lat"]), "longitude": float(al["location_lon"]), "Entity": f"🚨 {al.get('threat_type')} Alert", "Category": "🔴 Active Threat", "Coordinates": f"{float(al['location_lat']):.5f}°N, {float(al['location_lon']):.5f}°E", "Status": f"PRIORITY: {al.get('risk_level', 'CRITICAL')}", "color": "#ff7070", "size": 45})
 
-    # Ensure field rangers list is always populated with relative coordinates if not set
+    # Plot all active threats and emergency alerts
+    if active_alerts:
+        for al in active_alerts:
+            a_lat = al.get("location_lat")
+            a_lon = al.get("location_lon")
+            if a_lat and a_lon:
+                a_th = al.get("threat_type", "Threat")
+                a_risk = al.get("risk_level", "CRITICAL")
+                a_rname = al.get("assigned_ranger_name") or "UNASSIGNED (Chief Dispatch Required)"
+                records.append({
+                    "latitude": float(a_lat),
+                    "longitude": float(a_lon),
+                    "Entity": f"🚨 {a_th} Emergency Alert",
+                    "label_short": f"🚨 {a_th}",
+                    "Category": f"🔴 Active Threat ({a_risk})",
+                    "Coordinates": f"{float(a_lat):.5f}°N, {float(a_lon):.5f}°E",
+                    "Status": f"PRIORITY: {a_risk} · Assigned: {a_rname}",
+                    "Details": f"Confidence: {safe_num(al.get('confidence', 0.96))*100:.1f}% · ID: {al.get('alert_id')}",
+                    "color": [255, 80, 80, 245],
+                    "radius": 130,
+                    "size": 48,
+                })
+    elif detected or str(cadie.get("risk_level", "")).upper() in ["HIGH", "CRITICAL"]:
+        # If live AI perception detected a threat but not yet written to DB
+        live_th_lat = float(sent_lat + 0.0022)
+        live_th_lon = float(sent_lon + 0.0025)
+        records.append({
+            "latitude": live_th_lat,
+            "longitude": live_th_lon,
+            "Entity": f"🚨 Live AI Threat Signal: {label}",
+            "label_short": f"🚨 {label}",
+            "Category": "🔴 Active Threat (AI TRIAGED)",
+            "Coordinates": f"{live_th_lat:.5f}°N, {live_th_lon:.5f}°E",
+            "Status": f"CONFIDENCE: {confidence(conf)} · ACTION: {cadie.get('action', 'DISPATCH')}",
+            "Details": f"CADIE Multimodal Score: {safe_num(cadie.get('score')):.3f} · Immediate Interception",
+            "color": [255, 80, 80, 245],
+            "radius": 130,
+            "size": 48,
+        })
+
+    # Ensure field rangers list is always populated with tactical coordinates
     rangers_to_plot = field_rangers
     if not rangers_to_plot:
         db._seed_default_rangers()
@@ -1428,23 +1502,109 @@ def build_map_data() -> pd.DataFrame:
             lat_val = float(lat_val)
             lon_val = float(lon_val)
 
+        r_name = rng.get("name", "Field Ranger")
+        r_call = rng.get("callsign", f"UNIT-{idx+1}")
+        r_sec = rng.get("sector", "Sanctuary Perimeter")
+        r_batt = rng.get("battery", 100)
+        r_stat = rng.get("status", "PATROL READY")
+
         records.append({
             "latitude": lat_val,
             "longitude": lon_val,
-            "Entity": f"🛡️ {rng.get('name')} ({rng.get('callsign')})",
+            "Entity": f"🛡️ Ranger {r_name} ({r_call})",
+            "label_short": f"{r_name.split()[0]} ({r_call})",
             "Category": "🔵 Field Ranger Patrol",
             "Coordinates": f"{lat_val:.5f}°N, {lon_val:.5f}°E",
-            "Status": f"{rng.get('status')} · {rng.get('battery')}% BATT · {rng.get('sector')}",
-            "color": "#73d9e8",
-            "size": 35,
+            "Status": f"{r_stat} · 🔋 {r_batt}% BATT",
+            "Details": f"Assigned Sector: {r_sec} · Callsign: {r_call} · 📞 {rng.get('phone', 'N/A')}",
+            "color": [115, 217, 232, 235],
+            "radius": 90,
+            "size": 36,
         })
 
     for rep in db.get_citizen_reports():
         if rep.get("location_lat") and rep.get("location_lon"):
-            records.append({"latitude": float(rep["location_lat"]), "longitude": float(rep["location_lon"]), "Entity": f"📸 Citizen Tip: {rep.get('threat_category')}", "Category": "🟠 Citizen GPS Report", "Coordinates": f"{float(rep['location_lat']):.5f}°N, {float(rep['location_lon']):.5f}°E", "Status": f"Status: {rep.get('status', 'PENDING')}", "color": "#f2c66d", "size": 30})
+            c_cat = rep.get("threat_category", "Tip")
+            records.append({
+                "latitude": float(rep["location_lat"]),
+                "longitude": float(rep["location_lon"]),
+                "Entity": f"📸 Citizen Tip: {c_cat}",
+                "label_short": f"📸 {c_cat}",
+                "Category": "🟠 Citizen GPS Report",
+                "Coordinates": f"{float(rep['location_lat']):.5f}°N, {float(rep['location_lon']):.5f}°E",
+                "Status": f"Status: {rep.get('status', 'PENDING')}",
+                "Details": f"Reported by: {rep.get('reporter_name')} (📞 {rep.get('contact_info')}) · {rep.get('description', '')[:35]}",
+                "color": [242, 198, 109, 230],
+                "radius": 75,
+                "size": 30,
+            })
     return pd.DataFrame(records)
 
 map_dataframe = build_map_data()
+
+def render_tactical_pydeck_map(df: pd.DataFrame, center_lat: float, center_lon: float, zoom: float = 13.5):
+    """Render high-contrast tactical map with interactive hover tooltips showing ranger names, sentinel node locations, and threat alerts."""
+    if df is None or df.empty:
+        st.info("No GPS telemetry coordinates available for map rendering.")
+        return
+
+    scatter_layer = pdk.Layer(
+        "ScatterplotLayer",
+        data=df,
+        get_position="[longitude, latitude]",
+        get_color="color",
+        get_radius="radius",
+        radius_scale=1,
+        radius_min_pixels=9,
+        radius_max_pixels=28,
+        pickable=True,
+        auto_highlight=True,
+    )
+
+    text_layer = pdk.Layer(
+        "TextLayer",
+        data=df,
+        get_position="[longitude, latitude]",
+        get_text="label_short",
+        get_color=[255, 255, 255, 230],
+        get_size=11,
+        get_alignment_baseline="'bottom'",
+        get_text_anchor="'middle'",
+        get_pixel_offset=[0, -14],
+        pickable=False,
+    )
+
+    view_state = pdk.ViewState(
+        latitude=float(center_lat),
+        longitude=float(center_lon),
+        zoom=zoom,
+        pitch=25,
+        bearing=0,
+    )
+
+    tooltip = {
+        "html": """
+        <div style="background: rgba(10, 18, 22, 0.96); border: 1.5px solid #73d9e8; border-radius: 10px; padding: 10px 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #edf5f2; min-width: 220px; box-shadow: 0 10px 30px rgba(0,0,0,0.85);">
+            <div style="font-size: 13px; font-weight: 800; color: #ffffff; margin-bottom: 4px; letter-spacing: 0.2px;">{Entity}</div>
+            <div style="font-size: 11px; color: #73d9e8; font-weight: 700; margin-bottom: 4px;">{Category}</div>
+            <div style="font-size: 11px; color: #7cf0b2; margin-bottom: 3px;">Status: <b>{Status}</b></div>
+            <div style="font-size: 10px; color: #f2c66d; margin-bottom: 4px;">{Details}</div>
+            <div style="font-size: 10px; color: #9bb1ab; font-family: 'JetBrains Mono', monospace; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 4px; margin-top: 4px;">📍 GPS: {Coordinates}</div>
+        </div>
+        """,
+        "style": {
+            "backgroundColor": "transparent",
+            "color": "white"
+        }
+    }
+
+    deck = pdk.Deck(
+        layers=[scatter_layer, text_layer],
+        initial_view_state=view_state,
+        map_style="dark",
+        tooltip=tooltip,
+    )
+    st.pydeck_chart(deck, use_container_width=True)
 
 # ============================================================
 # 👑 CHIEF RANGER VIEW HANDLERS
@@ -1529,7 +1689,7 @@ if current_role == "admin":
         st.markdown('<div class="section"><div class="section-title">Live Tactical Map & Field Ranger Dispatch</div><div class="section-meta">GPS SENTINEL NODES · ACTIVE THREATS · NEARBY FIELD RANGERS</div></div>', unsafe_allow_html=True)
         map_col, dispatch_col = st.columns([2.2, 1.3])
         with map_col:
-            st.map(map_dataframe, latitude="latitude", longitude="longitude", color="color", size="size", zoom=13, use_container_width=True)
+            render_tactical_pydeck_map(map_dataframe, sent_lat, sent_lon, zoom=13.5)
             st.markdown(
                 """
                 <div style="display:flex;gap:14px;flex-wrap:wrap;background:rgba(12,20,23,0.8);border:1px solid rgba(32,54,62,0.7);border-radius:10px;padding:8px 14px;margin-top:8px;margin-bottom:12px;font-size:11px;">
@@ -1965,7 +2125,7 @@ elif current_role == "ranger":
 
     elif active_page == "🗺️ Sector Map & Near Rangers":
         st.markdown('<div class="section"><div class="section-title">Tactical Sector Map & Near My Rangers Radar</div><div class="section-meta">LIVE PATROL BUDDY PROXIMITY · TARGET THREAT COORDINATES</div></div>', unsafe_allow_html=True)
-        st.map(map_dataframe, latitude="latitude", longitude="longitude", color="color", size="size", zoom=14, use_container_width=True)
+        render_tactical_pydeck_map(map_dataframe, sent_lat, sent_lon, zoom=14.0)
         st.markdown(
             """
             <div style="display:flex;gap:14px;flex-wrap:wrap;background:rgba(12,20,23,0.8);border:1px solid rgba(32,54,62,0.7);border-radius:10px;padding:8px 14px;margin-top:8px;margin-bottom:12px;font-size:11px;">
