@@ -22,7 +22,7 @@ from typing import Any, Dict, Optional
 
 
 def _load_env_file() -> None:
-    """Auto-load key-value pairs from .env file if present."""
+    """Auto-load key-value pairs from .env file and Streamlit st.secrets if present."""
     from pathlib import Path
     env_path = Path(__file__).resolve().parent.parent / ".env"
     if env_path.exists():
@@ -37,6 +37,16 @@ def _load_env_file() -> None:
                         os.environ[k] = v
         except Exception:
             pass
+
+    # Support Streamlit Community Cloud st.secrets
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets") and st.secrets:
+            for k, v in st.secrets.items():
+                if isinstance(v, (str, int, float, bool)):
+                    os.environ[str(k)] = str(v)
+    except Exception:
+        pass
 
 _load_env_file()
 
