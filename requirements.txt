@@ -12,6 +12,9 @@ pydantic-settings>=2.2.0
 python-multipart>=0.0.9
 
 # Edge AI, Audio Inference & Signal Processing
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.0.0
+torchaudio>=2.0.0
 numpy>=1.24.0
 pandas>=2.0.0
 scipy>=1.11.0
