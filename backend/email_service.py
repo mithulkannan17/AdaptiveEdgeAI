@@ -21,16 +21,58 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 
+def _load_env_file() -> None:
+    """Auto-load key-value pairs from .env file if present."""
+    from pathlib import Path
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+    if env_path.exists():
+        try:
+            for line in env_path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    k = k.strip()
+                    v = v.strip().strip("'").strip('"')
+                    if k and k not in os.environ:
+                        os.environ[k] = v
+        except Exception:
+            pass
+
+_load_env_file()
+
+
 class EmailService:
     """Dispatches verification OTPs and notification emails to users."""
 
     def __init__(self) -> None:
+        self.reload_config()
+
+    def reload_config(self) -> None:
+        """Reload configuration from environment variables."""
+        _load_env_file()
         self.smtp_host = os.getenv("SMTP_HOST", "").strip()
         self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
         self.smtp_user = os.getenv("SMTP_USER", "").strip()
         self.smtp_pass = os.getenv("SMTP_PASS", "").strip()
-        self.smtp_from = os.getenv("SMTP_FROM", "no-reply@auraforest.gov.in").strip()
+        self.smtp_from = os.getenv("SMTP_FROM", self.smtp_user or "no-reply@auraforest.gov.in").strip()
         self.smtp_ssl = os.getenv("SMTP_SSL", "false").lower() in ("true", "1", "yes")
+
+    def configure(
+        self,
+        smtp_host: str,
+        smtp_port: int,
+        smtp_user: str,
+        smtp_pass: str,
+        smtp_from: str = "",
+        smtp_ssl: bool = False,
+    ) -> None:
+        """Dynamically set SMTP credentials at runtime."""
+        self.smtp_host = smtp_host.strip()
+        self.smtp_port = int(smtp_port)
+        self.smtp_user = smtp_user.strip()
+        self.smtp_pass = smtp_pass.strip()
+        self.smtp_from = (smtp_from or smtp_user or "no-reply@auraforest.gov.in").strip()
+        self.smtp_ssl = smtp_ssl
 
     @property
     def is_configured(self) -> bool:

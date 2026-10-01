@@ -1259,9 +1259,13 @@ if current_role == "admin":
             st.markdown('</div>', unsafe_allow_html=True)
 
     elif active_page == "👥 Ranger & User Management":
-        st.markdown('<div class="section"><div class="section-title">Chief Ranger: Credential & User Management</div><div class="section-meta">GENERATE FIELD RANGER LOGINS · MANAGE PASSWORDS · AUDIT USER DIRECTORY</div></div>', unsafe_allow_html=True)
+        st.markdown('<div class="section"><div class="section-title">Chief Ranger: Credential & User Management</div><div class="section-meta">GENERATE FIELD RANGER LOGINS · MANAGE PASSWORDS · CONFIGURE LIVE EMAIL SERVER</div></div>', unsafe_allow_html=True)
 
-        cr_tab1, cr_tab2 = st.tabs(["⚡ Generate Field Ranger Login", "📋 Registered Users Directory & Reset"])
+        cr_tab1, cr_tab2, cr_tab3 = st.tabs([
+            "⚡ Generate Field Ranger Login",
+            "📋 Registered Users Directory & Reset",
+            "⚙️ Live SMTP Email Server Settings",
+        ])
 
         with cr_tab1:
             with st.container(border=True):
@@ -1361,6 +1365,72 @@ if current_role == "admin":
                     if ok:
                         st.success(msg)
                         st.rerun()
+
+        with cr_tab3:
+            from backend.email_service import email_service
+            is_armed = email_service.is_configured
+            status_badge_html = "<span style='color:#7cf0b2;font-weight:700;'>🟢 REAL SMTP RELAY ARMED</span>" if is_armed else "<span style='color:#f2c66d;font-weight:700;'>🟡 LOCAL SIMULATION MODE (No SMTP credentials set)</span>"
+
+            st.markdown(
+                f"""
+                <div style="background:rgba(16,26,31,0.9); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:16px;">
+                    <div style="font-size:14px; font-weight:800; color:#fff;">Live Outgoing Email Relay Configuration</div>
+                    <div style="font-size:12px; margin-top:4px;">Current Status: {status_badge_html}</div>
+                    <div style="font-size:11px; color:#829a97; margin-top:4px;">
+                        Configure your Gmail, Outlook, or corporate SMTP server below to deliver verification OTPs and Ranger login credentials to real inboxes.
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            with st.container(border=True):
+                ec_1, ec_2 = st.columns(2)
+                with ec_1:
+                    cfg_host = st.text_input("SMTP Server Host", value=email_service.smtp_host or "smtp.gmail.com", key="cfg_smtp_host")
+                    cfg_user = st.text_input("Sender Email Address (Username)", value=email_service.smtp_user, placeholder="your-email@gmail.com", key="cfg_smtp_user")
+                with ec_2:
+                    cfg_port = st.number_input("SMTP Port", value=email_service.smtp_port or 587, key="cfg_smtp_port")
+                    cfg_pass = st.text_input("SMTP Password / App Password", value=email_service.smtp_pass, type="password", placeholder="16-character App Password", key="cfg_smtp_pass")
+
+                btn_s1, btn_s2 = st.columns(2)
+                with btn_s1:
+                    if st.button("💾 Save & Arm SMTP Server", type="primary", use_container_width=True, key="btn_save_smtp"):
+                        env_file_path = Path(PROJECT_ROOT) / ".env"
+                        env_content = f"""
+SMTP_HOST={cfg_host.strip()}
+SMTP_PORT={int(cfg_port)}
+SMTP_USER={cfg_user.strip()}
+SMTP_PASS={cfg_pass.strip()}
+SMTP_FROM={cfg_user.strip()}
+SMTP_SSL=false
+                        """.strip()
+                        env_file_path.write_text(env_content, encoding="utf-8")
+                        email_service.configure(
+                            smtp_host=cfg_host.strip(),
+                            smtp_port=int(cfg_port),
+                            smtp_user=cfg_user.strip(),
+                            smtp_pass=cfg_pass.strip(),
+                            smtp_from=cfg_user.strip(),
+                        )
+                        st.success("✅ SMTP Configuration saved and loaded into active runtime!")
+                        st.rerun()
+
+                with btn_s2:
+                    test_rcpt = st.text_input("Test Recipient Email", value=cfg_user.strip(), placeholder="recipient@example.com", key="test_rcpt_inp", label_visibility="collapsed")
+                    if st.button("🧪 Send Live Test Email", use_container_width=True, key="btn_test_smtp"):
+                        if not test_rcpt.strip():
+                            st.error("Please enter a test recipient email.")
+                        else:
+                            res = email_service.send_otp_email(
+                                recipient_email=test_rcpt.strip(),
+                                otp_code=f"{random.randint(100000, 999999)}",
+                                user_name="Test Recipient",
+                            )
+                            st.success(f"Dispatched: {res.get('message')}")
+                            if res.get("html_preview"):
+                                with st.expander("View Dispatched Message", expanded=True):
+                                    st.components.v1.html(res["html_preview"], height=300, scrolling=True)
 
     elif active_page == "📊 Acoustic AI & Spectrum":
         render_spectrum_section(label, mic_level=safe_num(telemetry.get("microphone_level", 500.0)))
