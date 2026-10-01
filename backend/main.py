@@ -408,9 +408,14 @@ class CitizenSignupOtpRequest(BaseModel):
     phone_or_email: str
 
 
-class CitizenSignupVerifyRequest(BaseModel):
+class CitizenSignupOtpValidateRequest(BaseModel):
     phone_or_email: str
     otp_code: str
+
+
+class CitizenSignupVerifyRequest(BaseModel):
+    phone_or_email: str
+    otp_code: str = ""
     username: str
     password: str
     full_name: str
@@ -427,6 +432,16 @@ class CreateRangerRequest(BaseModel):
 
 class UpdateUserPasswordRequest(BaseModel):
     new_password: str
+
+
+class UpdateUserRequest(BaseModel):
+    full_name: str | None = None
+    email_or_phone: str | None = None
+    role: str | None = None
+    callsign: str | None = None
+    rank: str | None = None
+    sector: str | None = None
+    new_password: str | None = None
 
 
 # ==========================================================
@@ -499,7 +514,7 @@ def auth_login(creds: LoginRequest):
 @app.post("/api/v1/auth/signup/otp/generate")
 def auth_generate_signup_otp(payload: CitizenSignupOtpRequest):
     """Generate an automated 6-digit verification OTP and dispatch via Email/SMS."""
-    contact = payload.phone_or_email.strip()
+    contact = payload.phone_or_email.strip().lower()
     if not contact or len(contact) < 5:
         raise HTTPException(status_code=400, detail="Valid phone number or email is required.")
 
@@ -526,15 +541,36 @@ def auth_generate_signup_otp(payload: CitizenSignupOtpRequest):
         "phone_or_email": contact,
         "channel": "EMAIL" if is_email else "SMS",
         "delivery": delivery_report,
-        "message": f"Verification code dispatched to {contact} ({'Email Inbox' if is_email else 'SMS'}). Valid for 5 minutes.",
+        "message": f"Verification code dispatched to {contact} ({'Email Inbox' if is_email else 'SMS'}). Valid for 15 minutes.",
+    }
+
+
+@app.post("/api/v1/auth/signup/otp/validate")
+def auth_validate_signup_otp(payload: CitizenSignupOtpValidateRequest):
+    """Validate citizen 6-digit OTP code before creating account credentials."""
+    contact = payload.phone_or_email.strip().lower()
+    clean_otp = str(payload.otp_code).replace(" ", "").replace("-", "").strip()
+    if not clean_otp or len(clean_otp) < 4:
+        raise HTTPException(status_code=400, detail="Please enter a valid 6-digit verification code.")
+
+    otp_ok = database.verify_otp(contact, clean_otp)
+    if not otp_ok:
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP verification code.")
+
+    return {
+        "success": True,
+        "phone_or_email": contact,
+        "message": f"Verification successful for {contact}.",
     }
 
 
 @app.post("/api/v1/auth/signup/otp/verify")
 def auth_verify_signup_otp(payload: CitizenSignupVerifyRequest):
-    """Validate citizen OTP and register the public citizen account."""
-    contact = payload.phone_or_email.strip()
-    otp_ok = database.verify_otp(contact, payload.otp_code.strip())
+    """Validate citizen OTP (or check pre-verified status) and register the public citizen account."""
+    contact = payload.phone_or_email.strip().lower()
+    clean_otp = str(payload.otp_code).replace(" ", "").replace("-", "").strip()
+    # Check if code matches or if contact was already verified
+    otp_ok = database.verify_otp(contact, clean_otp) or database.is_otp_verified(contact)
     if not otp_ok:
         raise HTTPException(status_code=400, detail="Invalid or expired OTP verification code.")
 
@@ -544,6 +580,12 @@ def auth_verify_signup_otp(payload: CitizenSignupVerifyRequest):
     if len(payload.password) < 4:
         raise HTTPException(status_code=400, detail="Password must be at least 4 characters.")
 
+    # Check unique username and email
+    if database.get_user(username):
+        raise HTTPException(status_code=400, detail=f"Username '{username}' is already taken. Please choose another username.")
+    if database.get_user_by_email(contact):
+        raise HTTPException(status_code=400, detail=f"Email '{contact}' is already registered to another account. Please sign in instead.")
+
     created = database.create_user(
         username=username,
         password=payload.password,
@@ -551,9 +593,10 @@ def auth_verify_signup_otp(payload: CitizenSignupVerifyRequest):
         full_name=payload.full_name.strip() or "Citizen Member",
         email_or_phone=contact,
         created_by="SELF_SIGNUP",
+        allow_overwrite=False,
     )
     if not created:
-        raise HTTPException(status_code=400, detail="Failed to create user account.")
+        raise HTTPException(status_code=400, detail="Failed to create user account. Username or email may already exist.")
 
     database.insert_auth_audit_log(
         username=username,
@@ -591,10 +634,13 @@ def auth_create_ranger(payload: CreateRangerRequest):
     sector = payload.sector.strip() or "Sector 4 (Tiger Corridor)"
 
     # Determine email contact
-    email_contact = payload.email.strip()
+    email_contact = payload.email.strip().lower()
     if not email_contact and "@" in payload.phone:
-        email_contact = payload.phone.strip()
+        email_contact = payload.phone.strip().lower()
     contact_val = email_contact or payload.phone.strip()
+
+    if email_contact and database.get_user_by_email(email_contact):
+        raise HTTPException(status_code=400, detail=f"Email '{email_contact}' is already registered to an existing account.")
 
     success = database.create_user(
         username=username,
@@ -678,6 +724,47 @@ def auth_delete_user(username: str):
     }
 
 
+@app.post("/api/v1/auth/users/{username}/update")
+def auth_update_user_details(username: str, payload: UpdateUserRequest):
+    """Chief Ranger updates any user's profile, role, sector, email, or credentials."""
+    target_user = username.strip().lower()
+    if not database.get_user(target_user):
+        raise HTTPException(status_code=404, detail=f"User '{target_user}' not found.")
+
+    # Check unique email if updating email
+    if payload.email_or_phone:
+        clean_email = payload.email_or_phone.strip().lower()
+        existing = database.get_user_by_email(clean_email)
+        if existing and existing["username"] != target_user:
+            raise HTTPException(status_code=400, detail=f"Email '{clean_email}' is already in use by user '{existing['username']}'.")
+
+    success = database.update_user(
+        username=target_user,
+        full_name=payload.full_name,
+        email_or_phone=payload.email_or_phone,
+        role=payload.role,
+        callsign=payload.callsign,
+        rank=payload.rank,
+        sector=payload.sector,
+        password=payload.new_password,
+    )
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to update user details.")
+
+    database.insert_auth_audit_log(
+        username="chief",
+        role="admin",
+        action="UPDATE_USER",
+        details=f"Chief updated profile details for user '{target_user}'.",
+    )
+    return {
+        "success": True,
+        "username": target_user,
+        "message": f"User '{target_user}' updated successfully.",
+        "user": database.get_user(target_user),
+    }
+
+
 @app.post("/api/v1/auth/users/{username}/password")
 def auth_update_user_password(username: str, payload: UpdateUserPasswordRequest):
     """Chief Ranger updates a user's password."""
@@ -689,17 +776,7 @@ def auth_update_user_password(username: str, payload: UpdateUserPasswordRequest)
     if not user:
         raise HTTPException(status_code=404, detail=f"User '{username}' not found.")
 
-    database.create_user(
-        username=user["username"],
-        password=new_pwd,
-        role=user["role"],
-        full_name=user["full_name"],
-        email_or_phone=user.get("email_or_phone", ""),
-        callsign=user.get("callsign"),
-        rank=user.get("rank"),
-        sector=user.get("sector"),
-        created_by="chief_password_reset",
-    )
+    database.update_user(username=user["username"], password=new_pwd)
     database.insert_auth_audit_log(
         username="chief",
         role="admin",
@@ -709,7 +786,7 @@ def auth_update_user_password(username: str, payload: UpdateUserPasswordRequest)
     return {
         "success": True,
         "username": username,
-        "message": f"Password for '{username}' successfully updated.",
+        "message": f"Password for user '{username}' successfully updated.",
     }
 
 

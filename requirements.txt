@@ -1,8 +1,31 @@
-numpy
-pandas
-librosa
-soundfile
-matplotlib
-tqdm
-scikit-learn
-jupyter
+# ==========================================================
+# AURAFOREST SENTINEL — PRODUCTION REQUIREMENTS
+# ==========================================================
+
+# Core Web & API Frameworks
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+streamlit>=1.32.0
+streamlit-autorefresh>=1.0.1
+pydantic>=2.6.0
+pydantic-settings>=2.2.0
+python-multipart>=0.0.9
+
+# Edge AI, Audio Inference & Signal Processing
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.11.0
+scikit-learn>=1.3.0
+librosa>=0.10.1
+soundfile>=0.12.1
+matplotlib>=3.7.0
+tqdm>=4.66.0
+
+# HTTP & Networking
+requests>=2.31.0
+httpx>=0.27.0
+anyio>=4.3.0
+
+# Testing & Quality Assurance
+pytest>=8.0.0
+pytest-asyncio>=0.23.0

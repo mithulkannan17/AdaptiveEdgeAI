@@ -59,15 +59,12 @@ st.set_page_config(
 # DATABASE & BACKEND CLIENT SETUP
 # ============================================================
 
-@st.cache_resource
-def get_database() -> RuntimeDatabase:
-    return RuntimeDatabase()
+db = RuntimeDatabase()
 
 @st.cache_resource
 def get_source() -> RuntimeDataSource:
     return RuntimeDataSource()
 
-db = get_database()
 source = get_source()
 
 AURA_API_URL = os.getenv(
@@ -608,6 +605,13 @@ def api_request(path: str, method: str = "GET", payload: dict | None = None, tim
         with urlopen(req, timeout=timeout) as response:
             raw = response.read().decode("utf-8")
             return json.loads(raw) if raw else {}
+    except HTTPError as e:
+        try:
+            raw = e.read().decode("utf-8")
+            data = json.loads(raw)
+            return {"error": data.get("detail", str(e)), "success": False, "status_code": e.code}
+        except Exception:
+            return {"error": str(e), "success": False, "status_code": e.code}
     except Exception:
         return {}
 
@@ -641,45 +645,110 @@ def auth_login_call(username_inp: str, password_inp: str) -> tuple[bool, dict, s
     return False, {}, "Invalid username or password."
 
 def generate_otp_call(phone_or_email: str) -> tuple[bool, str, dict, str]:
-    """Request automated 6-digit OTP code and dispatch via Email/SMS."""
+    """Request automated 6-digit OTP code, log to backend console, and dispatch via Email/SMS."""
     from backend.email_service import email_service
-    contact = phone_or_email.strip()
+    contact = phone_or_email.strip().lower()
     is_email = "@" in contact and "." in contact
 
-    res = api_request("/api/v1/auth/signup/otp/generate", method="POST", payload={"phone_or_email": contact})
-    if res.get("success") and res.get("otp"):
-        return True, res.get("otp"), res.get("delivery", {}), res.get("message", "OTP generated")
-
-    # DB fallback + email service
+    # 1. Create OTP directly in SQLite DB
     otp = db.create_otp(contact)
     deliv = {}
     if is_email:
         deliv = email_service.send_otp_email(contact, otp, user_name=contact.split("@")[0].capitalize())
 
-    db.insert_auth_audit_log(username=contact, role="public", action="GENERATE_OTP", details=f"Generated OTP {otp} for {contact} (Channel: {'EMAIL' if is_email else 'SMS'})")
-    return True, otp, deliv, f"Verification code dispatched to {contact}."
+    # 2. Log to system backend console & audit log
+    print(f"\n[AuraForest Sentinel AUTH] ========================================", flush=True)
+    print(f"[AuraForest Sentinel AUTH] 🔐 OTP DISPATCHED TO: {contact}", flush=True)
+    print(f"[AuraForest Sentinel AUTH] 🔑 6-DIGIT OTP CODE: {otp}", flush=True)
+    print(f"[AuraForest Sentinel AUTH] ⏱️ VALIDITY: 15 MINUTES (900 seconds)", flush=True)
+    print(f"[AuraForest Sentinel AUTH] ========================================\n", flush=True)
 
-def verify_otp_and_signup_call(contact: str, otp: str, username: str, password: str, full_name: str) -> tuple[bool, str]:
-    """Verify OTP and register new citizen."""
-    res = api_request("/api/v1/auth/signup/otp/verify", method="POST", payload={
-        "phone_or_email": contact,
-        "otp_code": otp,
-        "username": username,
-        "password": password,
-        "full_name": full_name,
+    db.insert_auth_audit_log(
+        username=contact,
+        role="public",
+        action="GENERATE_OTP",
+        details=f"Generated OTP verification code for {contact} (Channel: {'EMAIL' if is_email else 'SMS'})",
+    )
+
+    # 3. Synchronize with API if running
+    api_request("/api/v1/auth/signup/otp/generate", method="POST", payload={"phone_or_email": contact})
+
+    return True, otp, deliv, f"Verification code dispatched to {contact} via {'Email Server' if is_email else 'SMS Gateway'}."
+
+def validate_otp_call(contact: str, otp: str) -> tuple[bool, str]:
+    """Validate the 6-digit OTP code across Session, Database, and Backend API."""
+    clean_contact = contact.strip().lower()
+    clean_otp = str(otp).replace(" ", "").replace("-", "").strip()
+    if not clean_otp:
+        return False, "Please enter the 6-digit OTP received in your email."
+
+    # 1. Check Session State
+    expected_sess = str(st.session_state.get("active_expected_otp", "")).strip()
+    expected_email = str(st.session_state.get("active_expected_email", "")).strip().lower()
+    if clean_otp and clean_otp == expected_sess and (not expected_email or clean_contact == expected_email):
+        db.verify_otp(clean_contact, clean_otp)
+        print(f"[AuraForest Sentinel AUTH] ✅ OTP Verified successfully for {clean_contact} (Session Sync)", flush=True)
+        return True, f"Email '{clean_contact}' verified successfully!"
+
+    # 2. Check Database directly
+    if db.verify_otp(clean_contact, clean_otp) or db.is_otp_verified(clean_contact):
+        print(f"[AuraForest Sentinel AUTH] ✅ OTP Verified successfully for {clean_contact} (Database Sync)", flush=True)
+        return True, f"Email '{clean_contact}' verified successfully!"
+
+    # 3. Check Backend REST API
+    res = api_request("/api/v1/auth/signup/otp/validate", method="POST", payload={
+        "phone_or_email": clean_contact,
+        "otp_code": clean_otp,
     })
     if res.get("success"):
-        return True, res.get("message", "Account created successfully!")
+        print(f"[AuraForest Sentinel AUTH] ✅ OTP Verified successfully for {clean_contact} (API Sync)", flush=True)
+        return True, f"Email '{clean_contact}' verified successfully!"
 
-    # DB fallback
-    if not db.verify_otp(contact, otp):
-        return False, "Invalid or expired OTP verification code."
+    print(f"[AuraForest Sentinel AUTH] ❌ OTP Verification Failed for {clean_contact} with code '{clean_otp}'", flush=True)
+    return False, "Invalid or expired OTP verification code. Please check the code in your email."
 
-    created = db.create_user(username=username, password=password, role="viewer", full_name=full_name, email_or_phone=contact, created_by="SELF_SIGNUP")
+def verify_otp_and_signup_call(contact: str, otp: str, username: str, password: str, full_name: str) -> tuple[bool, str]:
+    """Register new citizen account after email verification."""
+    clean_contact = contact.strip().lower()
+    clean_otp = str(otp).replace(" ", "").replace("-", "").strip()
+    clean_user = username.strip().lower()
+
+    # Validate eligibility
+    is_valid = (
+        st.session_state.get("citizen_email_verified") == clean_contact
+        or db.is_otp_verified(clean_contact)
+        or db.verify_otp(clean_contact, clean_otp)
+        or (clean_otp and clean_otp == str(st.session_state.get("active_expected_otp", "")).strip())
+    )
+
+    if not is_valid:
+        return False, "Please enter the 6-digit OTP from your email and click 'Verify OTP' first."
+
+    created = db.create_user(
+        username=clean_user,
+        password=password,
+        role="viewer",
+        full_name=full_name.strip(),
+        email_or_phone=clean_contact,
+        created_by="SELF_SIGNUP",
+    )
     if created:
-        db.insert_auth_audit_log(username=username, role="public", action="CITIZEN_REGISTRATION", details=f"Citizen {full_name} registered.")
-        return True, f"Account '{username}' created successfully! You may now login."
-    return False, "Failed to create user account."
+        print(f"[AuraForest Sentinel AUTH] 🎉 Account '{clean_user}' created successfully for {clean_contact}", flush=True)
+        db.insert_auth_audit_log(
+            username=clean_user,
+            role="public",
+            action="CITIZEN_REGISTRATION",
+            details=f"Citizen {full_name} registered successfully.",
+        )
+        api_request("/api/v1/auth/signup/otp/verify", method="POST", payload={
+            "phone_or_email": clean_contact,
+            "otp_code": clean_otp,
+            "username": clean_user,
+            "password": password,
+            "full_name": full_name.strip(),
+        })
+        return True, f"Account '{clean_user}' created successfully! You may now sign in."
+    return False, "Failed to create user account. Desired username may already be registered."
 
 def chief_create_ranger_call(full_name: str, callsign: str, rank: str, sector: str, phone: str = "", email: str = "") -> tuple[bool, dict, str]:
     """Chief creates new Field Ranger account and emails credentials."""
@@ -749,11 +818,57 @@ def update_user_password_call(username: str, new_pwd: str) -> tuple[bool, str]:
     res = api_request(f"/api/v1/auth/users/{username}/password", method="POST", payload={"new_password": new_pwd})
     if res.get("success"):
         return True, res.get("message", "Password updated.")
-    u = db.get_user(username)
-    if u:
-        db.create_user(username=u["username"], password=new_pwd, role=u["role"], full_name=u["full_name"], email_or_phone=u.get("email_or_phone", ""), callsign=u.get("callsign"), rank=u.get("rank"), sector=u.get("sector"), created_by="chief_password_reset")
+    ok = db.update_user(username=username, password=new_pwd)
+    if ok:
+        db.insert_auth_audit_log(username="chief", role="admin", action="RESET_PASSWORD", details=f"Reset password for user {username}")
         return True, f"Password for '{username}' updated."
     return False, "User not found."
+
+def update_user_call(
+    username: str,
+    full_name: str | None = None,
+    email_or_phone: str | None = None,
+    role: str | None = None,
+    callsign: str | None = None,
+    rank: str | None = None,
+    sector: str | None = None,
+    new_password: str | None = None,
+) -> tuple[bool, str]:
+    payload = {
+        "full_name": full_name,
+        "email_or_phone": email_or_phone,
+        "role": role,
+        "callsign": callsign,
+        "rank": rank,
+        "sector": sector,
+        "new_password": new_password,
+    }
+    res = api_request(f"/api/v1/auth/users/{username}/update", method="POST", payload=payload)
+    if res.get("success"):
+        return True, res.get("message", "User updated successfully.")
+    if res.get("error"):
+        return False, res.get("error")
+
+    # DB fallback
+    if email_or_phone:
+        existing = db.get_user_by_email(email_or_phone)
+        if existing and existing["username"] != username.strip().lower():
+            return False, f"Email '{email_or_phone}' is already in use by user '{existing['username']}'."
+
+    ok = db.update_user(
+        username=username,
+        full_name=full_name,
+        email_or_phone=email_or_phone,
+        role=role,
+        callsign=callsign,
+        rank=rank,
+        sector=sector,
+        password=new_password,
+    )
+    if ok:
+        db.insert_auth_audit_log(username="chief", role="admin", action="UPDATE_USER", details=f"Updated details for user {username}")
+        return True, f"User '{username}' updated successfully."
+    return False, "Could not update user."
 
 # ============================================================
 # 🔐 AUTHENTICATION GATEWAY (LOGIN & SIGN-UP)
@@ -801,36 +916,23 @@ if not st.session_state.get("authenticated", False):
                         else:
                             st.error(token)
 
-                st.markdown("<div style='margin-top:16px; border-top:1px solid rgba(32,54,62,0.6); padding-top:12px;'></div>", unsafe_allow_html=True)
-                st.caption("⚡ Quick Access Profiles for Testing:")
-                q1, q2, q3 = st.columns(3)
-                with q1:
-                    if st.button("👑 Chief Ranger", use_container_width=True, key="quick_chief"):
-                        st.session_state["authenticated"] = True
-                        st.session_state["aura_username"] = "chief"
-                        st.session_state["aura_user_role"] = "admin"
-                        st.session_state["aura_user_name"] = "Chief Ranger Sharma"
-                        st.session_state["aura_user_dept"] = "Forestry Cyber-Defense Command"
-                        st.rerun()
-                with q2:
-                    if st.button("🛡️ Field Ranger", use_container_width=True, key="quick_ranger"):
-                        st.session_state["authenticated"] = True
-                        st.session_state["aura_username"] = "ranger.amar"
-                        st.session_state["aura_user_role"] = "ranger"
-                        st.session_state["aura_user_name"] = "Ranger Amar Singh"
-                        st.session_state["aura_user_dept"] = "Sector 4 (Tiger Corridor)"
-                        st.rerun()
-                with q3:
-                    if st.button("👁️ Public Citizen", use_container_width=True, key="quick_citizen"):
-                        st.session_state["authenticated"] = True
-                        st.session_state["aura_username"] = "citizen.demo"
-                        st.session_state["aura_user_role"] = "viewer"
-                        st.session_state["aura_user_name"] = "Jane Citizen (Observer)"
-                        st.session_state["aura_user_dept"] = "Public Eco-Visitor"
-                        st.rerun()
+                st.markdown("<div style='margin-top:14px; border-top:1px solid rgba(32,54,62,0.6); padding-top:10px;'></div>", unsafe_allow_html=True)
+                with st.expander("👑 Need Chief Credentials? Email Master Passcode to Admin", expanded=False):
+                    c_mail = st.text_input("Administrator Email Address", value="mithulkannan5@gmail.com", key="send_chief_email_inp")
+                    if st.button("📧 Send Chief Credentials to My Email", use_container_width=True, key="btn_send_chief_creds"):
+                        from backend.email_service import email_service
+                        if not c_mail.strip() or "@" not in c_mail:
+                            st.error("Please enter a valid email address.")
+                        else:
+                            with st.spinner("Dispatching master credentials email..."):
+                                res = email_service.send_chief_credentials_email(c_mail.strip())
+                                if res.get("success"):
+                                    st.success(f"✅ Chief Master credentials successfully sent to **{c_mail.strip()}**! Check your inbox.")
+                                else:
+                                    st.error("Failed to send email. Please check SMTP settings.")
 
         # ----------------------------------------------------
-        # TAB 2: PUBLIC CITIZEN SIGN-UP (WITH SYSTEM OTP)
+        # TAB 2: PUBLIC CITIZEN SIGN-UP (WITH EMAIL OTP)
         # ----------------------------------------------------
         with auth_tab_signup:
             with st.container(border=True):
@@ -839,8 +941,8 @@ if not st.session_state.get("authenticated", False):
                     <div style="background:rgba(115,217,232,0.08); border:1px solid rgba(115,217,232,0.3); border-radius:10px; padding:10px 14px; margin-bottom:14px;">
                         <div style="font-size:12px; font-weight:700; color:#73d9e8;">ℹ️ Registration Notice:</div>
                         <div style="font-size:11px; color:#edf6f3; margin-top:2px;">
-                            • <b>Public Citizens:</b> Self-register below using automated System OTP verification.<br/>
-                            • <b>Field Rangers:</b> Logins are issued exclusively by the <b>Chief Ranger</b>.
+                            • <b>Public Citizens:</b> Enter your email address to receive an official 6-digit verification code.<br/>
+                            • <b>Field Rangers:</b> Accounts and passwords are generated exclusively by the <b>Chief Ranger</b>.
                         </div>
                     </div>
                     """,
@@ -848,75 +950,95 @@ if not st.session_state.get("authenticated", False):
                 )
 
                 s_name = st.text_input("Full Name", placeholder="e.g. Priya Nambiar", key="signup_name")
-                s_contact = st.text_input("Mobile Phone or Email (for Automated OTP)", placeholder="e.g. +91 98765 43210 or priya@example.com", key="signup_contact")
+                s_contact = st.text_input("Email Address (for Verification OTP)", placeholder="e.g. user@gmail.com", key="signup_contact")
 
                 # Step 1: Request OTP Button
-                otp_col1, otp_col2 = st.columns([1.5, 1])
-                with otp_col1:
-                    if st.button("⚡ Request Verification Code (Email / SMS)", use_container_width=True, key="btn_req_otp"):
-                        if not s_contact.strip() or len(s_contact.strip()) < 5:
-                            st.error("Please enter a valid phone number or email address.")
-                        else:
+                if st.button("⚡ Send 6-Digit OTP to Email", use_container_width=True, key="btn_req_otp"):
+                    if not s_contact.strip() or len(s_contact.strip()) < 5 or "@" not in s_contact:
+                        st.error("Please enter a valid email address.")
+                    else:
+                        with st.spinner(f"Sending verification OTP to {s_contact.strip()}..."):
                             ok, otp_code, deliv_info, msg = generate_otp_call(s_contact.strip())
                             if ok:
-                                st.session_state["active_otp_contact"] = s_contact.strip()
-                                st.session_state["active_otp_code"] = otp_code
-                                st.session_state["active_otp_deliv"] = deliv_info
-                                is_em = "@" in s_contact.strip()
-                                st.success(f"✅ OTP successfully dispatched to {s_contact.strip()} via {'Email Server' if is_em else 'SMS Gateway'}!")
+                                st.session_state["otp_sent_to"] = s_contact.strip().lower()
+                                st.session_state["otp_sent_time"] = time.time()
+                                st.session_state["active_expected_otp"] = otp_code
+                                st.session_state["active_expected_email"] = s_contact.strip().lower()
+                                st.session_state.pop("citizen_email_verified", None)
+                                st.success(f"✅ 6-digit OTP sent to **{s_contact.strip()}**! Please check your email inbox (and spam folder) and enter the code below.")
 
-                # Live Realistic Email / SMS Dispatch Badge
-                if "active_otp_code" in st.session_state and st.session_state.get("active_otp_contact") == s_contact.strip():
-                    is_em = "@" in s_contact.strip()
-                    deliv = st.session_state.get("active_otp_deliv", {})
-                    channel_label = "📬 OFFICIAL VERIFICATION EMAIL DISPATCHED" if is_em else "💬 SMS VERIFICATION MESSAGE DISPATCHED"
-                    relay_channel = deliv.get("channel", "EMAIL_RELAY" if is_em else "SMS_GATEWAY")
-
+                # Status Banner if OTP was sent
+                if st.session_state.get("otp_sent_to") == s_contact.strip().lower() and not st.session_state.get("citizen_email_verified"):
                     st.markdown(
                         f"""
-                        <div style="background: linear-gradient(135deg, rgba(124, 240, 178, 0.18), rgba(115, 217, 232, 0.12)); border: 1.5px solid #7cf0b2; border-radius: 14px; padding: 14px 18px; margin: 14px 0; box-shadow: 0 0 22px rgba(124,240,178,0.25);">
+                        <div style="background: linear-gradient(135deg, rgba(115, 217, 232, 0.12), rgba(124, 240, 178, 0.10)); border: 1.5px solid #73d9e8; border-radius: 12px; padding: 12px 16px; margin: 12px 0;">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <span style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:#7cf0b2;">{channel_label}</span>
-                                <span style="font-size:10px; color:#7cf0b2; font-weight:700;">🟢 DELIVERED TO INBOX</span>
+                                <span style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:#73d9e8;">📬 VERIFICATION EMAIL SENT</span>
+                                <span style="font-size:10px; color:#7cf0b2; font-weight:700;">🟢 ACTIVE INBOX DISPATCH</span>
                             </div>
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; flex-wrap:wrap; gap:8px;">
-                                <div>
-                                    <div style="font-size:11px; color:#829a97;">To Recipient: <b style="color:#edf6f3;">{s_contact.strip()}</b></div>
-                                    <div style="font-size:11px; color:#829a97;">Sender: <b style="color:#73d9e8;">AuraForest Sentinel &lt;no-reply@auraforest.gov.in&gt;</b></div>
-                                </div>
-                                <div style="background:#101c20; border:1px solid #7cf0b2; border-radius:8px; padding:6px 14px; text-align:center;">
-                                    <div style="font-size:9px; color:#829a97;">VERIFICATION CODE</div>
-                                    <div style="font-family:'Courier New',monospace; font-size:20px; font-weight:800; color:#7cf0b2; letter-spacing:3px;">
-                                        {st.session_state['active_otp_code']}
-                                    </div>
-                                </div>
-                            </div>
-                            <div style="font-size:11px; color:#c4d7d3; margin-top:8px;">
-                                ⏱️ Valid for 5 minutes. Enter the 6-digit passcode below to complete your registration.
+                            <div style="font-size:11px; color:#edf6f3; margin-top:6px;">
+                                An email containing your 6-digit one-time passcode was sent to <b>{s_contact.strip()}</b>.<br/>
+                                <span style="color:#829a97;">⏱️ Valid for 15 minutes. Enter the OTP code and click <b>Verify OTP</b> below.</span>
                             </div>
                         </div>
                         """,
                         unsafe_allow_html=True,
                     )
 
-                    if is_em and deliv.get("html_preview"):
-                        with st.expander("📨 Click to View Incoming Email Message in Mailbox", expanded=False):
-                            st.components.v1.html(deliv.get("html_preview"), height=360, scrolling=True)
+                # Step 2: Enter and Verify OTP
+                s_otp = st.text_input("Enter 6-Digit OTP from Email", placeholder="e.g. 123456", key="signup_otp_inp")
 
-                s_otp = st.text_input("Enter 6-Digit System OTP", placeholder="e.g. 839201", key="signup_otp_inp")
+                # Dedicated Verify OTP Button
+                if st.button("✅ Verify OTP", use_container_width=True, key="btn_verify_otp_only"):
+                    if not s_contact.strip() or "@" not in s_contact:
+                        st.error("Please enter your email address first.")
+                    elif not s_otp.strip():
+                        st.error("Please enter the 6-digit OTP code received in your email.")
+                    else:
+                        with st.spinner("Validating OTP code..."):
+                            ok, v_msg = validate_otp_call(s_contact.strip(), s_otp.strip())
+                            if ok:
+                                st.session_state["citizen_email_verified"] = s_contact.strip().lower()
+                                st.success(f"✅ {v_msg}")
+                            else:
+                                st.error(f"❌ {v_msg}")
+
+                # Verified Confirmation Badge
+                is_verified = st.session_state.get("citizen_email_verified") == s_contact.strip().lower()
+                if is_verified:
+                    st.markdown(
+                        f"""
+                        <div style="background: rgba(124, 240, 178, 0.15); border: 1.5px solid #7cf0b2; border-radius: 10px; padding: 10px 14px; margin: 10px 0;">
+                            <span style="color:#7cf0b2; font-weight:700; font-size:12px;">✅ EMAIL VERIFIED:</span>
+                            <span style="color:#edf6f3; font-size:12px; margin-left:6px;">{s_contact.strip()}</span>
+                            <div style="color:#829a97; font-size:11px; margin-top:2px;">You may now create your username & password below.</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+
+                st.markdown("<hr style='border:none; border-top:1px solid rgba(115,217,232,0.15); margin:16px 0;'/>", unsafe_allow_html=True)
+
+                # Step 3: Account Credentials
                 s_username = st.text_input("Desired Username", placeholder="e.g. citizen.priya", key="signup_user_inp")
                 s_password = st.text_input("Create Password", type="password", placeholder="••••••••••••", key="signup_pass_inp")
 
                 if st.button("✨ Complete Citizen Sign-Up", type="primary", use_container_width=True, key="btn_complete_signup"):
-                    if not s_name.strip() or not s_contact.strip() or not s_otp.strip() or not s_username.strip() or not s_password.strip():
-                        st.error("Please fill in all fields including the OTP.")
+                    if not s_name.strip() or not s_contact.strip() or not s_username.strip() or not s_password.strip():
+                        st.error("Please fill in all required fields.")
+                    elif not is_verified and not s_otp.strip():
+                        st.error("Please enter the 6-digit OTP from your email and click 'Verify OTP'.")
                     else:
-                        ok, msg = verify_otp_and_signup_call(s_contact.strip(), s_otp.strip(), s_username.strip(), s_password.strip(), s_name.strip())
-                        if ok:
-                            st.success(f"✅ {msg}")
-                            st.info("You can now switch to the 'Sign In' tab and log in.")
-                        else:
-                            st.error(msg)
+                        with st.spinner("Creating your citizen account..."):
+                            ok, msg = verify_otp_and_signup_call(s_contact.strip(), s_otp.strip(), s_username.strip(), s_password.strip(), s_name.strip())
+                            if ok:
+                                st.session_state.pop("otp_sent_to", None)
+                                st.session_state.pop("otp_sent_time", None)
+                                st.session_state.pop("citizen_email_verified", None)
+                                st.success(f"✅ {msg}")
+                                st.info("👉 You can now switch to the '🔐 Sign In' tab above and log in with your new credentials!")
+                            else:
+                                st.error(f"❌ {msg}")
 
     st.stop()
 
@@ -1327,44 +1449,101 @@ if current_role == "admin":
 
         with cr_tab2:
             all_users = get_all_users_call()
-            st.markdown("<div style='font-size:14px;font-weight:700;margin-bottom:8px;'>Registered User Accounts:</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:15px;font-weight:800;color:#7cf0b2;margin-bottom:8px;'>👥 Registered Personnel & User Directory</div>", unsafe_allow_html=True)
+            st.caption("Chief Ranger has master clearance to inspect all registered accounts, modify profile details, reassign roles/sectors, reset passwords, or delete users.")
+
+            # Search & Filter
+            search_query = st.text_input("🔍 Search Users (Username, Name, Email, Role, Sector)", placeholder="e.g. ranger, priya, Sector 4...", key="user_search_inp")
+            filtered_users = all_users
+            if search_query.strip():
+                q_low = search_query.strip().lower()
+                filtered_users = [
+                    u for u in all_users
+                    if q_low in str(u.get("username", "")).lower()
+                    or q_low in str(u.get("full_name", "")).lower()
+                    or q_low in str(u.get("email_or_phone", "")).lower()
+                    or q_low in str(u.get("role", "")).lower()
+                    or q_low in str(u.get("sector", "")).lower()
+                ]
+
             u_rows = []
-            for u in all_users:
+            for u in filtered_users:
                 u_rows.append({
                     "USERNAME": u.get("username"),
-                    "ROLE": str(u.get("role")).upper(),
-                    "FULL NAME": u.get("full_name"),
-                    "CONTACT": u.get("email_or_phone") or "—",
-                    "CALLSIGN / SECTOR": f"{u.get('callsign') or '—'} ({u.get('sector') or '—'})",
-                    "CREATED BY": u.get("created_by"),
+                    "ROLE": str(u.get("role", "")).upper(),
+                    "FULL NAME": u.get("full_name") or "—",
+                    "EMAIL / CONTACT": u.get("email_or_phone") or "—",
+                    "CALLSIGN": u.get("callsign") or "—",
+                    "RANK": u.get("rank") or "—",
+                    "SECTOR": u.get("sector") or "—",
+                    "REGISTERED VIA": u.get("created_by") or "SYSTEM",
                 })
             st.dataframe(u_rows, use_container_width=True, hide_index=True)
 
-            # Password Update / Reset
-            st.markdown("<div style='font-size:13px;font-weight:700;margin-top:16px;margin-bottom:6px;'>🔑 Update User Password / Reset:</div>", unsafe_allow_html=True)
-            rst_c1, rst_c2, rst_c3 = st.columns([1.5, 1.5, 1])
-            with rst_c1:
-                target_user = st.selectbox("Select User", [u["username"] for u in all_users], key="rst_target_user")
-            with rst_c2:
-                new_pwd_inp = st.text_input("New Password", placeholder="Enter new password", key="rst_new_pwd")
-            with rst_c3:
-                st.write("")
-                if st.button("Update Password", type="primary", use_container_width=True, key="btn_apply_pwd_rst"):
-                    if len(new_pwd_inp.strip()) < 4:
-                        st.error("Password must be at least 4 characters.")
-                    else:
-                        ok, msg = update_user_password_call(target_user, new_pwd_inp.strip())
-                        if ok:
-                            st.success(f"Password for {target_user} updated!")
-                            st.rerun()
+            st.markdown("<hr style='border:none; border-top:1px solid rgba(115,217,232,0.2); margin:20px 0 16px 0;'/>", unsafe_allow_html=True)
 
-            # Delete User
-            if target_user not in ("chief", "admin"):
-                if st.button(f"🗑️ Delete User '{target_user}'", key="btn_del_user"):
-                    ok, msg = delete_user_call(target_user)
-                    if ok:
-                        st.success(msg)
-                        st.rerun()
+            # User Edit & Deletion Console
+            st.markdown("<div style='font-size:14px;font-weight:800;color:#73d9e8;margin-bottom:10px;'>⚙️ Edit User Profile & Manage Credentials</div>", unsafe_allow_html=True)
+
+            if not all_users:
+                st.info("No registered users found in the database.")
+            else:
+                user_list = [u["username"] for u in all_users]
+                selected_uname = st.selectbox("Select Account to Edit / Manage:", user_list, key="sel_user_edit")
+                curr_u = next((u for u in all_users if u["username"] == selected_uname), None)
+
+                if curr_u:
+                    with st.container(border=True):
+                        st.markdown(f"<div style='font-size:13px;font-weight:700;color:#fff;margin-bottom:12px;'>Editing Profile: <b style='color:#7cf0b2;'>@{curr_u['username']}</b> (Role: <span style='color:#73d9e8;'>{str(curr_u.get('role')).upper()}</span>)</div>", unsafe_allow_html=True)
+
+                        ed_c1, ed_c2 = st.columns(2)
+                        with ed_c1:
+                            ed_name = st.text_input("Full Name", value=curr_u.get("full_name", ""), key=f"ed_name_{selected_uname}")
+                            ed_email = st.text_input("Email Address / Contact Phone (Must be Unique)", value=curr_u.get("email_or_phone", ""), key=f"ed_email_{selected_uname}")
+                            role_opts = ["viewer", "ranger", "admin"]
+                            curr_role_idx = role_opts.index(curr_u.get("role", "viewer")) if curr_u.get("role", "viewer") in role_opts else 0
+                            ed_role = st.selectbox("Security Role", role_opts, index=curr_role_idx, format_func=lambda x: {"admin": "👑 Master Administrator (Chief)", "ranger": "🛡️ Field Ranger Unit", "viewer": "👁️ Public Citizen (Viewer)"}.get(x, x), key=f"ed_role_{selected_uname}")
+
+                        with ed_c2:
+                            ed_callsign = st.text_input("Callsign / Unit ID", value=curr_u.get("callsign") or "", placeholder="e.g. ALPHA-1", key=f"ed_call_{selected_uname}")
+                            ed_rank = st.text_input("Rank / Designation", value=curr_u.get("rank") or "", placeholder="e.g. Field Ranger, Citizen Member", key=f"ed_rank_{selected_uname}")
+                            ed_sector = st.text_input("Assigned Sector", value=curr_u.get("sector") or "", placeholder="e.g. Sector 4 (Tiger Corridor)", key=f"ed_sec_{selected_uname}")
+
+                        st.markdown("<div style='font-size:12px;font-weight:700;color:#f6c445;margin-top:8px;'>🔑 Reset Password (Leave blank to keep unchanged):</div>", unsafe_allow_html=True)
+                        ed_new_pwd = st.text_input("New Password", type="password", placeholder="Leave blank to keep existing password", key=f"ed_pwd_{selected_uname}")
+
+                        act_c1, act_c2 = st.columns([1.5, 1])
+                        with act_c1:
+                            if st.button("💾 Save User Profile Changes", type="primary", use_container_width=True, key=f"btn_save_{selected_uname}"):
+                                with st.spinner("Saving changes..."):
+                                    ok, u_msg = update_user_call(
+                                        username=selected_uname,
+                                        full_name=ed_name.strip(),
+                                        email_or_phone=ed_email.strip().lower(),
+                                        role=ed_role,
+                                        callsign=ed_callsign.strip() if ed_callsign.strip() else None,
+                                        rank=ed_rank.strip() if ed_rank.strip() else None,
+                                        sector=ed_sector.strip() if ed_sector.strip() else None,
+                                        new_password=ed_new_pwd.strip() if ed_new_pwd.strip() else None,
+                                    )
+                                    if ok:
+                                        st.success(f"✅ {u_msg}")
+                                        st.rerun()
+                                    else:
+                                        st.error(f"❌ {u_msg}")
+
+                        with act_c2:
+                            if selected_uname in ("chief", "admin"):
+                                st.button("🔒 Root Chief Protected", disabled=True, use_container_width=True, key=f"btn_del_dis_{selected_uname}")
+                            else:
+                                if st.button(f"🗑️ Delete User '{selected_uname}'", use_container_width=True, key=f"btn_del_{selected_uname}"):
+                                    with st.spinner("Deleting user account..."):
+                                        ok, d_msg = delete_user_call(selected_uname)
+                                        if ok:
+                                            st.success(f"✅ {d_msg}")
+                                            st.rerun()
+                                        else:
+                                            st.error(f"❌ {d_msg}")
 
         with cr_tab3:
             from backend.email_service import email_service

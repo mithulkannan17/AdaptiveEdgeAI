@@ -25,9 +25,7 @@ from pathlib import Path
 from typing import Any
 
 
-DEFAULT_DATABASE_PATH = Path(
-    "data/runtime.db"
-)
+DEFAULT_DATABASE_PATH = Path(__file__).resolve().parent.parent / "data" / "runtime.db"
 
 
 class RuntimeDatabase:
@@ -2173,8 +2171,18 @@ class RuntimeDatabase:
         rank: str | None = None,
         sector: str | None = None,
         created_by: str = "SYSTEM",
+        allow_overwrite: bool = True,
     ) -> bool:
-        """Create a new user account."""
+        """Create a new user account with unique username and email constraints."""
+        clean_user = username.strip().lower()
+        clean_email = email_or_phone.strip().lower()
+
+        if not allow_overwrite:
+            if self.get_user(clean_user):
+                return False
+            if clean_email and self.get_user_by_email(clean_email):
+                return False
+
         now_iso = datetime.now(timezone.utc).isoformat()
         pwd_hash = self.hash_password(password)
         with self._connect() as connection:
@@ -2187,11 +2195,11 @@ class RuntimeDatabase:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    username.strip().lower(),
+                    clean_user,
                     pwd_hash,
                     role.strip().lower(),
                     full_name.strip(),
-                    email_or_phone.strip(),
+                    clean_email,
                     callsign.strip() if callsign else None,
                     rank.strip() if rank else None,
                     sector.strip() if sector else None,
@@ -2201,7 +2209,7 @@ class RuntimeDatabase:
             )
             # If creating a ranger, also insert into field_rangers table
             if role.strip().lower() == "ranger":
-                ranger_id = "rng_" + username.strip().lower().replace(".", "_")
+                ranger_id = "rng_" + clean_user.replace(".", "_")
                 connection.execute(
                     """
                     INSERT OR REPLACE INTO field_rangers (
@@ -2221,7 +2229,7 @@ class RuntimeDatabase:
                         "STANDBY",
                         100,
                         None,
-                        email_or_phone.strip(),
+                        clean_email,
                         now_iso,
                     ),
                 )
@@ -2243,6 +2251,82 @@ class RuntimeDatabase:
                     (username.strip().lower(),),
                 ).fetchone()
         return dict(row) if row else None
+
+    def get_user_by_email(self, email: str) -> dict[str, Any] | None:
+        """Retrieve user profile by email address (case-insensitive)."""
+        clean_email = email.strip().lower()
+        if not clean_email:
+            return None
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM users WHERE LOWER(email_or_phone) = ?",
+                (clean_email,),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def update_user(
+        self,
+        username: str,
+        full_name: str | None = None,
+        email_or_phone: str | None = None,
+        role: str | None = None,
+        callsign: str | None = None,
+        rank: str | None = None,
+        sector: str | None = None,
+        password: str | None = None,
+    ) -> bool:
+        """Chief Ranger updates an existing user's details and credentials."""
+        clean_user = username.strip().lower()
+        u = self.get_user(clean_user)
+        if not u:
+            return False
+
+        new_name = full_name.strip() if full_name is not None and full_name.strip() else u["full_name"]
+        new_email = email_or_phone.strip().lower() if email_or_phone is not None else u.get("email_or_phone", "")
+        new_role = role.strip().lower() if role is not None and role.strip() else u["role"]
+        new_callsign = callsign.strip() if callsign is not None else u.get("callsign")
+        new_rank = rank.strip() if rank is not None else u.get("rank")
+        new_sector = sector.strip() if sector is not None else u.get("sector")
+        new_hash = self.hash_password(password) if password and password.strip() else u["password_hash"]
+
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE users
+                SET full_name = ?, email_or_phone = ?, role = ?, callsign = ?, rank = ?, sector = ?, password_hash = ?
+                WHERE username = ?
+                """,
+                (new_name, new_email, new_role, new_callsign, new_rank, new_sector, new_hash, clean_user),
+            )
+            # If ranger, also sync field_rangers table
+            if new_role == "ranger":
+                ranger_id = "rng_" + clean_user.replace(".", "_")
+                now_iso = datetime.now(timezone.utc).isoformat()
+                connection.execute(
+                    """
+                    INSERT OR REPLACE INTO field_rangers (
+                        ranger_id, name, callsign, rank, sector, latitude, longitude,
+                        status, battery, assigned_alert, phone, updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        ranger_id,
+                        new_name,
+                        new_callsign or "RANGER-UNIT",
+                        new_rank or "Field Ranger",
+                        new_sector or "Sector 4",
+                        12.2965,
+                        76.6405,
+                        "STANDBY",
+                        100,
+                        None,
+                        new_email,
+                        now_iso,
+                    ),
+                )
+            connection.commit()
+            return True
 
     def authenticate_user(self, username: str, password: str) -> dict[str, Any] | None:
         """Verify user credentials against database."""
@@ -2303,42 +2387,57 @@ class RuntimeDatabase:
     # ==========================================================
 
     def create_otp(self, phone_or_email: str) -> str:
-        """Generate automated 6-digit verification OTP."""
+        """Generate automated 6-digit verification OTP (valid for 15 minutes)."""
         import random
         otp = f"{random.randint(100000, 999999)}"
-        exp = time.time() + 300.0  # 5 minutes validity
+        exp = time.time() + 900.0  # 15 minutes validity
         now_iso = datetime.now(timezone.utc).isoformat()
+        clean_contact = phone_or_email.strip().lower()
         with self._connect() as connection:
             connection.execute(
                 """
                 INSERT OR REPLACE INTO otp_verifications (phone_or_email, otp_code, expires_at, verified, created_at)
                 VALUES (?, ?, ?, 0, ?)
                 """,
-                (phone_or_email.strip().lower(), otp, exp, now_iso),
+                (clean_contact, otp, exp, now_iso),
             )
             connection.commit()
         return otp
 
     def verify_otp(self, phone_or_email: str, otp_code: str) -> bool:
         """Validate the OTP code entered by the user."""
+        clean_contact = phone_or_email.strip().lower()
+        clean_otp = str(otp_code).replace(" ", "").replace("-", "").strip()
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT otp_code, expires_at FROM otp_verifications WHERE phone_or_email = ?",
-                (phone_or_email.strip().lower(),),
+                "SELECT otp_code, expires_at, verified FROM otp_verifications WHERE phone_or_email = ?",
+                (clean_contact,),
             ).fetchone()
             if not row:
                 return False
-            expected_otp, expires_at = row["otp_code"], row["expires_at"]
+            expected_otp, expires_at, verified = row["otp_code"], row["expires_at"], row["verified"]
             if time.time() > expires_at:
                 return False
-            if str(otp_code).strip() == str(expected_otp).strip():
+            if clean_otp == str(expected_otp).strip() or (verified == 1 and not clean_otp):
                 connection.execute(
                     "UPDATE otp_verifications SET verified = 1 WHERE phone_or_email = ?",
-                    (phone_or_email.strip().lower(),),
+                    (clean_contact,),
                 )
                 connection.commit()
                 return True
             return False
+
+    def is_otp_verified(self, phone_or_email: str) -> bool:
+        """Check if contact's OTP was already verified and not expired."""
+        clean_contact = phone_or_email.strip().lower()
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT expires_at, verified FROM otp_verifications WHERE phone_or_email = ?",
+                (clean_contact,),
+            ).fetchone()
+            if not row:
+                return False
+            return bool(row["verified"] == 1 and time.time() <= row["expires_at"])
 
     # ==========================================================
     # DATABASE METRICS & STATS

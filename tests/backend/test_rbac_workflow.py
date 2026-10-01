@@ -315,4 +315,74 @@ def test_ranger_credentials_dispatched_to_email(tmp_path, monkeypatch):
     assert "DELTA-9" in deliv["html_preview"]
 
 
+def test_unique_username_and_email_constraints(tmp_path, monkeypatch):
+    client, db = create_test_client(tmp_path, monkeypatch)
+
+    contact = "citizen.unique@example.com"
+    otp = db.create_otp(contact)
+
+    # 1. Register first citizen
+    reg1 = client.post("/api/v1/auth/signup/otp/verify", json={
+        "phone_or_email": contact,
+        "otp_code": otp,
+        "username": "citizen.unique",
+        "password": "password123",
+        "full_name": "Unique Citizen",
+    })
+    assert reg1.status_code == 200
+
+    # 2. Try to register duplicate username with different email
+    otp2 = db.create_otp("other@example.com")
+    reg_dup_user = client.post("/api/v1/auth/signup/otp/verify", json={
+        "phone_or_email": "other@example.com",
+        "otp_code": otp2,
+        "username": "citizen.unique",
+        "password": "password123",
+        "full_name": "Another Person",
+    })
+    assert reg_dup_user.status_code == 400
+    assert "already taken" in reg_dup_user.json()["detail"]
+
+    # 3. Try to register duplicate email with different username
+    otp3 = db.create_otp(contact)
+    reg_dup_email = client.post("/api/v1/auth/signup/otp/verify", json={
+        "phone_or_email": contact,
+        "otp_code": otp3,
+        "username": "citizen.other",
+        "password": "password123",
+        "full_name": "Third Person",
+    })
+    assert reg_dup_email.status_code == 400
+    assert "already registered" in reg_dup_email.json()["detail"]
+
+
+def test_chief_update_user_details(tmp_path, monkeypatch):
+    client, db = create_test_client(tmp_path, monkeypatch)
+
+    # Chief updates ranger profile details
+    update_resp = client.post("/api/v1/auth/users/ranger.amar/update", json={
+        "full_name": "Commander Amar Singh",
+        "role": "ranger",
+        "rank": "Patrol Commander",
+        "sector": "Sector 1 (Sanctuary Core)",
+        "callsign": "BRAVO-LEAD",
+        "email_or_phone": "amar.commander@auraforest.gov.in",
+        "new_password": "NewSecretPassword888",
+    })
+    assert update_resp.status_code == 200
+    u_data = update_resp.json()
+    assert u_data["success"] is True
+    assert u_data["user"]["full_name"] == "Commander Amar Singh"
+    assert u_data["user"]["rank"] == "Patrol Commander"
+    assert u_data["user"]["sector"] == "Sector 1 (Sanctuary Core)"
+
+    # Verify updated user can login with new password
+    login_resp = client.post("/api/v1/auth/login", json={
+        "username": "ranger.amar",
+        "password": "NewSecretPassword888",
+    })
+    assert login_resp.status_code == 200
+    assert login_resp.json()["user"]["display_name"] == "Commander Amar Singh"
+
+
 
