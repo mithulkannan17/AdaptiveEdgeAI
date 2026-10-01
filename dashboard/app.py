@@ -646,7 +646,10 @@ def auth_login_call(username_inp: str, password_inp: str) -> tuple[bool, dict, s
 
 def generate_otp_call(phone_or_email: str) -> tuple[bool, str, dict, str]:
     """Request automated 6-digit OTP code, log to backend console, and dispatch via Email/SMS."""
-    from backend.email_service import email_service
+    import importlib
+    import backend.email_service
+    importlib.reload(backend.email_service)
+    svc = backend.email_service.EmailService()
     contact = phone_or_email.strip().lower()
     is_email = "@" in contact and "." in contact
 
@@ -654,7 +657,7 @@ def generate_otp_call(phone_or_email: str) -> tuple[bool, str, dict, str]:
     otp = db.create_otp(contact)
     deliv = {}
     if is_email:
-        deliv = email_service.send_otp_email(contact, otp, user_name=contact.split("@")[0].capitalize())
+        deliv = svc.send_otp_email(contact, otp, user_name=contact.split("@")[0].capitalize())
 
     # 2. Log to system backend console & audit log
     print(f"\n[AuraForest Sentinel AUTH] ========================================", flush=True)
@@ -926,20 +929,26 @@ if not st.session_state.get("authenticated", False):
                     col_send, col_diag = st.columns([1.5, 1])
                     with col_send:
                         if st.button("📧 Send Chief Credentials", use_container_width=True, key="btn_send_chief_creds"):
-                            from backend.email_service import email_service
+                            import importlib
+                            import backend.email_service
+                            importlib.reload(backend.email_service)
+                            svc = backend.email_service.EmailService()
                             if not c_mail.strip() or "@" not in c_mail:
                                 st.error("Please enter a valid email address.")
                             else:
                                 with st.spinner("Dispatching master credentials email..."):
-                                    res = email_service.send_chief_credentials_email(c_mail.strip())
+                                    res = svc.send_chief_credentials_email(c_mail.strip())
                                     if res.get("success"):
                                         st.success(f"✅ Chief Master credentials successfully sent to **{c_mail.strip()}**! Check your inbox.")
                                     else:
                                         st.error(f"❌ {res.get('message', 'Failed to send email.')}")
                     with col_diag:
                         if st.button("🔍 Test SMTP", use_container_width=True, key="btn_test_smtp_diag"):
-                            from backend.email_service import email_service
-                            diag = email_service.test_connection()
+                            import importlib
+                            import backend.email_service
+                            importlib.reload(backend.email_service)
+                            svc = backend.email_service.EmailService()
+                            diag = svc.test_connection()
                             if diag.get("success"):
                                 st.success(diag.get("message"))
                             else:
