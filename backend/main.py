@@ -15,7 +15,7 @@ from typing import Any
 import struct
 import uuid
 
-from fastapi import Body
+from fastapi import Body, Header
 from fastapi import FastAPI
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict
@@ -24,6 +24,18 @@ from fastapi.responses import FileResponse
 
 from backend.audio_service import AudioInferenceService
 from backend.database import RuntimeDatabase
+from backend.alert_dispatcher import EmergencyAlertDispatcher
+from edge.sensors.gas_interpreter import GasSensorInterpreter
+from backend.security import (
+    UserRole,
+    UserProfile,
+    SessionTokenManager,
+    DeviceAuthenticator,
+    DataIntegrityVerifier,
+    authenticate_user,
+    ROLE_PERMISSIONS,
+    DEFAULT_MASTER_KEY,
+)
 
 
 # ==========================================================
@@ -160,17 +172,22 @@ def _safe_audio_path(
     if not raw_path:
         return None
 
+    root = UNKNOWN_AUDIO_ROOT.resolve()
+
     try:
-        root = UNKNOWN_AUDIO_ROOT.resolve()
+        # Check by filename inside UNKNOWN_AUDIO_ROOT first
+        direct_file = (root / Path(raw_path).name).resolve()
+        if direct_file.is_file():
+            direct_file.relative_to(root)
+            return direct_file
+
+        # Check direct path
         path = Path(raw_path).resolve()
-
         path.relative_to(root)
+        if path.is_file():
+            return path
 
-        if not path.is_file():
-            return None
-
-        return path
-
+        return None
     except (
         OSError,
         RuntimeError,
@@ -257,6 +274,43 @@ audio_service = AudioInferenceService(
     sample_rate=16000
 )
 
+gas_interpreter = GasSensorInterpreter()
+
+alert_dispatcher = EmergencyAlertDispatcher(database=database)
+
+
+def sync_initial_experiment_data() -> None:
+    """Sync experiment results on disk into database experiment_logs table."""
+    try:
+        project_root = Path(__file__).resolve().parent.parent
+        exp_dir = project_root / "outputs" / "experiments"
+
+        noise_file = exp_dir / "noise_robustness_results.json"
+        if noise_file.exists() and database.get_latest_experiment("noise_robustness") is None:
+            data = json.loads(noise_file.read_text(encoding="utf-8"))
+            benchmark = data.get("benchmark", data)
+            database.insert_experiment_log(
+                experiment_name="noise_robustness",
+                summary=benchmark.get("summary", {}),
+                details=benchmark.get("records", []),
+                config=benchmark.get("denoiser_config", {}),
+                timestamp=benchmark.get("timestamp"),
+            )
+
+        dist_file = exp_dir / "distance_detection_results.json"
+        if dist_file.exists() and database.get_latest_experiment("distance_detection") is None:
+            data = json.loads(dist_file.read_text(encoding="utf-8"))
+            database.insert_experiment_log(
+                experiment_name="distance_detection",
+                summary=data.get("summary", {}),
+                details=data.get("trials", []),
+                config={"confidence_threshold": data.get("confidence_threshold", 0.60)},
+            )
+    except Exception as exc:
+        print(f"[!] Note: experiment auto-sync skipped: {exc}")
+
+sync_initial_experiment_data()
+
 
 # ==========================================================
 # LATEST TELEMETRY CACHE
@@ -339,6 +393,77 @@ class UnknownClusterLabelRequest(BaseModel):
     notes: str = ""
 
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class TokenVerifyRequest(BaseModel):
+    token: str
+    device_id: str | None = None
+
+
+# ==========================================================
+# AUTHENTICATION & RBAC ENDPOINTS
+# ==========================================================
+
+@app.post("/api/v1/auth/login")
+def auth_login(creds: LoginRequest):
+    """Authenticate ranger/admin credentials and issue a signed session token."""
+    result = authenticate_user(creds.username, creds.password)
+    if not result:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid username or password.",
+        )
+    profile, token = result
+    return {
+        "success": True,
+        "token": token,
+        "user": profile.model_dump(),
+    }
+
+
+@app.get("/api/v1/auth/me")
+def auth_me(authorization: str | None = Header(None)):
+    """Validate current session token and return user identity and permissions."""
+    token = authorization.replace("Bearer ", "").strip() if authorization else ""
+    profile = SessionTokenManager.verify_token(token)
+    if not profile:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid, expired, or missing session token.",
+        )
+    return {
+        "authenticated": True,
+        "user": profile.model_dump(),
+    }
+
+
+@app.get("/api/v1/auth/roles")
+def auth_roles():
+    """Return all available RBAC roles and their associated permissions."""
+    return {
+        "roles": [r.value for r in UserRole],
+        "permissions": {r.value: perms for r, perms in ROLE_PERMISSIONS.items()},
+    }
+
+
+@app.post("/api/v1/auth/verify_key")
+def auth_verify_device_key(payload: TokenVerifyRequest):
+    """Verify an edge node device token or master API key."""
+    ok, msg = DeviceAuthenticator.verify_device_token(
+        payload.token,
+        device_id=payload.device_id,
+        enforce=True,
+    )
+    return {
+        "valid": ok,
+        "message": msg,
+        "device_id": payload.device_id,
+    }
+
+
 # ==========================================================
 # ROOT
 # ==========================================================
@@ -388,21 +513,38 @@ def health():
 )
 def receive_telemetry(
     telemetry: TelemetryRequest,
+    x_device_token: str | None = Header(None),
+    x_api_key: str | None = Header(None),
 ):
     """
     Receive live hardware telemetry from an ESP32.
 
-    Telemetry is stored in two places:
+    Telemetry is verified for:
+    1. Edge Device API Key / Token Authentication
+    2. Physical sensor sanity boundaries (anti-spoofing)
+    3. Timestamp replay window
 
-    1. In-memory cache
-       Used immediately by audio inference.
-
-    2. Persistent SQLite telemetry table
-       Used by the dashboard and other consumers.
+    Telemetry is stored in:
+    1. In-memory cache (used immediately by audio inference)
+    2. Persistent SQLite telemetry table (used by dashboard)
     """
 
     # ------------------------------------------------------
-    # Validation
+    # 1. Edge Device Authentication
+    # ------------------------------------------------------
+    auth_token = x_device_token or x_api_key
+    auth_ok, auth_msg = DeviceAuthenticator.verify_device_token(
+        auth_token,
+        device_id=telemetry.device_id,
+    )
+    if not auth_ok:
+        raise HTTPException(
+            status_code=401,
+            detail=f"Security rejection: {auth_msg}",
+        )
+
+    # ------------------------------------------------------
+    # 2. Validation
     # ------------------------------------------------------
 
     if not telemetry.device_id.strip():
@@ -413,7 +555,16 @@ def receive_telemetry(
         )
 
     # ------------------------------------------------------
-    # Normalize values
+    # 3. Data Integrity & Anti-Spoofing Checks
+    # ------------------------------------------------------
+    bounds_ok, violations = DataIntegrityVerifier.validate_telemetry_bounds(
+        telemetry.model_dump()
+    )
+    if not bounds_ok:
+        print(f"[!] Warning: Edge telemetry boundary anomaly on {telemetry.device_id}: {violations}")
+
+    # ------------------------------------------------------
+    # 4. Normalize values
     # ------------------------------------------------------
 
     device_id = (
@@ -435,6 +586,27 @@ def receive_telemetry(
     hardware_health = (
         telemetry.hardware_health
     )
+
+    # ------------------------------------------------------
+    # Gas sensor interpretation (MQ-2 / MQ-135)
+    # ------------------------------------------------------
+    if isinstance(device_status, dict):
+        mq2_raw = float(device_status.get("mq2_raw", 0.0))
+        mq2_volt = float(device_status.get("mq2_adc_voltage", device_status.get("mq2_voltage", 0.0)))
+        mq135_raw = float(device_status.get("mq135_raw", 0.0))
+        mq135_volt = float(device_status.get("mq135_adc_voltage", device_status.get("mq135_voltage", 0.0)))
+
+        if mq2_raw > 0 or mq135_raw > 0:
+            gas_assessment = gas_interpreter.update(
+                device_id=device_id,
+                mq2_raw=mq2_raw,
+                mq2_voltage=mq2_volt,
+                mq135_raw=mq135_raw,
+                mq135_voltage=mq135_volt,
+                timestamp=timestamp,
+            )
+            device_status["gas_assessment"] = gas_assessment.to_dict()
+            device_status["gas_risk_score"] = gas_assessment.gas_risk_score
 
     # ------------------------------------------------------
     # Update in-memory cache
@@ -465,6 +637,20 @@ def receive_telemetry(
     try:
 
         database.upsert_telemetry(
+
+            device_id=device_id,
+
+            timestamp=timestamp,
+
+            device_status=device_status,
+
+            location=location,
+
+            hardware_health=hardware_health,
+
+        )
+
+        database.insert_telemetry_history(
 
             device_id=device_id,
 
@@ -592,6 +778,182 @@ def device_telemetry(
 
     }
 
+
+@app.get(
+    "/api/v1/edge/devices/{device_id}/gas"
+)
+def get_device_gas_status(
+    device_id: str,
+):
+    """
+    Retrieve real-time MQ-2 / MQ-135 gas anomaly assessment and trend analysis.
+    """
+    device_id = device_id.strip()
+    cached = latest_device_telemetry.get(device_id)
+
+    if cached and "device_status" in cached and "gas_assessment" in cached["device_status"]:
+        return {
+            "success": True,
+            "device_id": device_id,
+            "gas_assessment": cached["device_status"]["gas_assessment"],
+            "timestamp": cached.get("timestamp"),
+        }
+
+    # Fallback to evaluating whatever raw readings exist in database or memory
+    telemetry = database.get_latest_telemetry(device_id) or cached
+    if telemetry is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No telemetry available for device '{device_id}'.",
+        )
+
+    dev_status = telemetry.get("device_status", {})
+    assessment = gas_interpreter.evaluate_telemetry(dev_status, device_id=device_id)
+
+    return {
+        "success": True,
+        "device_id": device_id,
+        "gas_assessment": assessment.to_dict(),
+        "timestamp": telemetry.get("timestamp"),
+    }
+
+
+@app.get(
+    "/api/v1/edge/devices/{device_id}/telemetry/history"
+)
+def get_device_telemetry_history(
+    device_id: str,
+    limit: int = 100,
+    start_time: float | None = None,
+    end_time: float | None = None,
+):
+    """
+    Retrieve historical sensor telemetry logged in the runtime database.
+    """
+    device_id = device_id.strip()
+    records = database.get_telemetry_history(
+        device_id=device_id,
+        limit=limit,
+        start_time=start_time,
+        end_time=end_time,
+    )
+    return {
+        "success": True,
+        "device_id": device_id,
+        "count": len(records),
+        "history": records,
+    }
+
+
+@app.get(
+    "/api/v1/edge/devices/{device_id}/gas/history"
+)
+def get_device_gas_history(
+    device_id: str,
+    limit: int = 100,
+):
+    """
+    Retrieve historical MQ-2 and MQ-135 gas sensor time-series.
+    """
+    device_id = device_id.strip()
+    records = database.get_gas_history(
+        device_id=device_id,
+        limit=limit,
+    )
+    return {
+        "success": True,
+        "device_id": device_id,
+        "count": len(records),
+        "gas_history": records,
+    }
+
+
+@app.get(
+    "/api/v1/edge/database/stats"
+)
+def get_database_stats():
+    """
+    Retrieve SQLite database storage and record count statistics.
+    """
+    stats = database.get_database_stats()
+    return {
+        "success": True,
+        **stats,
+    }
+
+
+@app.post(
+    "/api/v1/edge/experiments"
+)
+def log_experiment_result(
+    payload: dict[str, Any],
+):
+    """
+    Persist an experiment evaluation, benchmarking run, or field trial result.
+    """
+    name = payload.get("experiment_name")
+    if not name:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing 'experiment_name' in payload.",
+        )
+    summary = payload.get("summary", {})
+    details = payload.get("details", payload.get("trials", []))
+    config = payload.get("config", {})
+    timestamp = payload.get("timestamp")
+
+    log_id = database.insert_experiment_log(
+        experiment_name=name,
+        summary=summary,
+        details=details,
+        config=config,
+        timestamp=timestamp,
+    )
+    return {
+        "success": True,
+        "record_id": log_id,
+        "experiment_name": name,
+    }
+
+
+@app.get(
+    "/api/v1/edge/experiments"
+)
+def get_experiments_list(
+    limit: int = 50,
+):
+    """
+    Retrieve a list of all logged experiments and benchmarks.
+    """
+    logs = database.get_all_experiments(limit=limit)
+    return {
+        "success": True,
+        "count": len(logs),
+        "experiments": logs,
+    }
+
+
+@app.get(
+    "/api/v1/edge/experiments/{experiment_name}"
+)
+def get_experiment_detail(
+    experiment_name: str,
+):
+    """
+    Retrieve the latest full report for a specific experiment.
+    """
+    log = database.get_latest_experiment(experiment_name=experiment_name)
+    if log is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No experiment record found for '{experiment_name}'.",
+        )
+    return {
+        "success": True,
+        "experiment": log,
+    }
+
+
 # ==========================================================
 # EDGE RUNTIME EVENTS
 # ==========================================================
@@ -705,10 +1067,28 @@ async def receive_edge_audio(
         media_type="application/octet-stream",
     ),
 
+    x_device_token: str | None = Header(None),
+
+    x_api_key: str | None = Header(None),
+
 ):
 
     # ------------------------------------------------------
-    # Validation
+    # 1. Edge Device Authentication
+    # ------------------------------------------------------
+    auth_token = x_device_token or x_api_key
+    auth_ok, auth_msg = DeviceAuthenticator.verify_device_token(
+        auth_token,
+        device_id=device_id,
+    )
+    if not auth_ok:
+        raise HTTPException(
+            status_code=401,
+            detail=f"Security rejection: {auth_msg}",
+        )
+
+    # ------------------------------------------------------
+    # 2. Validation
     # ------------------------------------------------------
 
     if not device_id.strip():
@@ -1042,6 +1422,23 @@ async def receive_edge_audio(
     # Return complete result
     # ------------------------------------------------------
 
+    # ------------------------------------------------------
+    # Automatic Local Emergency Alert Dispatch
+    # ------------------------------------------------------
+
+    alert_info = None
+    if alert_dispatcher.should_trigger_emergency(prediction, decision):
+        alert_payload = alert_dispatcher.create_alert_payload(
+            device_id=device_id,
+            threat_type=str(prediction.get("label", "Threat")),
+            confidence=float(prediction.get("confidence", 0.0)),
+            risk_level=str(decision.get("risk_level", "CRITICAL")),
+            location=location,
+            decision=decision,
+            contributing_factors=decision.get("contributing_factors", []),
+        )
+        alert_info = alert_dispatcher.dispatch_alert(alert_payload)
+
     return {
         "success":
             True,
@@ -1054,6 +1451,9 @@ async def receive_edge_audio(
 
         "timestamp":
             timestamp,
+
+        "emergency_alert":
+            alert_info,
 
         "telemetry_context":
             {
@@ -1462,6 +1862,41 @@ def clear_unknown_buffer():
         ) from exc
 
 
+@app.post(
+    "/api/v1/edge/unknown/cluster"
+)
+def trigger_unknown_clustering(
+    force: bool = True,
+):
+    """Trigger clustering on pending unknown-sound observations."""
+
+    predictor = _get_discovery_predictor()
+
+    try:
+        trigger_fn = getattr(predictor, "trigger_clustering", None)
+        if callable(trigger_fn):
+            result, cluster_ids = trigger_fn(force=force)
+        else:
+            manager = _get_unknown_manager(predictor)
+            if manager is None:
+                raise RuntimeError("Unknown discovery manager is unavailable.")
+            result_obj, cluster_ids = manager.cluster(force=force)
+            result = result_obj.to_dict() if hasattr(result_obj, "to_dict") else result_obj
+
+        return {
+            "success": True,
+            "message": f"Clustering executed. Generated {len(cluster_ids)} new cluster(s).",
+            "cluster_result": result,
+            "new_cluster_ids": cluster_ids,
+            "discovery": predictor.get_unknown_discovery_status(),
+        }
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to run clustering: {exc}",
+        ) from exc
+
+
 # ==========================================================
 # UNKNOWN AUDIO HUMAN-REVIEW API
 # ==========================================================
@@ -1826,3 +2261,115 @@ def devices():
             database.get_devices()
 
     }
+
+
+# ==========================================================
+# EMERGENCY ALERT NOTIFICATION ENDPOINTS
+# ==========================================================
+
+class EmergencyAlertRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    device_id: str = "edge_sentinel_001"
+    threat_type: str = "Chainsaw"
+    confidence: float = 0.95
+    risk_level: str = "CRITICAL"
+    latitude: float | None = 12.2958
+    longitude: float | None = 76.6394
+    action: str = "DISPATCH_RANGERS"
+    contributing_factors: list[str] = ["Acoustic signature 95%", "SW-420 vibration latched"]
+
+
+class AcknowledgeAlertRequest(BaseModel):
+    acknowledged_by: str = "Ranger Command Center"
+
+
+@app.get(
+    "/api/v1/edge/alerts/active"
+)
+def get_active_alerts(
+    limit: int = 20,
+):
+    """Retrieve all unacknowledged (active) emergency alerts."""
+    return {
+        "success": True,
+        "count": len(database.get_active_emergency_alerts(limit=limit)),
+        "alerts": database.get_active_emergency_alerts(limit=limit),
+    }
+
+
+@app.get(
+    "/api/v1/edge/alerts/history"
+)
+def get_alerts_history(
+    limit: int = 50,
+):
+    """Retrieve emergency alert dispatch audit logs."""
+    alerts = database.get_emergency_alert_history(limit=limit)
+    return {
+        "success": True,
+        "count": len(alerts),
+        "alerts": alerts,
+    }
+
+
+@app.post(
+    "/api/v1/edge/alerts/dispatch"
+)
+def dispatch_emergency_alert(
+    payload: EmergencyAlertRequest = Body(...),
+):
+    """Manually or programmatically trigger an emergency alert broadcast."""
+    location = {
+        "latitude": payload.latitude,
+        "longitude": payload.longitude,
+        "source": "SENTINEL_GPS",
+    }
+    decision = {
+        "risk_level": payload.risk_level,
+        "recommended_action": payload.action,
+        "requires_attention": True,
+        "contributing_factors": payload.contributing_factors,
+    }
+
+    alert_dict = alert_dispatcher.create_alert_payload(
+        device_id=payload.device_id,
+        threat_type=payload.threat_type,
+        confidence=payload.confidence,
+        risk_level=payload.risk_level,
+        location=location,
+        decision=decision,
+        contributing_factors=payload.contributing_factors,
+    )
+    result = alert_dispatcher.dispatch_alert(alert_dict)
+
+    return {
+        "success": True,
+        "message": "Emergency alert broadcast successfully dispatched.",
+        "alert": result,
+    }
+
+
+@app.post(
+    "/api/v1/edge/alerts/{alert_id}/acknowledge"
+)
+def acknowledge_alert(
+    alert_id: str,
+    payload: AcknowledgeAlertRequest = Body(default_factory=AcknowledgeAlertRequest),
+):
+    """Acknowledge an active emergency alert."""
+    success = database.acknowledge_emergency_alert(
+        alert_id=alert_id,
+        acknowledged_by=payload.acknowledged_by,
+    )
+    if not success:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Emergency alert '{alert_id}' not found.",
+        )
+    return {
+        "success": True,
+        "alert_id": alert_id,
+        "status": "ACKNOWLEDGED",
+        "acknowledged_by": payload.acknowledged_by,
+    }

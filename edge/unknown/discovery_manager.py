@@ -237,35 +237,50 @@ class UnknownDiscoveryManager:
     # Clustering
     # ==========================================================
 
-    def cluster(self) -> tuple[ClusterResult, list[str]]:
+    def cluster(
+        self,
+        force: bool = False,
+    ) -> tuple[ClusterResult, list[str]]:
         """
-        Cluster exactly one pending batch.
+        Cluster pending unknown observations.
+
+        Parameters
+        ----------
+        force:
+            If True, cluster and persist all currently buffered samples
+            even if the count is below clustering_batch_size.
 
         Returns:
             (ClusterResult, stable_cluster_ids)
         """
 
         if not self.buffer.is_ready(self.clustering_batch_size):
-            # Keep the public behavior safe for callers that invoke cluster()
-            # manually before enough samples are available.
-            embeddings = self.buffer.embeddings()
-            if embeddings.shape[0] == 0:
-                result = ClusterResult(
-                    labels=[],
-                    number_of_clusters=0,
-                    number_of_noise_samples=0,
-                    sample_count=0,
-                )
+            if not force or self.buffer.is_empty():
+                # Caller invoked cluster() without enough samples and without force.
+                embeddings = self.buffer.embeddings()
+                if embeddings.shape[0] == 0:
+                    result = ClusterResult(
+                        labels=[],
+                        number_of_clusters=0,
+                        number_of_noise_samples=0,
+                        sample_count=0,
+                    )
+                    self._last_cluster_result = result
+                    self._last_cluster_ids = []
+                    return result, []
+
+                result = self.clusterer.cluster(embeddings)
                 self._last_cluster_result = result
                 self._last_cluster_ids = []
                 return result, []
 
-            result = self.clusterer.cluster(embeddings)
-            self._last_cluster_result = result
-            self._last_cluster_ids = []
-            return result, []
+        batch_count = (
+            self.clustering_batch_size
+            if self.buffer.is_ready(self.clustering_batch_size)
+            else self.buffer.size()
+        )
 
-        batch = self.buffer.pop_batch(self.clustering_batch_size)
+        batch = self.buffer.pop_batch(batch_count)
         embeddings = torch.stack([sample.embedding for sample in batch])
 
         result = self.clusterer.cluster(embeddings)
@@ -499,6 +514,23 @@ class UnknownDiscoveryManager:
             for sample in record.samples:
                 if sample.sample_id == target:
                     return sample.to_dict()
+
+        return None
+
+    def get_sample_audio_path(
+        self,
+        sample_id: str,
+    ) -> Optional[str]:
+        """Return the source audio path for one sample by its stable sample ID."""
+        target = str(sample_id).strip()
+
+        if not target:
+            return None
+
+        for record in self._clusters.values():
+            for sample in record.samples:
+                if sample.sample_id == target:
+                    return sample.audio_path
 
         return None
 

@@ -119,7 +119,8 @@ def test_unknown_discovery_end_to_end():
 
     )
 
-    assert manager.buffer_size() == 3
+    assert manager.buffer_size() == 0
+    assert manager.total_unknown_samples() == 3
 
     final_result = results[-1]
 

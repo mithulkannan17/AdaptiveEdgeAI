@@ -20,6 +20,7 @@ from collections import deque
 import time
 from typing import Iterable, Optional
 
+import numpy as np
 import torch
 
 
@@ -34,17 +35,34 @@ class UnknownSample:
     timestamp: float = 0.0
 
     def __post_init__(self) -> None:
-        if not isinstance(self.embedding, torch.Tensor):
+        if self.embedding is None:
+            raise ValueError("embedding cannot be None.")
+
+        if isinstance(self.embedding, (list, tuple, np.ndarray)):
             self.embedding = torch.as_tensor(self.embedding, dtype=torch.float32)
+        elif not isinstance(self.embedding, torch.Tensor):
+            raise ValueError("embedding must be a torch.Tensor, numpy array, or list.")
+
+        if self.embedding.ndim != 1:
+            raise ValueError(f"embedding must have dimension 1, got {self.embedding.ndim}.")
 
         # Keep one embedding vector per sample.
-        self.embedding = self.embedding.detach().cpu().float().flatten()
+        self.embedding = self.embedding.detach().cpu().float()
 
         self.predicted_class = int(self.predicted_class)
-        self.confidence = float(self.confidence)
+        self.confidence = float(max(0.0, min(1.0, float(self.confidence))))
 
         if not self.timestamp:
             self.timestamp = time.time()
+
+    def to_dict(self) -> dict:
+        """Convert sample to serializable dictionary without embedding tensor."""
+        return {
+            "predicted_class": self.predicted_class,
+            "confidence": self.confidence,
+            "audio_path": self.audio_path,
+            "timestamp": self.timestamp,
+        }
 
 
 class UnknownBuffer:
@@ -191,6 +209,10 @@ class UnknownBuffer:
     def samples(self) -> list[UnknownSample]:
         """Return a shallow copy of the pending sample list."""
         return list(self._samples)
+
+    def get_samples(self) -> list[UnknownSample]:
+        """Alias for samples() — returns a shallow copy of the pending list."""
+        return self.samples()
 
     # ---------------------------------------------------------
     # Statistics / lifecycle

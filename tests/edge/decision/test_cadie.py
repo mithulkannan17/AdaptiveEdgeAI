@@ -305,3 +305,81 @@ def test_invalid_prediction():
         return
 
     assert False
+
+
+def test_high_confidence_acoustic_alone_triggers_critical_alert_without_hardware():
+    """
+    Validates that high model confidence (e.g. 92% Chainsaw) triggers
+    CRITICAL risk autonomously even when hardware sensors are idle/nominal.
+    """
+    cadie = CADIE()
+    result = cadie.evaluate(
+        prediction=create_prediction(
+            confidence=0.92,
+            label="Chainsaw",
+        ),
+        environment_profile=create_profile("Natural"),
+        adaptive_policy=create_policy(1.30),
+        event=create_event(
+            detected=True,
+            priority=5,
+        ),
+        device_status={
+            "battery_percent": 90.0,
+            # No gas anomaly, no vibration
+            "vibration_detected": False,
+            "gas_risk_score": 0.0,
+        },
+    )
+
+    assert result.risk_level == "CRITICAL"
+    assert result.requires_attention is True
+    assert result.recommended_action == "TRANSMIT_IMMEDIATELY"
+    assert result.decision_score >= 0.90
+    assert any("High model confidence" in f for f in result.contributing_factors)
+
+
+def test_hardware_sensor_corroborates_moderate_confidence():
+    """
+    Validates that when acoustic confidence is moderate (e.g. 70% Fire),
+    hardware gas anomaly provides additive corroboration to elevate risk.
+    """
+    cadie = CADIE()
+    # 1. Without gas anomaly
+    result_solo = cadie.evaluate(
+        prediction=create_prediction(
+            confidence=0.70,
+            label="Fire",
+        ),
+        environment_profile=create_profile("Natural"),
+        adaptive_policy=create_policy(1.0),
+        event=create_event(
+            detected=True,
+            priority=4,
+        ),
+        device_status={"gas_risk_score": 0.0},
+    )
+
+    # 2. With gas anomaly corroboration
+    result_multimodal = cadie.evaluate(
+        prediction=create_prediction(
+            confidence=0.70,
+            label="Fire",
+        ),
+        environment_profile=create_profile("Natural"),
+        adaptive_policy=create_policy(1.0),
+        event=create_event(
+            detected=True,
+            priority=4,
+        ),
+        device_status={
+            "gas_risk_score": 0.85,
+            "gas_assessment": {
+                "gas_risk_score": 0.85,
+                "qualitative_summary": "Atmospheric smoke/combustion gas spike detected (85%).",
+            },
+        },
+    )
+
+    assert result_multimodal.decision_score > result_solo.decision_score
+    assert any("Atmospheric smoke" in f for f in result_multimodal.contributing_factors)

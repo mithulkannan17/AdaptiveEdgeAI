@@ -1,0 +1,226 @@
+sample_name,ground_truth,distance_m,environment,source_spl_dba,foliage_loss_db,geometric_loss_db,received_spl_dba,ambient_noise_dba,effective_snr_db,raw_pred_label,raw_confidence,raw_correct,denoised_pred_label,denoised_confidence,denoised_correct,denoising_applied,confidence_gain
+firework,Footsteps,5.0,Quiet Forest,55.0,0.22,13.98,40.8,35.0,5.8,Water,0.6848,False,Water,0.6848,False,False,0.0
+firework,Footsteps,10.0,Quiet Forest,55.0,0.5,20.0,34.5,35.0,-0.5,Water,0.9999,False,Water,0.9999,False,False,0.0
+firework,Footsteps,20.0,Quiet Forest,55.0,1.05,26.02,27.93,35.0,-7.07,Water,1.0,False,Water,1.0,False,False,0.0
+firework,Footsteps,30.0,Quiet Forest,55.0,1.59,29.54,23.86,35.0,-11.14,Water,1.0,False,Water,1.0,False,True,0.0
+firework,Footsteps,50.0,Quiet Forest,55.0,2.7,33.98,18.33,35.0,-16.67,Water,1.0,False,Water,0.9633,False,True,-0.0367
+firework,Footsteps,5.0,Breezy Canopy,55.0,0.34,13.98,40.68,45.0,-4.32,Water,1.0,False,Water,1.0,False,False,0.0
+firework,Footsteps,10.0,Breezy Canopy,55.0,0.77,20.0,34.23,45.0,-10.77,Water,0.7981,False,Water,0.7981,False,False,0.0
+firework,Footsteps,20.0,Breezy Canopy,55.0,1.61,26.02,27.36,45.0,-17.64,Water,0.9937,False,Water,0.9597,False,True,-0.034
+firework,Footsteps,30.0,Breezy Canopy,55.0,2.46,29.54,22.99,45.0,-22.01,Water,1.0,False,Water,0.9957,False,True,-0.0043
+firework,Footsteps,50.0,Breezy Canopy,55.0,4.16,33.98,16.86,45.0,-28.14,Water,0.9991,False,Water,0.9991,False,False,0.0
+firework,Footsteps,5.0,Windy Forest,55.0,0.5,13.98,40.52,55.0,-14.48,Water,1.0,False,Water,1.0,False,False,0.0
+firework,Footsteps,10.0,Windy Forest,55.0,1.12,20.0,33.88,55.0,-21.12,Water,0.9999,False,Water,0.9999,False,False,0.0
+firework,Footsteps,20.0,Windy Forest,55.0,2.38,26.02,26.6,55.0,-28.4,Water,1.0,False,Water,1.0,False,True,0.0
+firework,Footsteps,30.0,Windy Forest,55.0,3.63,29.54,21.83,55.0,-33.17,Water,0.9999,False,Water,0.9999,False,False,0.0
+firework,Footsteps,50.0,Windy Forest,55.0,6.12,33.98,14.9,55.0,-40.1,Water,0.9277,False,Water,0.9362,False,True,0.0085
+firework,Footsteps,5.0,Rain & Stream,55.0,0.62,13.98,40.4,58.0,-17.6,Water,1.0,False,Water,1.0,False,True,0.0
+firework,Footsteps,10.0,Rain & Stream,55.0,1.39,20.0,33.61,58.0,-24.39,Water,1.0,False,Water,1.0,False,True,0.0
+firework,Footsteps,20.0,Rain & Stream,55.0,2.95,26.02,26.03,58.0,-31.97,Water,0.9996,False,Water,1.0,False,True,0.0004
+firework,Footsteps,30.0,Rain & Stream,55.0,4.5,29.54,20.96,58.0,-37.04,Water,0.9999,False,Drill,0.9762,False,True,-0.0236
+firework,Footsteps,50.0,Rain & Stream,55.0,7.59,33.98,13.43,58.0,-44.57,Water,0.9996,False,Water,0.9993,False,True,-0.0003
+firework,Footsteps,5.0,Roadside Boundary,55.0,0.34,13.98,40.68,65.0,-24.32,Vehicle,1.0,False,Water,0.6313,False,True,-0.3687
+firework,Footsteps,10.0,Roadside Boundary,55.0,0.77,20.0,34.23,65.0,-30.77,Vehicle,1.0,False,Vehicle,0.9999,False,True,-0.0001
+firework,Footsteps,20.0,Roadside Boundary,55.0,1.61,26.02,27.36,65.0,-37.64,Vehicle,1.0,False,Vehicle,0.9686,False,True,-0.0314
+firework,Footsteps,30.0,Roadside Boundary,55.0,2.46,29.54,22.99,65.0,-42.01,Vehicle,1.0,False,Vehicle,1.0,False,True,-0.0
+firework,Footsteps,50.0,Roadside Boundary,55.0,4.16,33.98,16.86,65.0,-48.14,Vehicle,0.9999,False,Vehicle,0.9189,False,True,-0.0809
+som,Bird,5.0,Quiet Forest,68.0,0.22,13.98,53.8,35.0,18.8,Water,0.8497,False,Water,0.8497,False,False,0.0
+som,Bird,10.0,Quiet Forest,68.0,0.5,20.0,47.5,35.0,12.5,Water,1.0,False,Water,1.0,False,False,0.0
+som,Bird,20.0,Quiet Forest,68.0,1.05,26.02,40.93,35.0,5.93,Water,1.0,False,Water,1.0,False,False,0.0
+som,Bird,30.0,Quiet Forest,68.0,1.59,29.54,36.86,35.0,1.86,Water,1.0,False,Water,1.0,False,False,0.0
+som,Bird,50.0,Quiet Forest,68.0,2.7,33.98,31.33,35.0,-3.67,Unknown,0.472,False,Unknown,0.472,False,False,0.0
+som,Bird,5.0,Breezy Canopy,68.0,0.34,13.98,53.68,45.0,8.68,Unknown,0.5512,False,Water,0.9993,False,True,0.4481
+som,Bird,10.0,Breezy Canopy,68.0,0.77,20.0,47.23,45.0,2.23,Fire,0.6942,False,Fire,0.6942,False,False,0.0
+som,Bird,20.0,Breezy Canopy,68.0,1.61,26.02,40.36,45.0,-4.64,Fire,1.0,False,Fire,0.9998,False,True,-0.0002
+som,Bird,30.0,Breezy Canopy,68.0,2.46,29.54,35.99,45.0,-9.01,Water,1.0,False,Water,0.9974,False,True,-0.0026
+som,Bird,50.0,Breezy Canopy,68.0,4.16,33.98,29.86,45.0,-15.14,Fire,0.9998,False,Fire,1.0,False,True,0.0002
+som,Bird,5.0,Windy Forest,68.0,0.5,13.98,53.52,55.0,-1.48,Water,0.8631,False,Water,0.8631,False,False,0.0
+som,Bird,10.0,Windy Forest,68.0,1.12,20.0,46.88,55.0,-8.12,Water,1.0,False,Water,1.0,False,False,0.0
+som,Bird,20.0,Windy Forest,68.0,2.38,26.02,39.6,55.0,-15.4,Water,0.7159,False,Water,0.7159,False,False,0.0
+som,Bird,30.0,Windy Forest,68.0,3.63,29.54,34.83,55.0,-20.17,Water,1.0,False,Water,1.0,False,False,0.0
+som,Bird,50.0,Windy Forest,68.0,6.12,33.98,27.9,55.0,-27.1,Water,0.9993,False,Water,0.9993,False,False,0.0
+som,Bird,5.0,Rain & Stream,68.0,0.62,13.98,53.4,58.0,-4.6,Water,1.0,False,Water,1.0,False,True,0.0
+som,Bird,10.0,Rain & Stream,68.0,1.39,20.0,46.61,58.0,-11.39,Water,1.0,False,Water,1.0,False,True,0.0
+som,Bird,20.0,Rain & Stream,68.0,2.95,26.02,39.03,58.0,-18.97,Water,1.0,False,Water,0.9999,False,True,-0.0001
+som,Bird,30.0,Rain & Stream,68.0,4.5,29.54,33.96,58.0,-24.04,Water,1.0,False,Water,1.0,False,True,0.0
+som,Bird,50.0,Rain & Stream,68.0,7.59,33.98,26.43,58.0,-31.57,Water,1.0,False,Water,1.0,False,True,0.0
+som,Bird,5.0,Roadside Boundary,68.0,0.34,13.98,53.68,65.0,-11.32,Vehicle,1.0,False,Water,0.9937,False,True,-0.0063
+som,Bird,10.0,Roadside Boundary,68.0,0.77,20.0,47.23,65.0,-17.77,Vehicle,1.0,False,Vehicle,0.9979,False,True,-0.0021
+som,Bird,20.0,Roadside Boundary,68.0,1.61,26.02,40.36,65.0,-24.64,Vehicle,1.0,False,Vehicle,0.9943,False,True,-0.0057
+som,Bird,30.0,Roadside Boundary,68.0,2.46,29.54,35.99,65.0,-29.01,Vehicle,1.0,False,Water,0.9453,False,True,-0.0547
+som,Bird,50.0,Roadside Boundary,68.0,4.16,33.98,29.86,65.0,-35.14,Vehicle,1.0,False,Vehicle,0.9919,False,True,-0.0081
+water,Water,5.0,Quiet Forest,60.0,0.22,13.98,45.8,35.0,10.8,Water,1.0,True,Water,1.0,True,False,0.0
+water,Water,10.0,Quiet Forest,60.0,0.5,20.0,39.5,35.0,4.5,Water,1.0,True,Water,1.0,True,False,0.0
+water,Water,20.0,Quiet Forest,60.0,1.05,26.02,32.93,35.0,-2.07,Water,1.0,True,Water,1.0,True,False,0.0
+water,Water,30.0,Quiet Forest,60.0,1.59,29.54,28.86,35.0,-6.14,Water,1.0,True,Water,1.0,True,False,0.0
+water,Water,50.0,Quiet Forest,60.0,2.7,33.98,23.33,35.0,-11.67,Water,1.0,True,Water,1.0,True,False,0.0
+water,Water,5.0,Breezy Canopy,60.0,0.34,13.98,45.68,45.0,0.68,Water,1.0,True,Water,1.0,True,False,0.0
+water,Water,10.0,Breezy Canopy,60.0,0.77,20.0,39.23,45.0,-5.77,Water,1.0,True,Water,1.0,True,False,0.0
+water,Water,20.0,Breezy Canopy,60.0,1.61,26.02,32.36,45.0,-12.64,Water,0.9998,True,Water,0.9998,True,False,0.0
+water,Water,30.0,Breezy Canopy,60.0,2.46,29.54,27.99,45.0,-17.01,Water,0.9856,True,Water,0.9856,True,False,0.0
+water,Water,50.0,Breezy Canopy,60.0,4.16,33.98,21.86,45.0,-23.14,Water,0.9865,True,Water,0.9865,True,False,0.0
+water,Water,5.0,Windy Forest,60.0,0.5,13.98,45.52,55.0,-9.48,Water,0.9988,True,Water,0.9988,True,False,0.0
+water,Water,10.0,Windy Forest,60.0,1.12,20.0,38.88,55.0,-16.12,Water,0.9997,True,Water,0.9999,True,True,0.0002
+water,Water,20.0,Windy Forest,60.0,2.38,26.02,31.6,55.0,-23.4,Water,0.9913,True,Water,0.9913,True,False,0.0
+water,Water,30.0,Windy Forest,60.0,3.63,29.54,26.83,55.0,-28.17,Water,1.0,True,Water,1.0,True,False,0.0
+water,Water,50.0,Windy Forest,60.0,6.12,33.98,19.9,55.0,-35.1,Water,1.0,True,Water,1.0,True,False,0.0
+water,Water,5.0,Rain & Stream,60.0,0.62,13.98,45.4,58.0,-12.6,Water,1.0,True,Water,1.0,True,True,0.0
+water,Water,10.0,Rain & Stream,60.0,1.39,20.0,38.61,58.0,-19.39,Water,1.0,True,Water,1.0,True,True,0.0
+water,Water,20.0,Rain & Stream,60.0,2.95,26.02,31.03,58.0,-26.97,Water,1.0,True,Water,1.0,True,True,-0.0
+water,Water,30.0,Rain & Stream,60.0,4.5,29.54,25.96,58.0,-32.04,Water,1.0,True,Water,1.0,True,True,-0.0
+water,Water,50.0,Rain & Stream,60.0,7.59,33.98,18.43,58.0,-39.57,Water,0.9994,True,Water,1.0,True,True,0.0006
+water,Water,5.0,Roadside Boundary,60.0,0.34,13.98,45.68,65.0,-19.32,Vehicle,1.0,False,Vehicle,1.0,False,True,-0.0
+water,Water,10.0,Roadside Boundary,60.0,0.77,20.0,39.23,65.0,-25.77,Vehicle,1.0,False,Vehicle,1.0,False,True,0.0
+water,Water,20.0,Roadside Boundary,60.0,1.61,26.02,32.36,65.0,-32.64,Vehicle,1.0,False,Vehicle,0.714,False,True,-0.286
+water,Water,30.0,Roadside Boundary,60.0,2.46,29.54,27.99,65.0,-37.01,Vehicle,1.0,False,Vehicle,1.0,False,True,0.0
+water,Water,50.0,Roadside Boundary,60.0,4.16,33.98,21.86,65.0,-43.14,Vehicle,1.0,False,Vehicle,0.9998,False,True,-0.0002
+birds,Bird,5.0,Quiet Forest,68.0,0.22,13.98,53.8,35.0,18.8,Bird,1.0,True,Bird,1.0,True,False,0.0
+birds,Bird,10.0,Quiet Forest,68.0,0.5,20.0,47.5,35.0,12.5,Bird,1.0,True,Bird,1.0,True,False,0.0
+birds,Bird,20.0,Quiet Forest,68.0,1.05,26.02,40.93,35.0,5.93,Bird,1.0,True,Bird,1.0,True,False,0.0
+birds,Bird,30.0,Quiet Forest,68.0,1.59,29.54,36.86,35.0,1.86,Bird,1.0,True,Bird,1.0,True,False,0.0
+birds,Bird,50.0,Quiet Forest,68.0,2.7,33.98,31.33,35.0,-3.67,Bird,1.0,True,Bird,1.0,True,False,0.0
+birds,Bird,5.0,Breezy Canopy,68.0,0.34,13.98,53.68,45.0,8.68,Bird,1.0,True,Bird,1.0,True,False,0.0
+birds,Bird,10.0,Breezy Canopy,68.0,0.77,20.0,47.23,45.0,2.23,Bird,1.0,True,Bird,1.0,True,False,0.0
+birds,Bird,20.0,Breezy Canopy,68.0,1.61,26.02,40.36,45.0,-4.64,Bird,1.0,True,Bird,1.0,True,False,0.0
+birds,Bird,30.0,Breezy Canopy,68.0,2.46,29.54,35.99,45.0,-9.01,Bird,1.0,True,Bird,1.0,True,False,0.0
+birds,Bird,50.0,Breezy Canopy,68.0,4.16,33.98,29.86,45.0,-15.14,Bird,1.0,True,Bird,1.0,True,False,0.0
+birds,Bird,5.0,Windy Forest,68.0,0.5,13.98,53.52,55.0,-1.48,Bird,1.0,True,Bird,1.0,True,False,0.0
+birds,Bird,10.0,Windy Forest,68.0,1.12,20.0,46.88,55.0,-8.12,Bird,1.0,True,Bird,1.0,True,False,0.0
+birds,Bird,20.0,Windy Forest,68.0,2.38,26.02,39.6,55.0,-15.4,Bird,1.0,True,Bird,1.0,True,False,0.0
+birds,Bird,30.0,Windy Forest,68.0,3.63,29.54,34.83,55.0,-20.17,Bird,1.0,True,Bird,1.0,True,False,0.0
+birds,Bird,50.0,Windy Forest,68.0,6.12,33.98,27.9,55.0,-27.1,Wildlife,0.9441,False,Wildlife,0.9441,False,False,0.0
+birds,Bird,5.0,Rain & Stream,68.0,0.62,13.98,53.4,58.0,-4.6,Bird,1.0,True,Bird,1.0,True,True,0.0
+birds,Bird,10.0,Rain & Stream,68.0,1.39,20.0,46.61,58.0,-11.39,Bird,1.0,True,Bird,1.0,True,True,0.0
+birds,Bird,20.0,Rain & Stream,68.0,2.95,26.02,39.03,58.0,-18.97,Water,1.0,False,Water,1.0,False,True,0.0
+birds,Bird,30.0,Rain & Stream,68.0,4.5,29.54,33.96,58.0,-24.04,Water,0.9998,False,Water,0.9984,False,True,-0.0013
+birds,Bird,50.0,Rain & Stream,68.0,7.59,33.98,26.43,58.0,-31.57,Water,1.0,False,Water,0.9999,False,True,-0.0001
+birds,Bird,5.0,Roadside Boundary,68.0,0.34,13.98,53.68,65.0,-11.32,Bird,1.0,True,Bird,1.0,True,True,0.0
+birds,Bird,10.0,Roadside Boundary,68.0,0.77,20.0,47.23,65.0,-17.77,Unknown,0.5036,False,Bird,1.0,True,True,0.4963
+birds,Bird,20.0,Roadside Boundary,68.0,1.61,26.02,40.36,65.0,-24.64,Vehicle,1.0,False,Vehicle,0.6155,False,True,-0.3845
+birds,Bird,30.0,Roadside Boundary,68.0,2.46,29.54,35.99,65.0,-29.01,Vehicle,1.0,False,Unknown,0.594,False,True,-0.406
+birds,Bird,50.0,Roadside Boundary,68.0,4.16,33.98,29.86,65.0,-35.14,Vehicle,1.0,False,Vehicle,1.0,False,True,-0.0
+chainsaw,Drill,5.0,Quiet Forest,98.0,0.22,13.98,83.8,35.0,48.8,Drill,0.9996,True,Drill,0.9996,True,False,0.0
+chainsaw,Drill,10.0,Quiet Forest,98.0,0.5,20.0,77.5,35.0,42.5,Drill,0.9992,True,Drill,0.9992,True,False,0.0
+chainsaw,Drill,20.0,Quiet Forest,98.0,1.05,26.02,70.93,35.0,35.93,Drill,0.9988,True,Drill,0.9988,True,False,0.0
+chainsaw,Drill,30.0,Quiet Forest,98.0,1.59,29.54,66.86,35.0,31.86,Drill,0.9868,True,Drill,0.9868,True,False,0.0
+chainsaw,Drill,50.0,Quiet Forest,98.0,2.7,33.98,61.33,35.0,26.33,Drill,0.9538,True,Drill,0.9538,True,False,0.0
+chainsaw,Drill,5.0,Breezy Canopy,98.0,0.34,13.98,83.68,45.0,38.68,Drill,0.9999,True,Drill,0.9999,True,False,0.0
+chainsaw,Drill,10.0,Breezy Canopy,98.0,0.77,20.0,77.23,45.0,32.23,Drill,0.9999,True,Drill,0.9999,True,False,0.0
+chainsaw,Drill,20.0,Breezy Canopy,98.0,1.61,26.02,70.36,45.0,25.36,Drill,0.9995,True,Drill,0.9995,True,False,0.0
+chainsaw,Drill,30.0,Breezy Canopy,98.0,2.46,29.54,65.99,45.0,20.99,Drill,0.8665,True,Drill,0.8665,True,False,0.0
+chainsaw,Drill,50.0,Breezy Canopy,98.0,4.16,33.98,59.86,45.0,14.86,Drill,0.6297,True,Drill,0.6297,True,False,0.0
+chainsaw,Drill,5.0,Windy Forest,98.0,0.5,13.98,83.52,55.0,28.52,Drill,0.9979,True,Drill,0.9979,True,False,0.0
+chainsaw,Drill,10.0,Windy Forest,98.0,1.12,20.0,76.88,55.0,21.88,Drill,0.9998,True,Drill,0.9998,True,False,0.0
+chainsaw,Drill,20.0,Windy Forest,98.0,2.38,26.02,69.6,55.0,14.6,Drill,0.6585,True,Drill,0.6585,True,False,0.0
+chainsaw,Drill,30.0,Windy Forest,98.0,3.63,29.54,64.83,55.0,9.83,Drill,0.9924,True,Drill,0.9924,True,False,0.0
+chainsaw,Drill,50.0,Windy Forest,98.0,6.12,33.98,57.9,55.0,2.9,Drill,0.987,True,Drill,0.987,True,False,0.0
+chainsaw,Drill,5.0,Rain & Stream,98.0,0.62,13.98,83.4,58.0,25.4,Drill,0.9999,True,Drill,0.9263,True,True,-0.0736
+chainsaw,Drill,10.0,Rain & Stream,98.0,1.39,20.0,76.61,58.0,18.61,Drill,1.0,True,Drill,0.9833,True,True,-0.0167
+chainsaw,Drill,20.0,Rain & Stream,98.0,2.95,26.02,69.03,58.0,11.03,Drill,1.0,True,Drill,0.9988,True,True,-0.0012
+chainsaw,Drill,30.0,Rain & Stream,98.0,4.5,29.54,63.96,58.0,5.96,Drill,0.9996,True,Drill,0.9999,True,True,0.0002
+chainsaw,Drill,50.0,Rain & Stream,98.0,7.59,33.98,56.43,58.0,-1.57,Vehicle,0.9874,False,Vehicle,0.9874,False,False,0.0
+chainsaw,Drill,5.0,Roadside Boundary,98.0,0.34,13.98,83.68,65.0,18.68,Vehicle,0.9845,False,Vehicle,0.9947,False,True,0.0102
+chainsaw,Drill,10.0,Roadside Boundary,98.0,0.77,20.0,77.23,65.0,12.23,Drill,0.8761,True,Drill,0.9455,True,True,0.0694
+chainsaw,Drill,20.0,Roadside Boundary,98.0,1.61,26.02,70.36,65.0,5.36,Vehicle,1.0,False,Vehicle,0.9965,False,True,-0.0035
+chainsaw,Drill,30.0,Roadside Boundary,98.0,2.46,29.54,65.99,65.0,0.99,Vehicle,1.0,False,Vehicle,1.0,False,True,-0.0
+chainsaw,Drill,50.0,Roadside Boundary,98.0,4.16,33.98,59.86,65.0,-5.14,Vehicle,1.0,False,Vehicle,0.9998,False,True,-0.0002
+humanroar,Human,5.0,Quiet Forest,70.0,0.22,13.98,55.8,35.0,20.8,Human,1.0,True,Human,1.0,True,False,0.0
+humanroar,Human,10.0,Quiet Forest,70.0,0.5,20.0,49.5,35.0,14.5,Human,1.0,True,Human,1.0,True,False,0.0
+humanroar,Human,20.0,Quiet Forest,70.0,1.05,26.02,42.93,35.0,7.93,Human,1.0,True,Human,1.0,True,False,0.0
+humanroar,Human,30.0,Quiet Forest,70.0,1.59,29.54,38.86,35.0,3.86,Human,1.0,True,Human,1.0,True,False,0.0
+humanroar,Human,50.0,Quiet Forest,70.0,2.7,33.98,33.33,35.0,-1.67,Human,1.0,True,Human,1.0,True,False,0.0
+humanroar,Human,5.0,Breezy Canopy,70.0,0.34,13.98,55.68,45.0,10.68,Human,1.0,True,Human,1.0,True,False,0.0
+humanroar,Human,10.0,Breezy Canopy,70.0,0.77,20.0,49.23,45.0,4.23,Human,1.0,True,Human,1.0,True,False,0.0
+humanroar,Human,20.0,Breezy Canopy,70.0,1.61,26.02,42.36,45.0,-2.64,Human,1.0,True,Human,1.0,True,False,0.0
+humanroar,Human,30.0,Breezy Canopy,70.0,2.46,29.54,37.99,45.0,-7.01,Human,1.0,True,Human,1.0,True,False,0.0
+humanroar,Human,50.0,Breezy Canopy,70.0,4.16,33.98,31.86,45.0,-13.14,Human,1.0,True,Human,1.0,True,True,-0.0
+humanroar,Human,5.0,Windy Forest,70.0,0.5,13.98,55.52,55.0,0.52,Human,1.0,True,Human,1.0,True,False,0.0
+humanroar,Human,10.0,Windy Forest,70.0,1.12,20.0,48.88,55.0,-6.12,Human,1.0,True,Human,1.0,True,False,0.0
+humanroar,Human,20.0,Windy Forest,70.0,2.38,26.02,41.6,55.0,-13.4,Human,0.9972,True,Human,0.9972,True,False,0.0
+humanroar,Human,30.0,Windy Forest,70.0,3.63,29.54,36.83,55.0,-18.17,Wildlife,0.9998,False,Wildlife,0.9998,False,False,0.0
+humanroar,Human,50.0,Windy Forest,70.0,6.12,33.98,29.9,55.0,-25.1,Human,0.9998,True,Human,0.9998,True,False,0.0
+humanroar,Human,5.0,Rain & Stream,70.0,0.62,13.98,55.4,58.0,-2.6,Human,0.7619,True,Unknown,0.4746,False,True,-0.2873
+humanroar,Human,10.0,Rain & Stream,70.0,1.39,20.0,48.61,58.0,-9.39,Water,0.712,False,Drill,0.9999,False,True,0.2879
+humanroar,Human,20.0,Rain & Stream,70.0,2.95,26.02,41.03,58.0,-16.97,Drill,0.9867,False,Drill,0.9948,False,True,0.0081
+humanroar,Human,30.0,Rain & Stream,70.0,4.5,29.54,35.96,58.0,-22.04,Water,0.9414,False,Drill,0.6157,False,True,-0.3257
+humanroar,Human,50.0,Rain & Stream,70.0,7.59,33.98,28.43,58.0,-29.57,Water,1.0,False,Water,1.0,False,True,0.0
+humanroar,Human,5.0,Roadside Boundary,70.0,0.34,13.98,55.68,65.0,-9.32,Unknown,0.5672,False,Human,0.9999,True,True,0.4328
+humanroar,Human,10.0,Roadside Boundary,70.0,0.77,20.0,49.23,65.0,-15.77,Vehicle,0.9999,False,Water,0.9676,False,True,-0.0323
+humanroar,Human,20.0,Roadside Boundary,70.0,1.61,26.02,42.36,65.0,-22.64,Vehicle,1.0,False,Water,0.9999,False,True,-0.0001
+humanroar,Human,30.0,Roadside Boundary,70.0,2.46,29.54,37.99,65.0,-27.01,Vehicle,0.9999,False,Vehicle,0.6481,False,True,-0.3518
+humanroar,Human,50.0,Roadside Boundary,70.0,4.16,33.98,31.86,65.0,-33.14,Vehicle,1.0,False,Vehicle,1.0,False,True,-0.0
+humanwalking,Footsteps,5.0,Quiet Forest,55.0,0.22,13.98,40.8,35.0,5.8,Footsteps,1.0,True,Footsteps,0.9933,True,True,-0.0067
+humanwalking,Footsteps,10.0,Quiet Forest,55.0,0.5,20.0,34.5,35.0,-0.5,Footsteps,0.984,True,Footsteps,0.984,True,False,0.0
+humanwalking,Footsteps,20.0,Quiet Forest,55.0,1.05,26.02,27.93,35.0,-7.07,Footsteps,0.971,True,Unknown,0.5762,False,True,-0.3948
+humanwalking,Footsteps,30.0,Quiet Forest,55.0,1.59,29.54,23.86,35.0,-11.14,Footsteps,0.9902,True,Unknown,0.4355,False,True,-0.5547
+humanwalking,Footsteps,50.0,Quiet Forest,55.0,2.7,33.98,18.33,35.0,-16.67,Vehicle,0.9977,False,Vehicle,0.9994,False,True,0.0017
+humanwalking,Footsteps,5.0,Breezy Canopy,55.0,0.34,13.98,40.68,45.0,-4.32,Footsteps,0.711,True,Footsteps,0.6842,True,True,-0.0268
+humanwalking,Footsteps,10.0,Breezy Canopy,55.0,0.77,20.0,34.23,45.0,-10.77,Footsteps,1.0,True,Footsteps,1.0,True,True,-0.0
+humanwalking,Footsteps,20.0,Breezy Canopy,55.0,1.61,26.02,27.36,45.0,-17.64,Footsteps,0.7235,True,Vehicle,0.9783,False,True,0.2548
+humanwalking,Footsteps,30.0,Breezy Canopy,55.0,2.46,29.54,22.99,45.0,-22.01,Vehicle,0.7456,False,Vehicle,0.9995,False,True,0.2539
+humanwalking,Footsteps,50.0,Breezy Canopy,55.0,4.16,33.98,16.86,45.0,-28.14,Fire,0.9998,False,Fire,0.9998,False,False,0.0
+humanwalking,Footsteps,5.0,Windy Forest,55.0,0.5,13.98,40.52,55.0,-14.48,Unknown,0.5578,False,Water,0.7952,False,True,0.2375
+humanwalking,Footsteps,10.0,Windy Forest,55.0,1.12,20.0,33.88,55.0,-21.12,Vehicle,0.9996,False,Vehicle,0.9996,False,False,0.0
+humanwalking,Footsteps,20.0,Windy Forest,55.0,2.38,26.02,26.6,55.0,-28.4,Water,0.9884,False,Water,0.9884,False,False,0.0
+humanwalking,Footsteps,30.0,Windy Forest,55.0,3.63,29.54,21.83,55.0,-33.17,Fire,0.9994,False,Fire,0.9994,False,False,0.0
+humanwalking,Footsteps,50.0,Windy Forest,55.0,6.12,33.98,14.9,55.0,-40.1,Water,1.0,False,Water,1.0,False,False,0.0
+humanwalking,Footsteps,5.0,Rain & Stream,55.0,0.62,13.98,40.4,58.0,-17.6,Water,1.0,False,Water,1.0,False,True,-0.0
+humanwalking,Footsteps,10.0,Rain & Stream,55.0,1.39,20.0,33.61,58.0,-24.39,Water,1.0,False,Water,1.0,False,True,0.0
+humanwalking,Footsteps,20.0,Rain & Stream,55.0,2.95,26.02,26.03,58.0,-31.97,Water,1.0,False,Water,1.0,False,True,-0.0
+humanwalking,Footsteps,30.0,Rain & Stream,55.0,4.5,29.54,20.96,58.0,-37.04,Water,1.0,False,Water,1.0,False,True,0.0
+humanwalking,Footsteps,50.0,Rain & Stream,55.0,7.59,33.98,13.43,58.0,-44.57,Water,0.9941,False,Vehicle,0.9503,False,True,-0.0438
+humanwalking,Footsteps,5.0,Roadside Boundary,55.0,0.34,13.98,40.68,65.0,-24.32,Vehicle,1.0,False,Water,1.0,False,True,-0.0
+humanwalking,Footsteps,10.0,Roadside Boundary,55.0,0.77,20.0,34.23,65.0,-30.77,Vehicle,0.9924,False,Vehicle,0.9142,False,True,-0.0782
+humanwalking,Footsteps,20.0,Roadside Boundary,55.0,1.61,26.02,27.36,65.0,-37.64,Vehicle,1.0,False,Vehicle,0.7826,False,True,-0.2174
+humanwalking,Footsteps,30.0,Roadside Boundary,55.0,2.46,29.54,22.99,65.0,-42.01,Vehicle,1.0,False,Vehicle,0.9977,False,True,-0.0023
+humanwalking,Footsteps,50.0,Roadside Boundary,55.0,4.16,33.98,16.86,65.0,-48.14,Vehicle,1.0,False,Vehicle,0.9994,False,True,-0.0006
+humanwhistle,EmergencyVehicle,5.0,Quiet Forest,110.0,0.22,13.98,95.8,35.0,60.8,EmergencyVehicle,0.7836,True,EmergencyVehicle,0.7836,True,False,0.0
+humanwhistle,EmergencyVehicle,10.0,Quiet Forest,110.0,0.5,20.0,89.5,35.0,54.5,EmergencyVehicle,0.7386,True,EmergencyVehicle,0.7386,True,False,0.0
+humanwhistle,EmergencyVehicle,20.0,Quiet Forest,110.0,1.05,26.02,82.93,35.0,47.93,EmergencyVehicle,0.7737,True,EmergencyVehicle,0.7737,True,False,0.0
+humanwhistle,EmergencyVehicle,30.0,Quiet Forest,110.0,1.59,29.54,78.86,35.0,43.86,EmergencyVehicle,0.8347,True,EmergencyVehicle,0.8347,True,False,0.0
+humanwhistle,EmergencyVehicle,50.0,Quiet Forest,110.0,2.7,33.98,73.33,35.0,38.33,EmergencyVehicle,0.8385,True,EmergencyVehicle,0.8385,True,False,0.0
+humanwhistle,EmergencyVehicle,5.0,Breezy Canopy,110.0,0.34,13.98,95.68,45.0,50.68,EmergencyVehicle,0.775,True,EmergencyVehicle,0.775,True,False,0.0
+humanwhistle,EmergencyVehicle,10.0,Breezy Canopy,110.0,0.77,20.0,89.23,45.0,44.23,EmergencyVehicle,0.7709,True,EmergencyVehicle,0.7709,True,False,0.0
+humanwhistle,EmergencyVehicle,20.0,Breezy Canopy,110.0,1.61,26.02,82.36,45.0,37.36,Unknown,0.5165,False,Unknown,0.5165,False,False,0.0
+humanwhistle,EmergencyVehicle,30.0,Breezy Canopy,110.0,2.46,29.54,77.99,45.0,32.99,EmergencyVehicle,0.7071,True,EmergencyVehicle,0.7071,True,False,0.0
+humanwhistle,EmergencyVehicle,50.0,Breezy Canopy,110.0,4.16,33.98,71.86,45.0,26.86,EmergencyVehicle,0.612,True,EmergencyVehicle,0.612,True,False,0.0
+humanwhistle,EmergencyVehicle,5.0,Windy Forest,110.0,0.5,13.98,95.52,55.0,40.52,EmergencyVehicle,0.6268,True,EmergencyVehicle,0.6268,True,False,0.0
+humanwhistle,EmergencyVehicle,10.0,Windy Forest,110.0,1.12,20.0,88.88,55.0,33.88,EmergencyVehicle,0.7185,True,EmergencyVehicle,0.7185,True,False,0.0
+humanwhistle,EmergencyVehicle,20.0,Windy Forest,110.0,2.38,26.02,81.6,55.0,26.6,Unknown,0.51,False,Unknown,0.51,False,False,0.0
+humanwhistle,EmergencyVehicle,30.0,Windy Forest,110.0,3.63,29.54,76.83,55.0,21.83,EmergencyVehicle,0.985,True,EmergencyVehicle,0.985,True,False,0.0
+humanwhistle,EmergencyVehicle,50.0,Windy Forest,110.0,6.12,33.98,69.9,55.0,14.9,EmergencyVehicle,0.9623,True,EmergencyVehicle,0.9623,True,False,0.0
+humanwhistle,EmergencyVehicle,5.0,Rain & Stream,110.0,0.62,13.98,95.4,58.0,37.4,EmergencyVehicle,0.7673,True,EmergencyVehicle,0.7673,True,False,0.0
+humanwhistle,EmergencyVehicle,10.0,Rain & Stream,110.0,1.39,20.0,88.61,58.0,30.61,EmergencyVehicle,0.9739,True,EmergencyVehicle,0.9739,True,False,0.0
+humanwhistle,EmergencyVehicle,20.0,Rain & Stream,110.0,2.95,26.02,81.03,58.0,23.03,EmergencyVehicle,0.9998,True,EmergencyVehicle,0.9998,True,False,0.0
+humanwhistle,EmergencyVehicle,30.0,Rain & Stream,110.0,4.5,29.54,75.96,58.0,17.96,EmergencyVehicle,1.0,True,EmergencyVehicle,1.0,True,False,0.0
+humanwhistle,EmergencyVehicle,50.0,Rain & Stream,110.0,7.59,33.98,68.43,58.0,10.43,EmergencyVehicle,0.9914,True,EmergencyVehicle,0.9914,True,False,0.0
+humanwhistle,EmergencyVehicle,5.0,Roadside Boundary,110.0,0.34,13.98,95.68,65.0,30.68,Bird,0.839,False,Bird,0.839,False,False,0.0
+humanwhistle,EmergencyVehicle,10.0,Roadside Boundary,110.0,0.77,20.0,89.23,65.0,24.23,Bird,0.8782,False,Bird,0.8782,False,False,0.0
+humanwhistle,EmergencyVehicle,20.0,Roadside Boundary,110.0,1.61,26.02,82.36,65.0,17.36,Bird,0.8591,False,Bird,0.9973,False,True,0.1383
+humanwhistle,EmergencyVehicle,30.0,Roadside Boundary,110.0,2.46,29.54,77.99,65.0,12.99,Bird,0.9351,False,Bird,0.9351,False,False,0.0
+humanwhistle,EmergencyVehicle,50.0,Roadside Boundary,110.0,4.16,33.98,71.86,65.0,6.86,Bird,0.882,False,Bird,0.882,False,False,0.0
+keyboard,Wildlife,5.0,Quiet Forest,90.0,0.22,13.98,75.8,35.0,40.8,Wildlife,0.9097,True,Wildlife,0.9442,True,True,0.0345
+keyboard,Wildlife,10.0,Quiet Forest,90.0,0.5,20.0,69.5,35.0,34.5,Wildlife,0.9365,True,Wildlife,0.9482,True,True,0.0117
+keyboard,Wildlife,20.0,Quiet Forest,90.0,1.05,26.02,62.93,35.0,27.93,Wildlife,0.9383,True,Wildlife,0.9383,True,False,0.0
+keyboard,Wildlife,30.0,Quiet Forest,90.0,1.59,29.54,58.86,35.0,23.86,Wildlife,0.9622,True,Wildlife,0.9622,True,False,0.0
+keyboard,Wildlife,50.0,Quiet Forest,90.0,2.7,33.98,53.33,35.0,18.33,Wildlife,0.9313,True,Wildlife,0.9313,True,False,0.0
+keyboard,Wildlife,5.0,Breezy Canopy,90.0,0.34,13.98,75.68,45.0,30.68,Wildlife,0.9397,True,Wildlife,0.9393,True,True,-0.0005
+keyboard,Wildlife,10.0,Breezy Canopy,90.0,0.77,20.0,69.23,45.0,24.23,Wildlife,0.9177,True,Wildlife,0.935,True,True,0.0174
+keyboard,Wildlife,20.0,Breezy Canopy,90.0,1.61,26.02,62.36,45.0,17.36,Wildlife,0.9396,True,Wildlife,0.9396,True,False,0.0
+keyboard,Wildlife,30.0,Breezy Canopy,90.0,2.46,29.54,57.99,45.0,12.99,Unknown,0.5017,False,Unknown,0.5017,False,False,0.0
+keyboard,Wildlife,50.0,Breezy Canopy,90.0,4.16,33.98,51.86,45.0,6.86,Wildlife,0.9996,True,Wildlife,0.9996,True,False,0.0
+keyboard,Wildlife,5.0,Windy Forest,90.0,0.5,13.98,75.52,55.0,20.52,Wildlife,0.7206,True,Wildlife,0.9321,True,True,0.2115
+keyboard,Wildlife,10.0,Windy Forest,90.0,1.12,20.0,68.88,55.0,13.88,Wildlife,0.9984,True,Wildlife,0.9984,True,False,0.0
+keyboard,Wildlife,20.0,Windy Forest,90.0,2.38,26.02,61.6,55.0,6.6,Wildlife,0.9967,True,Wildlife,0.9967,True,False,0.0
+keyboard,Wildlife,30.0,Windy Forest,90.0,3.63,29.54,56.83,55.0,1.83,Wildlife,0.9991,True,Wildlife,0.9991,True,False,0.0
+keyboard,Wildlife,50.0,Windy Forest,90.0,6.12,33.98,49.9,55.0,-5.1,Wildlife,1.0,True,Wildlife,1.0,True,False,0.0
+keyboard,Wildlife,5.0,Rain & Stream,90.0,0.62,13.98,75.4,58.0,17.4,Wildlife,1.0,True,Wildlife,1.0,True,True,0.0
+keyboard,Wildlife,10.0,Rain & Stream,90.0,1.39,20.0,68.61,58.0,10.61,Wildlife,1.0,True,Wildlife,1.0,True,False,0.0
+keyboard,Wildlife,20.0,Rain & Stream,90.0,2.95,26.02,61.03,58.0,3.03,Water,1.0,False,Water,1.0,False,False,0.0
+keyboard,Wildlife,30.0,Rain & Stream,90.0,4.5,29.54,55.96,58.0,-2.04,Water,0.9952,False,Water,0.9952,False,False,0.0
+keyboard,Wildlife,50.0,Rain & Stream,90.0,7.59,33.98,48.43,58.0,-9.57,Water,1.0,False,Water,1.0,False,False,0.0
+keyboard,Wildlife,5.0,Roadside Boundary,90.0,0.34,13.98,75.68,65.0,10.68,Wildlife,0.9904,True,Wildlife,1.0,True,True,0.0096
+keyboard,Wildlife,10.0,Roadside Boundary,90.0,0.77,20.0,69.23,65.0,4.23,Unknown,0.4635,False,Wildlife,0.9965,True,True,0.533
+keyboard,Wildlife,20.0,Roadside Boundary,90.0,1.61,26.02,62.36,65.0,-2.64,Water,0.9453,False,Water,0.9453,False,False,0.0
+keyboard,Wildlife,30.0,Roadside Boundary,90.0,2.46,29.54,57.99,65.0,-7.01,Vehicle,0.7059,False,Vehicle,0.7059,False,False,0.0
+keyboard,Wildlife,50.0,Roadside Boundary,90.0,4.16,33.98,51.86,65.0,-13.14,Vehicle,1.0,False,Vehicle,1.0,False,False,0.0

@@ -35,33 +35,35 @@ class AdaptiveBehaviorEngine:
 
     BASE_PRIORITY = {
 
-        "Bird": 1,
+        "Fire": 5,           # High (Highest priority)
 
-        "Chainsaw": 5,
+        "Chainsaw": 5,       # High / Logging (Highest priority)
 
-        "Drill": 4,
+        "Drill": 5,          # High / Logging (Highest priority)
 
-        "EmergencyVehicle": 5,
+        "Jackhammer": 5,     # High / Logging (Highest priority)
 
-        "Fire": 5,
+        "Gunshot": 5,        # High (Highest priority)
 
-        "Footsteps": 2,
+        "Vehicle": 3,        # Moderate (Need to be addressed)
 
-        "Human": 3,
+        "EmergencyVehicle": 3, # Moderate (Need to be addressed)
 
-        "Insects": 1,
+        "Human": 3,          # Moderate (Need to be addressed)
 
-        "Jackhammer": 4,
+        "Footsteps": 3,      # Moderate (Need to be addressed)
 
-        "Thunderstorm": 2,
+        "Wildlife": 2,       # Low
 
-        "Vehicle": 3,
+        "Thunderstorm": 2,   # Low
 
-        "Water": 1,
+        "Bird": 1,           # Low
 
-        "Wildlife": 4,
+        "Insects": 1,        # Low
 
-        "Wind": 1,
+        "Water": 1,          # Low
+
+        "Wind": 1,           # Low
 
     }
 
@@ -220,11 +222,19 @@ class AdaptiveBehaviorEngine:
 
         priority.update({
 
-            "Chainsaw": 5,
-
             "Fire": 5,
 
-            "Wildlife": 4,
+            "Chainsaw": 5,
+
+            "Drill": 5,
+
+            "Gunshot": 5,
+
+            "Vehicle": 3,
+
+            "Human": 3,
+
+            "Wildlife": 2,
 
         })
 
@@ -295,9 +305,15 @@ class AdaptiveBehaviorEngine:
 
         priority.update({
 
-            "EmergencyVehicle": 5,
+            "Fire": 5,
 
             "Chainsaw": 5,
+
+            "Drill": 5,
+
+            "Jackhammer": 5,
+
+            "EmergencyVehicle": 3,
 
             "Human": 3,
 

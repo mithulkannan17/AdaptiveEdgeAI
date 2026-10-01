@@ -55,7 +55,6 @@
 // ============================================================
 
 #define DEVICE_ID "edge_node_telemetry_001"
-#define DEVICE_API_KEY "aura_sentry_sec_key_99"
 
 // ============================================================
 // WIFI CONFIGURATION
@@ -1519,14 +1518,6 @@ bool sendToBackend(
         "Accept",
         "application/json");
 
-    http.addHeader(
-        "X-Device-Token",
-        DEVICE_API_KEY);
-
-    http.addHeader(
-        "X-API-Key",
-        DEVICE_API_KEY);
-
     int responseCode =
         http.POST(json);
 
@@ -1691,26 +1682,6 @@ void parseInferenceResponse(
     }
 
     /*
-      Local Emergency Alert Notification
-    */
-    JsonObject emergencyAlert =
-        inference["emergency_alert"];
-
-    bool localAlertActive = false;
-    String alertThreat = "";
-    String alertId = "";
-
-    if (!emergencyAlert.isNull())
-    {
-        localAlertActive = emergencyAlert["triggered"] | false;
-        if (localAlertActive)
-        {
-            alertThreat = emergencyAlert["threat_type"] | "THREAT";
-            alertId = emergencyAlert["alert_id"] | "N/A";
-        }
-    }
-
-    /*
       Print result
     */
 
@@ -1784,31 +1755,6 @@ void parseInferenceResponse(
         predictionRequiresAttention
             ? "YES"
             : "NO");
-
-    if (localAlertActive)
-    {
-        Serial.println(
-            "---------------- EMERGENCY ALERT TRIGGERED -----------------");
-        Serial.print(
-            "Alert Threat        : ");
-        Serial.println(
-            alertThreat);
-        Serial.print(
-            "Alert ID            : ");
-        Serial.println(
-            alertId);
-        Serial.println(
-            "Action              : Activating local strobe/alarm indicator...");
-        
-        // Fast triple-pulse visual strobe indicator on RED LED
-        for (int i = 0; i < 3; i++)
-        {
-            digitalWrite(RED_LED, HIGH);
-            delay(120);
-            digitalWrite(RED_LED, LOW);
-            delay(80);
-        }
-    }
 
     Serial.println(
         "============================================================");
@@ -1943,14 +1889,6 @@ bool sendAudioToBackend()
     http.addHeader(
         "X-Bit-Depth",
         "16");
-
-    http.addHeader(
-        "X-Device-Token",
-        DEVICE_API_KEY);
-
-    http.addHeader(
-        "X-API-Key",
-        DEVICE_API_KEY);
 
     Serial.print(
         "Device ID: ");

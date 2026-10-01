@@ -55,6 +55,7 @@ class Predictor:
         unknown_margin_threshold: float = 0.15,
         unknown_buffer_size: int = 500,
         unknown_clustering_batch_size: int = 30,
+        unknown_state_path: str | Path | None = None,
     ):
         """
         Parameters
@@ -81,6 +82,9 @@ class Predictor:
         unknown_clustering_batch_size:
             Number of unknown samples required before
             clustering is triggered.
+
+        unknown_state_path:
+            Path for persisting discovered clusters.
         """
 
         # --------------------------------------------------
@@ -155,6 +159,9 @@ class Predictor:
         )
 
         if self.enable_unknown_discovery:
+            if unknown_state_path is None:
+                default_state = Path(__file__).resolve().parent.parent / "data" / "unknown_discovery.json"
+                unknown_state_path = default_state
 
             self.discovery_manager = (
                 UnknownDiscoveryManager(
@@ -178,6 +185,8 @@ class Predictor:
                     clustering_batch_size=(
                         unknown_clustering_batch_size
                     ),
+
+                    state_path=unknown_state_path,
 
                 )
             )
@@ -474,6 +483,46 @@ class Predictor:
             }
 
         return self.discovery_manager.status()
+
+    def get_unknown_clusters(self) -> list[dict]:
+        """Return persistent discovered unknown clusters."""
+        if self.discovery_manager is None:
+            return []
+        return self.discovery_manager.get_clusters()
+
+    def label_unknown_cluster(
+        self,
+        cluster_id: str,
+        label: str,
+        notes: str = "",
+    ) -> dict:
+        """Apply a human label to a discovered unknown cluster."""
+        if self.discovery_manager is None:
+            raise RuntimeError("Unknown discovery is not enabled.")
+        return self.discovery_manager.label_cluster(
+            cluster_id=cluster_id,
+            label=label,
+            notes=notes,
+        )
+
+    def unlabel_unknown_cluster(
+        self,
+        cluster_id: str,
+    ) -> dict:
+        """Remove a human label from a discovered unknown cluster."""
+        if self.discovery_manager is None:
+            raise RuntimeError("Unknown discovery is not enabled.")
+        return self.discovery_manager.unlabel_cluster(cluster_id=cluster_id)
+
+    def trigger_clustering(
+        self,
+        force: bool = True,
+    ) -> tuple[dict, list[str]]:
+        """Trigger clustering on currently buffered unknown samples."""
+        if self.discovery_manager is None:
+            raise RuntimeError("Unknown discovery is not enabled.")
+        result, cluster_ids = self.discovery_manager.cluster(force=force)
+        return result.to_dict(), cluster_ids
 
     # ======================================================
     # Model Information

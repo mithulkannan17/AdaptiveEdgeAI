@@ -1,21 +1,21 @@
 {
   "version": 2,
-  "total_unknown_samples": 100,
+  "total_unknown_samples": 140,
   "total_cluster_runs": 3,
   "last_cluster_at": 1789154901.2390904,
   "last_decision": {
     "is_unknown": true,
-    "predicted_class": 13,
-    "confidence": 0.41507837176322937,
-    "margin": 0.11944374442100525,
+    "predicted_class": 8,
+    "confidence": 0.07354294508695602,
+    "margin": 0.00029299408197402954,
     "reason": "Low classification confidence.",
-    "audio_rms": 0.007217026315629482
+    "audio_rms": null
   },
   "clusters": [
     {
       "cluster_id": "CL-8C83942B",
       "created_at": 1788643686.307317,
-      "updated_at": 1788643865.6311452,
+      "updated_at": 1790621026.3789256,
       "sample_count": 30,
       "noise_samples": 0,
       "status": "LABELED",
