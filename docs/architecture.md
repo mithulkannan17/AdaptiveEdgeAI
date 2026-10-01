@@ -122,7 +122,7 @@ $$\text{Decision Score} = \max\left(C_{\text{threat}}, \; 0.52 \cdot C + 0.22 \c
 - **Embedding Ingestion**: Latent vector $E$ and WAV audio are buffered in `UnknownBuffer`.
 - **DBSCAN Density Clustering**:
   - Distance metric: Cosine distance on normalized $L_2$ embeddings.
-  - Parameters: $\epsilon = 0.35, \text{min\_samples} = 3$.
+  - Parameters: $\epsilon = 0.35$, `min_samples = 3`.
   - Generates persistent cluster identifiers (`cluster-001`, `cluster-002`) ready for human ranger review in the UI.
 
 ---

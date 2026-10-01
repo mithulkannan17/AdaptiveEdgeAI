@@ -134,7 +134,7 @@ $$\text{Decision Score} = \max\left(C_{\text{threat}}, \; 0.52 \cdot C + 0.22 \c
 ### 3. Open-Set Unknown Discovery (DBSCAN + Embeddings)
 - **Rejection Gating**: Audio events with low confidence ($< 0.65$) or low top-1/top-2 softmax margin ($< 0.15$) are rejected from closed-set classification.
 - **Dense Embedding Extraction**: 128-dimensional latent vector extracted and cached with raw 160KB WAV audio.
-- **Unsupervised DBSCAN Clustering**: Cosine-distance clustering ($\epsilon = 0.35, \text{min\_samples} = 3$) groups novel sounds into discovery clusters for human ranger review.
+- **Unsupervised DBSCAN Clustering**: Cosine-distance clustering ($\epsilon = 0.35$, `min_samples = 3`) groups novel sounds into discovery clusters for human ranger review.
 
 ---
 

@@ -164,7 +164,7 @@ Closed-set classifiers assign false high-confidence predictions to out-of-distri
 $$\text{IsUnknown}(\mathbf{P}) = \begin{cases} \text{True}, & \text{if } \max(\mathbf{P}) < \tau_{\text{conf}} \lor (\mathbf{P}_{(1)} - \mathbf{P}_{(2)}) < \Delta_{\text{margin}} \\ \text{False}, & \text{otherwise} \end{cases}$$
 where $\tau_{\text{conf}} = 0.65$ and $\Delta_{\text{margin}} = 0.15$. Rejected sounds are stored in an embedding buffer. When the buffer reaches batch capacity ($N \ge 15$), **DBSCAN** density clustering executes using cosine distance:
 $$d_{\text{cos}}(\mathbf{e}_i, \mathbf{e}_j) = 1 - \frac{\mathbf{e}_i \cdot \mathbf{e}_j}{\|\mathbf{e}_i\|_2 \|\mathbf{e}_j\|_2}$$
-Clusters satisfying $\epsilon \le 0.35$ and $\text{min\_samples} \ge 3$ are assigned persistent identifiers (`cluster-001`) and surfaced in the Human-in-the-Loop review console for ranger validation.
+Clusters satisfying $\epsilon \le 0.35$ and `min_samples` $\ge 3$ are assigned persistent identifiers (`cluster-001`) and surfaced in the Human-in-the-Loop review console for ranger validation.
 
 ---
 
@@ -180,7 +180,7 @@ $$\text{Decision Score } S_{\text{CADIE}} = \max\left(C_{\text{threat}}, \; 0.52
 ### B. Gas First-Order Derivative Trend ($dV/dt$)
 Raw analog gas sensor voltages $V(t)$ undergo rolling baseline tracking. The first-order derivative is estimated via discrete difference:
 $$\frac{dV}{dt} = \frac{V(t) - V(t - \Delta t)}{\Delta t}$$
-Trends are categorized into state space $\mathcal{S}_{\text{gas}} \in \{\text{STABLE}, \text{RISING}, \text{RISING\_FAST}, \text{FALLING}\}$. A `RISING_FAST` slope ($> +0.20\text{ V/s}$) indicates combustion plumes or rapid smoke accumulation.
+Trends are categorized into state space $\mathcal{S}_{\text{gas}} \in \{\text{STABLE}, \text{RISING}, \text{RISING-FAST}, \text{FALLING}\}$. A `RISING_FAST` slope ($> +0.20\text{ V/s}$) indicates combustion plumes or rapid smoke accumulation.
 
 ### C. Multimodal Threat Priority Hierarchy
 
