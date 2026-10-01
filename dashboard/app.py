@@ -923,36 +923,7 @@ if not st.session_state.get("authenticated", False):
                         else:
                             st.error(token)
 
-                st.markdown("<div style='margin-top:14px; border-top:1px solid rgba(32,54,62,0.6); padding-top:10px;'></div>", unsafe_allow_html=True)
-                with st.expander("👑 Need Chief Credentials? Email Master Passcode to Admin", expanded=False):
-                    c_mail = st.text_input("Administrator Email Address", value="mithulkannan5@gmail.com", key="send_chief_email_inp")
-                    col_send, col_diag = st.columns([1.5, 1])
-                    with col_send:
-                        if st.button("📧 Send Chief Credentials", use_container_width=True, key="btn_send_chief_creds"):
-                            import importlib
-                            import backend.email_service
-                            importlib.reload(backend.email_service)
-                            svc = backend.email_service.EmailService()
-                            if not c_mail.strip() or "@" not in c_mail:
-                                st.error("Please enter a valid email address.")
-                            else:
-                                with st.spinner("Dispatching master credentials email..."):
-                                    res = svc.send_chief_credentials_email(c_mail.strip())
-                                    if res.get("success"):
-                                        st.success(f"✅ Chief Master credentials successfully sent to **{c_mail.strip()}**! Check your inbox.")
-                                    else:
-                                        st.error(f"❌ {res.get('message', 'Failed to send email.')}")
-                    with col_diag:
-                        if st.button("🔍 Test SMTP", use_container_width=True, key="btn_test_smtp_diag"):
-                            import importlib
-                            import backend.email_service
-                            importlib.reload(backend.email_service)
-                            svc = backend.email_service.EmailService()
-                            diag = svc.test_connection()
-                            if diag.get("success"):
-                                st.success(diag.get("message"))
-                            else:
-                                st.error(diag.get("message"))
+
 
         # ----------------------------------------------------
         # TAB 2: PUBLIC CITIZEN SIGN-UP (WITH EMAIL OTP)
