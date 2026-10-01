@@ -1527,6 +1527,7 @@ if current_role == "admin":
 
     elif active_page == "🗺️ Tactical Map & Dispatch":
         st.markdown('<div class="section"><div class="section-title">Live Tactical Map & Field Ranger Dispatch</div><div class="section-meta">GPS SENTINEL NODES · ACTIVE THREATS · NEARBY FIELD RANGERS</div></div>', unsafe_allow_html=True)
+        map_col, dispatch_col = st.columns([2.2, 1.3])
         with map_col:
             st.map(map_dataframe, latitude="latitude", longitude="longitude", color="color", size="size", zoom=13, use_container_width=True)
             st.markdown(
