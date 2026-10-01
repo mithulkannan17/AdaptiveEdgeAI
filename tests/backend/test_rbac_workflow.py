@@ -160,3 +160,110 @@ def test_auth_audit_log(tmp_path, monkeypatch):
     logs = data["audit_logs"]
     assert len(logs) >= 1
     assert logs[0]["action"] == "LOGIN_CHIEF_RANGER"
+
+
+def test_chief_generates_field_ranger_and_ranger_logs_in(tmp_path, monkeypatch):
+    client, db = create_test_client(tmp_path, monkeypatch)
+
+    # 1. Chief creates ranger account
+    payload = {
+        "full_name": "Ranger Rajesh Varma",
+        "callsign": "DELTA-9",
+        "rank": "Senior Wildlife Tracker",
+        "sector": "Sector 6 (Bamboo Basin)",
+        "phone": "+91 99887 76655",
+    }
+    create_resp = client.post("/api/v1/auth/ranger/create", json=payload)
+    assert create_resp.status_code == 200
+    res_data = create_resp.json()
+    assert res_data["success"] is True
+    generated_user = res_data["username"]
+    generated_pwd = res_data["password"]
+    assert generated_user.startswith("ranger.rajesh")
+    assert generated_pwd.startswith("Aura#Ranger")
+
+    # 2. Ranger logs in using generated credentials
+    login_resp = client.post(
+        "/api/v1/auth/login",
+        json={"username": generated_user, "password": generated_pwd},
+    )
+    assert login_resp.status_code == 200
+    login_data = login_resp.json()
+    assert login_data["success"] is True
+    assert login_data["user"]["role"] == "ranger"
+    assert login_data["user"]["display_name"] == "Ranger Rajesh Varma"
+
+
+def test_citizen_automated_otp_and_signup_flow(tmp_path, monkeypatch):
+    client, db = create_test_client(tmp_path, monkeypatch)
+
+    contact = "+91 91234 56789"
+
+    # 1. Citizen requests OTP
+    otp_resp = client.post("/api/v1/auth/signup/otp/generate", json={"phone_or_email": contact})
+    assert otp_resp.status_code == 200
+    otp_data = otp_resp.json()
+    assert otp_data["success"] is True
+    generated_otp = otp_data["otp"]
+    assert len(generated_otp) == 6
+
+    # 2. Citizen verifies OTP and creates account
+    verify_payload = {
+        "phone_or_email": contact,
+        "otp_code": generated_otp,
+        "username": "citizen.priya",
+        "password": "priyapassword123",
+        "full_name": "Priya Nambiar",
+    }
+    reg_resp = client.post("/api/v1/auth/signup/otp/verify", json=verify_payload)
+    assert reg_resp.status_code == 200
+    assert reg_resp.json()["success"] is True
+
+    # 3. Citizen logs in
+    login_resp = client.post(
+        "/api/v1/auth/login",
+        json={"username": "citizen.priya", "password": "priyapassword123"},
+    )
+    assert login_resp.status_code == 200
+    assert login_resp.json()["success"] is True
+    assert login_resp.json()["user"]["role"] == "viewer"
+    assert login_resp.json()["user"]["display_name"] == "Priya Nambiar"
+
+
+def test_chief_user_management_suite(tmp_path, monkeypatch):
+    client, db = create_test_client(tmp_path, monkeypatch)
+
+    # 1. Chief logs in with default master credentials
+    chief_login = client.post(
+        "/api/v1/auth/login",
+        json={"username": "chief", "password": "auraadmin123"},
+    )
+    assert chief_login.status_code == 200
+    assert chief_login.json()["user"]["role"] == "admin"
+
+    # 2. Chief views all registered users
+    users_resp = client.get("/api/v1/auth/users")
+    assert users_resp.status_code == 200
+    users = users_resp.json()["users"]
+    assert len(users) >= 4
+
+    # 3. Chief updates a user's password
+    update_resp = client.post(
+        "/api/v1/auth/users/ranger.amar/password",
+        json={"new_password": "NewAmarPassword999"},
+    )
+    assert update_resp.status_code == 200
+    assert update_resp.json()["success"] is True
+
+    # Ranger logs in with new password
+    ranger_login = client.post(
+        "/api/v1/auth/login",
+        json={"username": "ranger.amar", "password": "NewAmarPassword999"},
+    )
+    assert ranger_login.status_code == 200
+
+    # 4. Chief deletes user
+    del_resp = client.delete("/api/v1/auth/users/citizen.demo")
+    assert del_resp.status_code == 200
+    assert del_resp.json()["success"] is True
+

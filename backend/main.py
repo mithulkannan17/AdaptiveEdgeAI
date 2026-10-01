@@ -403,24 +403,278 @@ class TokenVerifyRequest(BaseModel):
     device_id: str | None = None
 
 
+class CitizenSignupOtpRequest(BaseModel):
+    phone_or_email: str
+
+
+class CitizenSignupVerifyRequest(BaseModel):
+    phone_or_email: str
+    otp_code: str
+    username: str
+    password: str
+    full_name: str
+
+
+class CreateRangerRequest(BaseModel):
+    full_name: str
+    callsign: str = "ALPHA-1"
+    rank: str = "Field Ranger"
+    sector: str = "Sector 4 (Tiger Corridor)"
+    phone: str = ""
+
+
+class UpdateUserPasswordRequest(BaseModel):
+    new_password: str
+
+
 # ==========================================================
 # AUTHENTICATION & RBAC ENDPOINTS
 # ==========================================================
 
 @app.post("/api/v1/auth/login")
 def auth_login(creds: LoginRequest):
-    """Authenticate ranger/admin credentials and issue a signed session token."""
+    """Authenticate ranger/admin/citizen credentials and issue a signed session token."""
+    # 1. Check persistent RuntimeDatabase
+    db_user = database.authenticate_user(creds.username, creds.password)
+    if db_user:
+        role_str = str(db_user.get("role", "viewer")).lower()
+        if role_str in ("admin", "chief"):
+            role = UserRole.ADMIN
+        elif role_str == "ranger":
+            role = UserRole.RANGER
+        else:
+            role = UserRole.VIEWER
+
+        token = SessionTokenManager.create_token(creds.username, role)
+        profile = UserProfile(
+            username=db_user["username"],
+            role=role,
+            display_name=db_user.get("full_name") or db_user.get("username", "").capitalize(),
+            department=db_user.get("sector") or ("Forestry Command" if role == UserRole.ADMIN else "Community"),
+            permissions=ROLE_PERMISSIONS.get(role, []),
+        )
+        database.insert_auth_audit_log(
+            username=db_user["username"],
+            role=role.value,
+            action="LOGIN_SUCCESS",
+            details=f"User {db_user['username']} ({role.value}) logged in successfully.",
+        )
+        return {
+            "success": True,
+            "token": token,
+            "user": profile.model_dump(),
+            "profile_meta": db_user,
+        }
+
+    # 2. Check built-in emergency fallback accounts
     result = authenticate_user(creds.username, creds.password)
     if not result:
+        database.insert_auth_audit_log(
+            username=creds.username,
+            role="unknown",
+            action="LOGIN_FAILED",
+            details=f"Failed login attempt for username '{creds.username}'.",
+        )
         raise HTTPException(
             status_code=401,
             detail="Invalid username or password.",
         )
+
     profile, token = result
+    database.insert_auth_audit_log(
+        username=profile.username,
+        role=profile.role.value,
+        action="LOGIN_SUCCESS",
+        details=f"Built-in user {profile.username} authenticated.",
+    )
     return {
         "success": True,
         "token": token,
         "user": profile.model_dump(),
+    }
+
+
+@app.post("/api/v1/auth/signup/otp/generate")
+def auth_generate_signup_otp(payload: CitizenSignupOtpRequest):
+    """Generate an automated 6-digit verification OTP for citizen self sign-up."""
+    contact = payload.phone_or_email.strip()
+    if not contact or len(contact) < 5:
+        raise HTTPException(status_code=400, detail="Valid phone number or email is required.")
+
+    otp = database.create_otp(contact)
+    database.insert_auth_audit_log(
+        username=contact,
+        role="public",
+        action="GENERATE_OTP",
+        details=f"Generated OTP verification code for citizen: {contact}",
+    )
+    return {
+        "success": True,
+        "otp": otp,
+        "phone_or_email": contact,
+        "message": "Verification code generated. Valid for 5 minutes.",
+    }
+
+
+@app.post("/api/v1/auth/signup/otp/verify")
+def auth_verify_signup_otp(payload: CitizenSignupVerifyRequest):
+    """Validate citizen OTP and register the public citizen account."""
+    contact = payload.phone_or_email.strip()
+    otp_ok = database.verify_otp(contact, payload.otp_code.strip())
+    if not otp_ok:
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP verification code.")
+
+    username = payload.username.strip().lower()
+    if not username:
+        raise HTTPException(status_code=400, detail="Username cannot be empty.")
+    if len(payload.password) < 4:
+        raise HTTPException(status_code=400, detail="Password must be at least 4 characters.")
+
+    created = database.create_user(
+        username=username,
+        password=payload.password,
+        role="viewer",
+        full_name=payload.full_name.strip() or "Citizen Member",
+        email_or_phone=contact,
+        created_by="SELF_SIGNUP",
+    )
+    if not created:
+        raise HTTPException(status_code=400, detail="Failed to create user account.")
+
+    database.insert_auth_audit_log(
+        username=username,
+        role="public",
+        action="CITIZEN_REGISTRATION",
+        details=f"Citizen {payload.full_name} registered successfully with contact {contact}.",
+    )
+    return {
+        "success": True,
+        "username": username,
+        "message": f"Account '{username}' created successfully! You may now log in.",
+    }
+
+
+@app.post("/api/v1/auth/ranger/create")
+def auth_create_ranger(payload: CreateRangerRequest):
+    """Chief Ranger creates a new Field Ranger account with auto-generated credentials."""
+    import random
+    full_name = payload.full_name.strip()
+    if not full_name:
+        raise HTTPException(status_code=400, detail="Ranger full name is required.")
+
+    # Strip honorific 'Ranger' if user entered 'Ranger Rajesh'
+    name_tokens = [t for t in full_name.split() if t.lower() not in ("ranger", "officer", "cadet")]
+    first_token = name_tokens[0] if name_tokens else full_name.split()[0]
+    first_name_clean = "".join(c for c in first_token if c.isalnum()).lower()
+    rand_suffix = random.randint(10, 99)
+    username = f"ranger.{first_name_clean}{rand_suffix}"
+
+    pwd_num = random.randint(100, 999)
+    password = f"Aura#Ranger{pwd_num}"
+
+    callsign = payload.callsign.strip() or f"SENTRY-{random.randint(10, 99)}"
+    rank = payload.rank.strip() or "Field Ranger"
+    sector = payload.sector.strip() or "Sector 4 (Tiger Corridor)"
+
+    success = database.create_user(
+        username=username,
+        password=password,
+        role="ranger",
+        full_name=full_name,
+        email_or_phone=payload.phone.strip(),
+        callsign=callsign,
+        rank=rank,
+        sector=sector,
+        created_by="chief",
+    )
+    if not success:
+        raise HTTPException(status_code=500, detail="Could not create ranger user.")
+
+    database.insert_auth_audit_log(
+        username="chief",
+        role="admin",
+        action="CHIEF_CREATE_RANGER",
+        details=f"Chief generated credentials for Ranger {full_name} (User: {username}, Callsign: {callsign}).",
+    )
+    return {
+        "success": True,
+        "username": username,
+        "password": password,
+        "full_name": full_name,
+        "callsign": callsign,
+        "rank": rank,
+        "sector": sector,
+        "phone": payload.phone.strip(),
+        "message": "Field Ranger account & credentials successfully generated!",
+    }
+
+
+@app.get("/api/v1/auth/users")
+def auth_get_users(role: str | None = None):
+    """List all registered users (Chief Ranger / Admin access)."""
+    users = database.get_all_users(role=role)
+    return {
+        "success": True,
+        "count": len(users),
+        "users": users,
+    }
+
+
+@app.delete("/api/v1/auth/users/{username}")
+def auth_delete_user(username: str):
+    """Delete a user account (Chief Ranger only)."""
+    if username.strip().lower() in ("chief", "admin"):
+        raise HTTPException(status_code=403, detail="Chief / Admin root account cannot be deleted.")
+
+    success = database.delete_user(username)
+    if not success:
+        raise HTTPException(status_code=404, detail=f"User '{username}' not found.")
+
+    database.insert_auth_audit_log(
+        username="chief",
+        role="admin",
+        action="DELETE_USER",
+        details=f"Chief deleted account for user '{username}'.",
+    )
+    return {
+        "success": True,
+        "username": username,
+        "message": f"User '{username}' successfully deleted.",
+    }
+
+
+@app.post("/api/v1/auth/users/{username}/password")
+def auth_update_user_password(username: str, payload: UpdateUserPasswordRequest):
+    """Chief Ranger updates a user's password."""
+    new_pwd = payload.new_password.strip()
+    if len(new_pwd) < 4:
+        raise HTTPException(status_code=400, detail="Password must be at least 4 characters.")
+
+    user = database.get_user(username)
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User '{username}' not found.")
+
+    database.create_user(
+        username=user["username"],
+        password=new_pwd,
+        role=user["role"],
+        full_name=user["full_name"],
+        email_or_phone=user.get("email_or_phone", ""),
+        callsign=user.get("callsign"),
+        rank=user.get("rank"),
+        sector=user.get("sector"),
+        created_by="chief_password_reset",
+    )
+    database.insert_auth_audit_log(
+        username="chief",
+        role="admin",
+        action="UPDATE_USER_PASSWORD",
+        details=f"Password updated for user '{username}'.",
+    )
+    return {
+        "success": True,
+        "username": username,
+        "message": f"Password for '{username}' successfully updated.",
     }
 
 
