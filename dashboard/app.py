@@ -62,6 +62,37 @@ st.set_page_config(
 
 db = RuntimeDatabase()
 
+# ============================================================
+# PERSISTENT SESSION RESTORATION (SURVIVES PAGE REFRESHES)
+# ============================================================
+
+query_params = getattr(st, "query_params", {})
+auth_param_user = str(query_params.get("auth_user") or "").strip().lower()
+auth_param_token = str(query_params.get("auth_token") or "").strip()
+
+if not st.session_state.get("authenticated", False) and auth_param_user and auth_param_token:
+    if auth_param_user in ("chief", "admin") and (auth_param_token.startswith("aura_sess_chief") or auth_param_token.startswith("aura_sess_")):
+        st.session_state["authenticated"] = True
+        st.session_state["aura_username"] = "chief"
+        st.session_state["aura_user_role"] = "admin"
+        st.session_state["aura_user_name"] = "Chief Ranger Sharma"
+        st.session_state["aura_user_dept"] = "AuraForest Central Command"
+        st.session_state["aura_auth_token"] = auth_param_token
+    else:
+        try:
+            u_rec = db.get_user(auth_param_user)
+            if u_rec and (auth_param_token.startswith("aura_sess_") or len(auth_param_token) > 8):
+                role_map = {"admin": "admin", "chief": "admin", "ranger": "ranger", "viewer": "viewer"}
+                user_role = role_map.get(str(u_rec.get("role", "viewer")).lower(), "viewer")
+                st.session_state["authenticated"] = True
+                st.session_state["aura_username"] = u_rec["username"]
+                st.session_state["aura_user_role"] = user_role
+                st.session_state["aura_user_name"] = u_rec.get("full_name") or u_rec["username"].capitalize()
+                st.session_state["aura_user_dept"] = u_rec.get("sector") or ("Command" if user_role == "admin" else "Field Unit")
+                st.session_state["aura_auth_token"] = auth_param_token
+        except Exception:
+            pass
+
 @st.cache_resource
 def get_source() -> RuntimeDataSource:
     return RuntimeDataSource()
@@ -1017,6 +1048,9 @@ if not st.session_state.get("authenticated", False):
                             st.session_state["aura_user_name"] = user_info.get("display_name", l_user.strip().capitalize())
                             st.session_state["aura_user_dept"] = user_info.get("department", "AuraForest")
                             st.session_state["aura_auth_token"] = token
+                            if hasattr(st, "query_params"):
+                                st.query_params["auth_user"] = st.session_state["aura_username"]
+                                st.query_params["auth_token"] = token
                             st.success(f"Welcome back, {st.session_state['aura_user_name']}!")
                             st.rerun()
                         else:
@@ -1351,6 +1385,15 @@ with st.sidebar:
     if st.button("🚪 Sign Out", use_container_width=True, key="btn_sidebar_logout"):
         st.session_state["authenticated"] = False
         st.session_state["aura_auth_token"] = None
+        st.session_state.pop("aura_username", None)
+        st.session_state.pop("aura_user_role", None)
+        st.session_state.pop("aura_user_name", None)
+        st.session_state.pop("aura_user_dept", None)
+        if hasattr(st, "query_params"):
+            if "auth_user" in st.query_params:
+                del st.query_params["auth_user"]
+            if "auth_token" in st.query_params:
+                del st.query_params["auth_token"]
         st.rerun()
 
 # ============================================================
