@@ -1197,16 +1197,38 @@ if current_role == "ranger" and "client_gps_lat" in st.session_state and "client
             db.update_ranger_location(r.get("ranger_id"), c_lat, c_lon, status="LIVE_GPS_ACTIVE")
     field_rangers = db.get_field_rangers()
 
-# GPS Coordinates
+RESERVE_PRESETS: dict[str, tuple[float, float] | None] = {
+    "📍 Live Device GPS (Auto-Detect Fix)": None,
+    "🌲 Bandipur Tiger Reserve, Karnataka": (11.6664, 76.6291),
+    "🐅 Nagarhole National Park, Karnataka": (12.0298, 76.1554),
+    "🐘 Mudumalai Wildlife Sanctuary, Tamil Nadu": (11.5623, 76.5342),
+    "🌿 Silent Valley National Park, Kerala": (11.1342, 76.4287),
+    "🦏 Kaziranga National Park, Assam": (26.5775, 93.1711),
+    "🐾 Jim Corbett National Park, Uttarakhand": (29.5300, 78.7747),
+    "🍃 Anamalai Tiger Reserve, Tamil Nadu": (10.3667, 76.9667),
+    "🦁 Gir National Park, Gujarat": (21.1243, 70.8242),
+    "🐯 Ranthambore National Park, Rajasthan": (26.0173, 76.5026),
+}
+
+# GPS Coordinates resolution
 loc_dict = state.get("location") or telemetry.get("location") or {}
 raw_lat = loc_dict.get("latitude") if loc_dict.get("latitude") is not None else telemetry.get("latitude")
 raw_lon = loc_dict.get("longitude") if loc_dict.get("longitude") is not None else telemetry.get("longitude")
-sent_lat = float(safe_num(raw_lat, 12.29581))
-sent_lon = float(safe_num(raw_lon, 76.63938))
-if abs(sent_lat) < 0.0001:
-    sent_lat = 12.29581
-if abs(sent_lon) < 0.0001:
-    sent_lon = 76.63938
+
+sel_preset = st.session_state.get("sel_sanctuary_base_preset", "📍 Live Device GPS (Auto-Detect Fix)")
+preset_coords = RESERVE_PRESETS.get(sel_preset)
+
+if preset_coords is not None:
+    sent_lat, sent_lon = preset_coords
+elif "client_gps_lat" in st.session_state and "client_gps_lon" in st.session_state:
+    sent_lat = float(st.session_state["client_gps_lat"])
+    sent_lon = float(st.session_state["client_gps_lon"])
+elif raw_lat is not None and raw_lon is not None and (abs(float(raw_lat)) > 0.001 or abs(float(raw_lon)) > 0.001):
+    sent_lat = float(raw_lat)
+    sent_lon = float(raw_lon)
+else:
+    sent_lat = 11.6664
+    sent_lon = 76.6291
 
 # ============================================================
 # 🧭 SIDEBAR: PROFILE & NAVIGATION MENU (REPLACED NAVBAR)
@@ -1250,8 +1272,18 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    # 3. Role-Aware Sidebar Navigation (Replaces top navbar!)
-    st.markdown('<div class="metric-label" style="margin-bottom:6px;">SIDEBAR NAVIGATION</div>', unsafe_allow_html=True)
+    # 3. Sanctuary Sector / Geo-Anchor Selector
+    st.markdown('<div class="metric-label" style="margin-bottom:4px;">SANCTUARY BASE SECTOR</div>', unsafe_allow_html=True)
+    sel_preset_choice = st.selectbox(
+        "Sanctuary Base Sector",
+        options=list(RESERVE_PRESETS.keys()),
+        index=0,
+        key="sel_sanctuary_base_preset",
+        label_visibility="collapsed",
+    )
+
+    # 4. Role-Aware Sidebar Navigation (Replaces top navbar!)
+    st.markdown('<div class="metric-label" style="margin-top:12px; margin-bottom:6px;">SIDEBAR NAVIGATION</div>', unsafe_allow_html=True)
 
     if current_role == "admin":
         nav_options = [
