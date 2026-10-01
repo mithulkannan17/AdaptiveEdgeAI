@@ -303,6 +303,7 @@ tests/hardware/test_dummy_sensors.py ........                            [ 34%]
 
 ## 📜 Documentation Index
 
+- 📄 [`docs/research.md`](docs/research.md) — **IEEE Format Scientific Research Paper**: Architecture, Formulations & Empirical Validation
 - 📘 [`docs/architecture.md`](docs/architecture.md) — System Architecture, Data Flow & Component Schemas
 - 🎨 [`docs/design.md`](docs/design.md) — Bio-Sentinel Design System, Tokens, Pydeck Map & CSS Styles
 - 📋 [`docs/prd.md`](docs/prd.md) — Product Requirements, Threat Hierarchy & Non-Functional Specifications
