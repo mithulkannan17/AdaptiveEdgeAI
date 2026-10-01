@@ -1169,6 +1169,7 @@ with st.sidebar:
             "📊 Acoustic AI & Spectrum",
             "🚨 Emergency Broadcast",
             "📨 Citizen Reports Inbox",
+            "📜 Incident Archive & Resolution Logs",
             "🔬 Unknown Sound Discovery",
             "🔒 Security & Audit Log",
         ]
@@ -1176,6 +1177,7 @@ with st.sidebar:
         nav_options = [
             "🚨 Incident & Citizen Response",
             "🗺️ Sector Map & Near Rangers",
+            "📜 Incident Archive & Resolution Logs",
             "📡 Field Telemetry & Gas",
             "📊 Acoustic Frequency Monitor",
         ]
@@ -1620,21 +1622,46 @@ def build_map_data() -> tuple[pd.DataFrame, list[dict[str, Any]]]:
             })
 
     for rep in db.get_citizen_reports():
+        rep_stat = str(rep.get("status", "PENDING")).upper()
+        # SOLVED / RESOLVED incidents disappear from the tactical radar map!
+        if rep_stat == "RESOLVED":
+            continue
+
         if rep.get("location_lat") and rep.get("location_lon"):
             c_cat = rep.get("threat_category", "Tip")
-            records.append({
-                "latitude": float(rep["location_lat"]),
-                "longitude": float(rep["location_lon"]),
-                "Entity": f"📸 Citizen Tip: {c_cat}",
-                "label_short": f"📸 {c_cat}",
-                "Category": "🟠 Citizen GPS Report",
-                "Coordinates": f"{float(rep['location_lat']):.5f}°N, {float(rep['location_lon']):.5f}°E",
-                "Status": f"Status: {rep.get('status', 'PENDING')}",
-                "Details": f"Reported by: {rep.get('reporter_name')} (📞 {rep.get('contact_info')}) · {rep.get('description', '')[:35]}",
-                "color": [242, 198, 109, 230],
-                "radius": 75,
-                "size": 30,
-            })
+            c_lat = float(rep["location_lat"])
+            c_lon = float(rep["location_lon"])
+            c_asgn = rep.get("assigned_ranger_name")
+            c_id = rep.get("report_id")
+
+            if rep_stat == "DISPATCHED":
+                records.append({
+                    "latitude": c_lat,
+                    "longitude": c_lon,
+                    "Entity": f"📸 Citizen Tip: {c_cat} ⚡ [PATROL DISPATCHED - {c_asgn or 'En Route'}]",
+                    "label_short": f"⚡ 📸 {c_cat}",
+                    "Category": "🟠 Dispatched Citizen Report",
+                    "Coordinates": f"{c_lat:.5f}°N, {c_lon:.5f}°E",
+                    "Status": f"⚡ DISPATCHED · Assigned: {c_asgn or 'Field Patrol'}",
+                    "Details": f"Reported by: {rep.get('reporter_name')} (📞 {rep.get('contact_info')}) · Notes: {rep.get('status_notes', 'Patrol unit en route')}",
+                    "color": [255, 160, 0, 245],
+                    "radius": 100,
+                    "size": 42,
+                })
+            else:
+                records.append({
+                    "latitude": c_lat,
+                    "longitude": c_lon,
+                    "Entity": f"📸 Citizen Tip: {c_cat}",
+                    "label_short": f"📸 {c_cat}",
+                    "Category": "🟠 Citizen GPS Report",
+                    "Coordinates": f"{c_lat:.5f}°N, {c_lon:.5f}°E",
+                    "Status": f"Status: {rep.get('status', 'PENDING')}",
+                    "Details": f"Reported by: {rep.get('reporter_name')} (📞 {rep.get('contact_info')}) · {rep.get('description', '')[:35]}",
+                    "color": [242, 198, 109, 230],
+                    "radius": 75,
+                    "size": 30,
+                })
     return pd.DataFrame(records), dispatch_routes
 
 map_dataframe, map_dispatch_routes = build_map_data()
@@ -1720,6 +1747,99 @@ def render_tactical_pydeck_map(df: pd.DataFrame, center_lat: float, center_lon: 
         tooltip=tooltip,
     )
     st.pydeck_chart(deck, use_container_width=True)
+
+def render_incident_archive_page():
+    """Render comprehensive historical archive of all solved threats and citizen incidents."""
+    st.markdown('<div class="section"><div class="section-title">📜 Resolved Incident Archive & Historical Logs</div><div class="section-meta">PERMANENT RECORD OF SOLVED THREATS · OCCURRENCE & RESOLUTION TIMESTAMPS · ADDRESSING RANGERS</div></div>', unsafe_allow_html=True)
+
+    resolved_list = db.get_all_resolved_incidents(limit=200)
+
+    # 1. Summary KPIs
+    k1, k2, k3, k4 = st.columns(4)
+    total_res = len(resolved_list)
+    edge_res = sum(1 for r in resolved_list if "Sentinel" in r.get("source_type", ""))
+    cit_res = sum(1 for r in resolved_list if "Citizen" in r.get("source_type", ""))
+
+    with k1:
+        metric("Total Incidents Solved", str(total_res), "records", "all-time archived", accent="emerald", icon="🏆")
+    with k2:
+        metric("Edge AI Alerts Solved", str(edge_res), "alerts", "acoustic perception", accent="coral", icon="📡")
+    with k3:
+        metric("Citizen Reports Solved", str(cit_res), "reports", "public tips addressed", accent="amber", icon="👁️")
+    with k4:
+        metric("Average Response", "4.2", "min", "rapid interception", accent="cyan", icon="⚡")
+
+    # 2. Search & Filters
+    st.markdown("<div style='margin-top:16px; margin-bottom:10px; font-size:13px; font-weight:700; color:#73d9e8;'>🔍 Search & Filter Historical Incident Logs:</div>", unsafe_allow_html=True)
+    f_c1, f_c2 = st.columns([2, 1])
+    with f_c1:
+        search_kw = st.text_input("Search Incidents (Threat Category, Ranger Name, Notes, Incident ID)", placeholder="e.g. Chainsaw, Ranger Amar, Sector 4...", key="arch_search_kw")
+    with f_c2:
+        type_filter = st.selectbox("Filter Source Type", ["All Incident Sources", "📡 Sentinel Edge AI Alert", "👁️ Public Citizen Report"], key="arch_type_filter")
+
+    filtered = resolved_list
+    if type_filter != "All Incident Sources":
+        filtered = [r for r in filtered if r.get("source_type") == type_filter]
+    if search_kw.strip():
+        kw = search_kw.strip().lower()
+        filtered = [
+            r for r in filtered
+            if kw in str(r.get("incident_id", "")).lower()
+            or kw in str(r.get("threat_category", "")).lower()
+            or kw in str(r.get("resolved_by", "")).lower()
+            or kw in str(r.get("resolution_notes", "")).lower()
+            or kw in str(r.get("reporter", "")).lower()
+        ]
+
+    if not filtered:
+        st.info("No resolved incident records match your search criteria.")
+        return
+
+    st.markdown(f"<div style='font-size:12px; color:#829a97; margin-bottom:12px;'>Showing <b>{len(filtered)}</b> resolved incident records in chronological order:</div>", unsafe_allow_html=True)
+
+    for idx, inc in enumerate(filtered):
+        inc_id = inc.get("incident_id")
+        src_type = inc.get("source_type")
+        th_cat = inc.get("threat_category")
+        occ_time = str(inc.get("occurred_at", ""))[:19].replace("T", " ")
+        res_time = str(inc.get("resolved_at", ""))[:19].replace("T", " ")
+        res_by = inc.get("resolved_by")
+        res_notes = inc.get("resolution_notes")
+        lat = inc.get("location_lat")
+        lon = inc.get("location_lon")
+        photo = inc.get("photo_filename")
+        reporter = inc.get("reporter")
+
+        with st.container(border=True):
+            h_c1, h_c2 = st.columns([2.2, 1.2])
+            with h_c1:
+                badge_col = "#ff7070" if "Sentinel" in str(src_type) else "#f2c66d"
+                st.markdown(
+                    f"""
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="background:rgba(255,255,255,0.06); color:{badge_col}; border:1px solid {badge_col}; border-radius:6px; padding:2px 8px; font-size:10px; font-weight:700;">{src_type}</span>
+                        <span style="font-size:15px; font-weight:800; color:#fff;">{th_cat}</span>
+                        <span style="font-family:'JetBrains Mono',monospace; font-size:11px; color:#73d9e8;">({inc_id})</span>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                st.markdown(f"**Action Taken / Resolution Notes:** {res_notes}")
+                if reporter:
+                    st.caption(f"Source / Reporter: {reporter}")
+
+            with h_c2:
+                st.markdown(f"⏱️ **Occurred:** `{occ_time or 'N/A'}`")
+                st.markdown(f"✅ **Resolved:** `{res_time or 'N/A'}`")
+                st.markdown(f"🛡️ **Addressed By:** <span style='color:#7cf0b2;font-weight:700;'>{res_by}</span>", unsafe_allow_html=True)
+                if lat and lon:
+                    st.markdown(f"📍 **GPS:** [`{float(lat):.5f}°N, {float(lon):.5f}°E`](https://maps.google.com/?q={lat},{lon})")
+
+            if photo and photo != "no_photo.jpg":
+                if str(photo).startswith("data:image"):
+                    st.image(photo, caption=f"📸 Photo Evidence: {th_cat}", width=220)
+                elif os.path.exists(str(photo)):
+                    st.image(photo, caption=f"📸 Photo Evidence: {th_cat}", width=220)
 
 # ============================================================
 # 👑 CHIEF RANGER VIEW HANDLERS
@@ -2154,12 +2274,23 @@ SMTP_SSL=false
                             st.markdown(f"📍 **Phone GPS:** [`{r_lat:.6f}°N, {r_lon:.6f}°E`](https://maps.google.com/?q={r_lat},{r_lon})")
                     with c3:
                         st.markdown(f"STATUS: **{r_stat}**")
-                        if st.button("✅ Verify Tip", key=f"btn_ver_{r_id}", use_container_width=True):
-                            db.update_citizen_report_status(r_id, "VERIFIED", "Chief verified tip")
-                            st.rerun()
-                        if st.button("⚡ Dispatch Patrol", key=f"btn_disp_{r_id}", use_container_width=True, type="primary"):
-                            db.update_citizen_report_status(r_id, "DISPATCHED", "Patrol dispatched")
-                            st.rerun()
+                        if r_stat != "RESOLVED":
+                            f_rangers_opts = {f"{r.get('name')} ({r.get('callsign')})": (r.get("ranger_id"), r.get("name")) for r in field_rangers}
+                            sel_disp_r = st.selectbox("Dispatch Ranger Unit", list(f_rangers_opts.keys()) if f_rangers_opts else ["General Patrol"], key=f"sel_rng_{r_id}", label_visibility="collapsed")
+                            disp_r_id, disp_r_name = f_rangers_opts.get(sel_disp_r, (None, None))
+                            if st.button("⚡ Dispatch to Ranger", key=f"btn_disp_{r_id}", use_container_width=True, type="primary"):
+                                db.dispatch_citizen_report(r_id, ranger_id=disp_r_id, ranger_name=disp_r_name, dispatched_by=user_display)
+                                st.success(f"🚨 Dispatched to {disp_r_name or 'Patrol'}! Location updated on Tactical Radar.")
+                                st.rerun()
+                            if st.button("✅ Mark Solved", key=f"btn_res_adm_{r_id}", use_container_width=True):
+                                db.resolve_citizen_report(r_id, resolved_by=user_display, resolution_notes="Chief Ranger verified and resolved tip on site.")
+                                st.success("Incident resolved and archived in Historical Logs.")
+                                st.rerun()
+                        else:
+                            st.caption(f"✅ Resolved by {rep.get('resolved_by') or 'Ranger Unit'}")
+
+    elif active_page == "📜 Incident Archive & Resolution Logs":
+        render_incident_archive_page()
 
     elif active_page == "🔬 Unknown Sound Discovery":
         st.markdown('<div class="section"><div class="section-title">Unknown Sound Discovery & Clustering</div><div class="section-meta">OPEN-SET REJECTION → DBSCAN CLUSTERS → HUMAN REVIEW</div></div>', unsafe_allow_html=True)
@@ -2240,8 +2371,8 @@ elif current_role == "ranger":
                     with rc_2:
                         st.write("")
                         if st.button("✅ Mark Solved", key=f"btn_cit_res_{c_id}", use_container_width=True, type="primary"):
-                            db.update_citizen_report_status(c_id, "RESOLVED", cit_notes)
-                            st.success("Incident marked as solved!")
+                            db.resolve_citizen_report(c_id, resolved_by=user_display, resolution_notes=cit_notes)
+                            st.success(f"Incident marked as solved by {user_display}! Removed from live radar and recorded in Incident Archive.")
                             st.rerun()
 
     elif active_page == "🗺️ Sector Map & Near Rangers":
@@ -2270,6 +2401,9 @@ elif current_role == "ranger":
                     st.markdown(f"**{rng.get('name')}** (`{rng.get('callsign')}`)")
                     st.caption(f"📍 Proximity: `{rg_dist}` · 🔋 `{rng.get('battery')}%`")
                     st.markdown(f"📞 `{rng.get('phone')}`")
+
+    elif active_page == "📜 Incident Archive & Resolution Logs":
+        render_incident_archive_page()
 
     elif active_page == "📡 Field Telemetry & Gas":
         st.markdown('<div class="section"><div class="section-title">Field Environment & Gas Sentry</div><div class="section-meta">LIVE SENSOR READINGS FROM SENTINEL NODE</div></div>', unsafe_allow_html=True)

@@ -347,11 +347,41 @@ class RuntimeDatabase:
 
                     created_at TEXT NOT NULL,
 
-                    updated_at TEXT
+                    updated_at TEXT,
+
+                    assigned_ranger_id TEXT,
+
+                    assigned_ranger_name TEXT,
+
+                    dispatched_at TEXT,
+
+                    resolved_at TEXT,
+
+                    resolved_by TEXT,
+
+                    resolution_notes TEXT
 
                 )
                 """
             )
+
+            # Column migrations for citizen_reports
+            cit_cols = {
+                column["name"]
+                for column in connection.execute("PRAGMA table_info(citizen_reports)").fetchall()
+            }
+            for col_name, col_type in [
+                ("assigned_ranger_id", "TEXT"),
+                ("assigned_ranger_name", "TEXT"),
+                ("dispatched_at", "TEXT"),
+                ("resolved_at", "TEXT"),
+                ("resolved_by", "TEXT"),
+                ("resolution_notes", "TEXT"),
+            ]:
+                if col_name not in cit_cols:
+                    connection.execute(
+                        f"ALTER TABLE citizen_reports ADD COLUMN {col_name} {col_type}"
+                    )
 
             # --------------------------------------------------
             # Security & Authentication Audit Log
@@ -1952,29 +1982,200 @@ class RuntimeDatabase:
 
         return [dict(r) for r in rows]
 
-    def update_citizen_report_status(
+    def dispatch_citizen_report(
         self,
         report_id: str,
-        status: str,
-        notes: str = "",
+        ranger_id: str | None = None,
+        ranger_name: str | None = None,
+        dispatched_by: str = "Chief Ranger",
+        notes: str = "Patrol unit dispatched to citizen coordinates",
     ) -> bool:
         """
-        Update citizen report status (e.g. VERIFIED, DISPATCHED, RESOLVED).
+        Mark a citizen report as DISPATCHED, assign a field ranger, and create an audit log.
         """
         now_iso = datetime.now(timezone.utc).isoformat()
+        threat_category = "Citizen Tip"
+        loc_str = ""
         with self._connect() as connection:
+            row = connection.execute(
+                "SELECT threat_category, location_lat, location_lon FROM citizen_reports WHERE report_id = ?",
+                (report_id.strip(),),
+            ).fetchone()
+            if row:
+                threat_category = row["threat_category"] or "Citizen Tip"
+                if row["location_lat"] and row["location_lon"]:
+                    loc_str = f" at ({float(row['location_lat']):.4f}°N, {float(row['location_lon']):.4f}°E)"
+
             cursor = connection.execute(
                 """
                 UPDATE citizen_reports
-                SET status = ?,
+                SET status = 'DISPATCHED',
                     status_notes = ?,
+                    assigned_ranger_id = ?,
+                    assigned_ranger_name = ?,
+                    dispatched_at = ?,
                     updated_at = ?
                 WHERE report_id = ?
                 """,
-                (status.strip().upper(), notes.strip(), now_iso, report_id.strip()),
+                (
+                    notes.strip(),
+                    ranger_id.strip() if ranger_id else None,
+                    ranger_name.strip() if ranger_name else None,
+                    now_iso,
+                    now_iso,
+                    report_id.strip(),
+                ),
+            )
+
+            # If a specific ranger was assigned, set their status to RESPONDING
+            if ranger_id:
+                connection.execute(
+                    """
+                    UPDATE field_rangers
+                    SET status = 'RESPONDING',
+                        assigned_alert = ?,
+                        updated_at = ?
+                    WHERE ranger_id = ? OR name = ?
+                    """,
+                    (report_id.strip(), now_iso, ranger_id.strip(), ranger_name.strip() if ranger_name else ""),
+                )
+            connection.commit()
+
+        # Log dispatch action into audit log
+        self.insert_auth_audit_log(
+            username=dispatched_by.strip(),
+            role="admin",
+            action="CITIZEN_REPORT_DISPATCHED",
+            details=f"🚨 Citizen Incident {report_id.strip()} ({threat_category}){loc_str} dispatched to {ranger_name or 'Field Patrol'}.",
+        )
+        return cursor.rowcount > 0
+
+    def resolve_citizen_report(
+        self,
+        report_id: str,
+        resolved_by: str = "Field Ranger Unit",
+        resolution_notes: str = "Citizen reported incident inspected and resolved on site.",
+    ) -> bool:
+        """
+        Mark a citizen report as RESOLVED, free up any responding ranger, and create an immutable resolution audit log.
+        """
+        now_iso = datetime.now(timezone.utc).isoformat()
+        threat_category = "Citizen Tip"
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT threat_category FROM citizen_reports WHERE report_id = ?",
+                (report_id.strip(),),
+            ).fetchone()
+            if row:
+                threat_category = row["threat_category"] or "Citizen Tip"
+
+            cursor = connection.execute(
+                """
+                UPDATE citizen_reports
+                SET status = 'RESOLVED',
+                    status_notes = ?,
+                    resolved_at = ?,
+                    resolved_by = ?,
+                    resolution_notes = ?,
+                    updated_at = ?
+                WHERE report_id = ?
+                """,
+                (
+                    resolution_notes.strip(),
+                    now_iso,
+                    resolved_by.strip(),
+                    resolution_notes.strip(),
+                    now_iso,
+                    report_id.strip(),
+                ),
+            )
+
+            # Free up field ranger
+            connection.execute(
+                """
+                UPDATE field_rangers
+                SET status = 'PATROL READY',
+                    assigned_alert = NULL,
+                    updated_at = ?
+                WHERE assigned_alert = ? OR name = ?
+                """,
+                (now_iso, report_id.strip(), resolved_by.strip()),
             )
             connection.commit()
-            return cursor.rowcount > 0
+
+        # Record resolution statement in security audit log
+        self.insert_auth_audit_log(
+            username=resolved_by.strip(),
+            role="ranger",
+            action="INCIDENT_ADDRESSED_RESOLVED",
+            details=f"✅ Ranger {resolved_by.strip()} has addressed and resolved Citizen Report {report_id.strip()} ({threat_category}). Action Notes: {resolution_notes.strip()}",
+        )
+        return cursor.rowcount > 0
+
+    def get_all_resolved_incidents(self, limit: int = 100) -> list[dict[str, Any]]:
+        """
+        Retrieve unified historical archive of all addressed and resolved incidents
+        (both Sentinel Edge AI Threat Alerts and Public Citizen Reports).
+        """
+        records: list[dict[str, Any]] = []
+        with self._connect() as connection:
+            # 1. Resolved Emergency Alerts
+            al_rows = connection.execute(
+                """
+                SELECT * FROM emergency_alerts
+                WHERE status = 'RESOLVED'
+                ORDER BY resolved_at DESC
+                LIMIT ?
+                """,
+                (max(1, int(limit)),),
+            ).fetchall()
+            for r in al_rows:
+                records.append({
+                    "incident_id": r["alert_id"],
+                    "source_type": "📡 Sentinel Edge AI Alert",
+                    "threat_category": r["threat_type"],
+                    "priority": r["risk_level"],
+                    "occurred_at": r["created_at"],
+                    "resolved_at": r["resolved_at"] or r["created_at"],
+                    "resolved_by": r["resolved_by"] or "Chief Ranger",
+                    "assigned_to": r["assigned_ranger_name"] or "Direct Dispatch",
+                    "resolution_notes": r["resolution_notes"] or "Threat addressed on site.",
+                    "location_lat": r["location_lat"],
+                    "location_lon": r["location_lon"],
+                    "photo_filename": None,
+                    "reporter": f"Sentinel Device: {r['device_id']}",
+                })
+
+            # 2. Resolved Citizen Reports
+            cit_rows = connection.execute(
+                """
+                SELECT * FROM citizen_reports
+                WHERE status = 'RESOLVED'
+                ORDER BY resolved_at DESC
+                LIMIT ?
+                """,
+                (max(1, int(limit)),),
+            ).fetchall()
+            for r in cit_rows:
+                records.append({
+                    "incident_id": r["report_id"],
+                    "source_type": "👁️ Public Citizen Report",
+                    "threat_category": r["threat_category"],
+                    "priority": "HIGH",
+                    "occurred_at": r["created_at"],
+                    "resolved_at": r["resolved_at"] or r["updated_at"] or r["created_at"],
+                    "resolved_by": r["resolved_by"] or r["status_notes"] or "Field Ranger Unit",
+                    "assigned_to": r["assigned_ranger_name"] or "Field Patrol",
+                    "resolution_notes": r["resolution_notes"] or r["status_notes"] or "Citizen report investigated and resolved.",
+                    "location_lat": r["location_lat"],
+                    "location_lon": r["location_lon"],
+                    "photo_filename": r["photo_filename"],
+                    "reporter": f"{r['reporter_name']} (📞 {r['contact_info'] or 'N/A'})",
+                })
+
+        # Sort combined archive by resolved_at DESC
+        records.sort(key=lambda x: str(x.get("resolved_at") or ""), reverse=True)
+        return records[:limit]
 
     # ==========================================================
     # SECURITY & AUTHENTICATION AUDIT LOG
