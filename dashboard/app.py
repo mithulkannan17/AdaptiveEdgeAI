@@ -1444,6 +1444,20 @@ def build_map_data(sentinel_lat: float, sentinel_lon: float, dev_id_str: str, al
                 "Coordinates": f"{float(r_lat):.5f}°N, {float(r_lon):.5f}°E",
                 "Status": f"PATROL · {rng.get('battery')}% BATT",
             })
+    # 5. Citizen Reports Geotagged with Phone GPS
+    all_cit_reps = get_citizen_reports_from_dashboard()
+    for c_rep in all_cit_reps:
+        c_lat = c_rep.get("location_lat")
+        c_lon = c_rep.get("location_lon")
+        if c_lat is not None and c_lon is not None:
+            records.append({
+                "latitude": float(c_lat),
+                "longitude": float(c_lon),
+                "Entity": f"📸 Citizen Tip: {c_rep.get('threat_category')}",
+                "Category": "🟠 Citizen GPS Report",
+                "Coordinates": f"{float(c_lat):.5f}°N, {float(c_lon):.5f}°E",
+                "Status": f"Triage: {c_rep.get('status', 'PENDING')}",
+            })
     return pd.DataFrame(records)
 
 
@@ -1724,7 +1738,7 @@ if current_role == "admin":
                         st.markdown(f"**Reporter:** {r_name} (Contact: `{r_contact}`)")
                         st.markdown(f"**Description:** {r_desc}")
                         if r_lat is not None and r_lon is not None:
-                            st.caption(f"📍 GPS Pinpoint: `{r_lat:.5f}°N, {r_lon:.5f}°E`")
+                            st.markdown(f"📍 **Phone GPS Pinpoint:** [`{r_lat:.6f}°N, {r_lon:.6f}°E`](https://maps.google.com/?q={r_lat},{r_lon}) *(Click for Navigation)*")
                         if r_notes:
                             st.markdown(f"**Triage Notes:** *{r_notes}*")
 
@@ -1935,6 +1949,57 @@ elif current_role == "viewer":
             '<div class="section-meta">REPORT CHAINSAWS, ILLEGAL FELLING, POACHERS, OR FIRES DIRECTLY TO CHIEF RANGER</div></div>',
             unsafe_allow_html=True,
         )
+
+        # Phone GPS Real-Time Hardware Capture Bridge
+        phone_gps_bridge_html = f"""
+        <div style="background:rgba(124, 240, 178, 0.08); border:1.5px solid rgba(124, 240, 178, 0.35); border-radius:12px; padding:12px 16px; margin-bottom:14px; font-family:'JetBrains Mono',monospace; font-size:11px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <div id="gps-status-badge" style="color:#7cf0b2; font-weight:700;">📡 Requesting Phone GPS Coordinates...</div>
+                <div id="gps-coords-detail" style="color:#edf6f3; font-size:10px; margin-top:2px;">Acquiring live hardware sensor coordinates...</div>
+            </div>
+            <button onclick="requestPhoneGPS()" style="background:#182b27; color:#7cf0b2; border:1px solid #7cf0b2; border-radius:8px; padding:6px 14px; font-size:10px; font-weight:700; cursor:pointer; transition:all .2s;">
+                📍 Refresh Phone GPS
+            </button>
+        </div>
+
+        <script>
+        function requestPhoneGPS() {{
+            if ("geolocation" in navigator) {{
+                navigator.geolocation.getCurrentPosition(
+                    function(pos) {{
+                        const lat = pos.coords.latitude;
+                        const lon = pos.coords.longitude;
+                        const acc = pos.coords.accuracy ? Math.round(pos.coords.accuracy) : 8;
+                        document.getElementById("gps-status-badge").innerHTML = "🟢 Phone GPS Fix Locked (±" + acc + "m accuracy)";
+                        document.getElementById("gps-coords-detail").innerHTML = "Lat: " + lat.toFixed(6) + "°N · Lon: " + lon.toFixed(6) + "°E · Live Device GPS Fix";
+                        try {{
+                            const url = new URL(window.parent.location.href);
+                            if (url.searchParams.get("phone_lat") !== lat.toFixed(6)) {{
+                                url.searchParams.set("phone_lat", lat.toFixed(6));
+                                url.searchParams.set("phone_lon", lon.toFixed(6));
+                                window.parent.history.replaceState({{}}, "", url.toString());
+                            }}
+                        }} catch(e) {{}}
+                    }},
+                    function(err) {{
+                        document.getElementById("gps-status-badge").innerHTML = "🟡 Phone GPS Mode (Permitted on mobile / https)";
+                        document.getElementById("gps-coords-detail").innerHTML = "Coordinates pre-filled from Sanctuary GPS Grid: {sent_lat:.5f}°N, {sent_lon:.5f}°E";
+                    }},
+                    {{ enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }}
+                );
+            }} else {{
+                document.getElementById("gps-status-badge").innerHTML = "🟡 Standard Sanctuary GPS Grid Active";
+            }}
+        }}
+        requestPhoneGPS();
+        </script>
+        """
+        components.html(phone_gps_bridge_html, height=78)
+
+        # Coordinate resolution from query params or sensor default
+        phone_lat_preset = float(safe_num(st.query_params.get("phone_lat"), sent_lat))
+        phone_lon_preset = float(safe_num(st.query_params.get("phone_lon"), sent_lon))
+
         with st.container(border=True):
             r_col1, r_col2 = st.columns(2)
             with r_col1:
@@ -1951,7 +2016,14 @@ elif current_role == "viewer":
                 cit_desc = st.text_area("Detailed Description of Sighting", placeholder="Describe what you heard or saw, number of persons/vehicles, exact trail marker, etc.")
                 cit_file = st.file_uploader("Upload Photo Evidence (Optional)", type=["png", "jpg", "jpeg"])
 
-            if st.button("📤 Send Report to Chief Ranger Command", type="primary", use_container_width=True):
+            st.markdown("<div style='font-size:11px;font-weight:700;color:var(--green);margin-top:6px;margin-bottom:4px;'>📍 Phone GPS Geotag (Sent with Report)</div>", unsafe_allow_html=True)
+            g_col1, g_col2 = st.columns(2)
+            with g_col1:
+                rep_lat = st.number_input("Incident Latitude (Phone GPS)", value=phone_lat_preset, format="%.6f", key="cit_gps_lat_inp")
+            with g_col2:
+                rep_lon = st.number_input("Incident Longitude (Phone GPS)", value=phone_lon_preset, format="%.6f", key="cit_gps_lon_inp")
+
+            if st.button("📤 Send Report & GPS Coordinates to Chief Ranger", type="primary", use_container_width=True):
                 if not cit_desc.strip():
                     st.error("Please provide a description of the observed activity.")
                 else:
@@ -1978,11 +2050,11 @@ elif current_role == "viewer":
                         description=cit_desc,
                         contact_info=cit_contact,
                         photo_filename=photo_data_str,
-                        lat_val=sent_lat,
-                        lon_val=sent_lon,
+                        lat_val=rep_lat,
+                        lon_val=rep_lon,
                     )
                     if ok:
-                        st.success(f"✅ {msg} Chief Ranger has received your report along with photo evidence.")
+                        st.success(f"✅ {msg} Chief Ranger has received your report with verified Phone GPS coordinates ({rep_lat:.5f}°N, {rep_lon:.5f}°E) and photo evidence.")
                         st.rerun()
 
 
