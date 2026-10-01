@@ -216,7 +216,7 @@ class EmergencyAlertDispatcher:
         if self.ntfy_topic:
             try:
                 ntfy_url = f"https://ntfy.sh/{self.ntfy_topic}"
-                dash_url = os.getenv("DASHBOARD_URL", "http://localhost:8501")
+                dash_url = os.getenv("DASHBOARD_URL", "https://auraforest-sentinel.streamlit.app/")
                 req = Request(
                     ntfy_url,
                     data=alert_payload.get("message", "Emergency Alert").encode("utf-8"),

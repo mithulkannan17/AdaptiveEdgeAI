@@ -120,3 +120,39 @@ AuraForest's user interface is built to evoke an **executive-grade, bioacoustic 
 ### 3.6. Node Integrity & Location Panel
 - **Hardware Health Matrix**: Tabular status for all onboard modules (`INMP441`, `BH1750`, `MAX17048`, `DHT11`, `SW-420`, `NEO-6M`, `MicroSD`, `WiFi`).
 - **GPS Coordinates**: Real-time latitude, longitude, altitude, accuracy, and timestamp with fallback indicator.
+
+---
+
+## 4. Tactical Radar & Real-Time Geospatial Visualizer
+
+- **Live URL**: [https://auraforest-sentinel.streamlit.app/](https://auraforest-sentinel.streamlit.app/)
+- **Pydeck 3D Canvas**:
+  - Dark-matter basemap styling (`mapbox://styles/mapbox/dark-v11`).
+  - Interactive pitch and bearing adjustments for 3D terrain exploration.
+- **Dynamic Layer Hierarchy**:
+  - **Hexagon Sentinel Nodes (`#73d9e8`, cyan)**: Radius 250m with elevation based on telemetry throughput.
+  - **Field Ranger Tactical Pins (`#7cf0b2`, bio-emerald)**: Live position pins displaying callsign, rank, and battery.
+  - **Dispatched Citizen Tip Beacons (`#f2c66d`, warning amber)**: Highlighted pins with citizen description and tip photo popups.
+  - **Emergency Strobe Halo (`#ff7070`, alert red)**: Outer blast radius (500m) + inner pulsing shockwave ring with 5px red border (`@keyframes radarEmergencyStrobe`).
+- **Sanctuary Sector Quick-Switcher**:
+  - Instant camera re-centering to major Indian national parks (Bandipur, Nagarhole, Kaziranga, Mudumalai, Corbett, Sundarbans) or Live Device GPS.
+
+---
+
+## 5. Mobile & High-Priority Emergency Strobe HUD
+
+```css
+@keyframes radarEmergencyStrobe {
+    0%   { background-color: rgba(255, 112, 112, 0.15); border-color: rgba(255, 112, 112, 0.4); }
+    50%  { background-color: rgba(255, 60, 60, 0.45); border-color: rgba(255, 70, 70, 1.0); box-shadow: 0 0 35px rgba(255, 70, 70, 0.6); }
+    100% { background-color: rgba(255, 112, 112, 0.15); border-color: rgba(255, 112, 112, 0.4); }
+}
+
+.strobe-alert-hud {
+    animation: radarEmergencyStrobe 1.2s infinite ease-in-out;
+    border-radius: 14px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+}
+```
+

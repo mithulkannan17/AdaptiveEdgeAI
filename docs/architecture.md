@@ -128,7 +128,7 @@ $$\text{Decision Score} = \max\left(C_{\text{threat}}, \; 0.52 \cdot C + 0.22 \c
 ---
 
 ### 2.5. Database Architecture (`backend/database.py`)
-SQLite 3 database located at `data/runtime.db` structured with relational schemas:
+SQLite 3 database located at `data/runtime.db` structured with relational schemas and WAL mode:
 
 | Table | Purpose | Key Columns |
 | :--- | :--- | :--- |
@@ -136,29 +136,42 @@ SQLite 3 database located at `data/runtime.db` structured with relational schema
 | `events` | Audio inferences & CADIE triage | `id`, `device_id`, `timestamp`, `label`, `confidence`, `risk_level`, `action`, `contributing_factors` |
 | `unknown_samples` | Retained uncatalogued sounds | `sample_id`, `device_id`, `timestamp`, `cluster_id`, `embedding_json`, `audio_path` |
 | `clusters` | Discovered DBSCAN sound groups | `cluster_id`, `status`, `label`, `sample_count`, `notes`, `created_at` |
+| `emergency_alerts` | Dispatched high-priority threats | `alert_id`, `device_id`, `timestamp`, `created_at`, `threat_type`, `priority_tier`, `confidence`, `risk_level`, `location_lat`, `location_lon`, `status`, `acknowledged_at`, `acknowledged_by` |
+| `rangers` | Field ranger directory & GPS tracking | `id`, `username`, `password_hash`, `full_name`, `callsign`, `rank`, `sector`, `email`, `phone`, `current_lat`, `current_lon`, `last_seen` |
+| `citizen_reports` | Public tips, photos & dispatch workflow | `report_id`, `timestamp`, `contact`, `description`, `image_url`, `latitude`, `longitude`, `status`, `assigned_to`, `resolved_at`, `resolution_notes` |
 | `experiment_logs` | Scientific propagation benchmarks | `id`, `experiment_type`, `distance_m`, `snr_db`, `accuracy`, `parameters_json` |
 
 ---
 
-### 2.6. Dashboard & Visualization Layer (`dashboard/`)
-- **Framework**: Streamlit + Plotly + Custom DM Sans / JetBrains Mono CSS.
+### 2.6. Command Center & Tactical Visualization Layer (`dashboard/app.py`)
+- **Live Cloud Deployment**: [https://auraforest-sentinel.streamlit.app/](https://auraforest-sentinel.streamlit.app/)
+- **Tactical Radar & Pydeck Map**:
+  - Multi-layer 3D geospatial visualization with dynamic zoom and reserve preset centering.
+  - **Node Hexagons (`[115, 217, 232]`)**: Active IoT sentinel nodes displaying battery, temperature, and gas health.
+  - **Ranger Unit Pins (`[124, 240, 178]`)**: Active field ranger positions dynamically refreshed from browser GPS.
+  - **Citizen Tip Beacons (`[242, 198, 109]`)**: Incident markers displaying citizen photo evidence and dispatch state.
+  - **Emergency Shockwave Rings (`[255, 0, 0]`)**: Concentric dual-radius pulsing strobe halos radiating over active threat coordinates.
+- **HTML5 Geolocation Sentry**:
+  - Invokes `navigator.geolocation.getCurrentPosition` with `{enableHighAccuracy: true}`.
+  - Seamlessly updates URL query parameters (`device_lat`, `device_lon`, `gps_acc`) and session state.
 - **Spectrum Analyzer**:
   - 32-Band FFT Frequency Equalizer (20 Hz to 8 kHz) with peak hold indicators.
   - Interactive 2D Log-Mel Spectrogram Heatmap with Bio-Sentinel colormap.
   - Live acoustic metrics: Peak Frequency (Hz), Centroid (Hz), Rolloff (Hz), RMS Power (dBFS), Spectral Flatness.
-- **Review Queue**: Human-in-the-loop audio player with instant labeling and unlabeling endpoints.
 
 ---
 
-### 2.7. Local Emergency Alert Notification Subsystem (`backend/alert_dispatcher.py`)
+### 2.7. Multi-Channel Emergency Dispatch & Alert Notification (`backend/alert_dispatcher.py`)
 - **Automated Multi-Channel Dispatch Engine**:
   - Automatically evaluates incoming acoustic and multimodal inferences against high-confidence emergency threat criteria:
-    $$\text{Trigger} = \left(\text{Threat} \in \{\text{Gunshot}, \text{Chainsaw}, \text{Fire}\} \land C \ge 0.85\right) \lor \left(\text{Risk} = \text{CRITICAL}\right)$$
+    $$\text{Trigger} = \left(\text{Threat} \in \{\text{Gunshot}, \text{Chainsaw}, \text{Fire}\} \land C \ge 0.70\right) \lor \left(\text{Risk} \in \{\text{CRITICAL}, \text{HIGH}\}\right)$$
   - **Channels**:
-    1. **Edge Node Indicator**: Injects `"emergency_alert"` command payload back into the inference HTTP response, triggering on-board high-intensity visual strobe LEDs or alarms.
+    1. **Edge Node Indicator**: Injects `"emergency_alert"` command payload back into the inference HTTP response, triggering on-board high-intensity visual strobe LEDs on `GPIO 15`.
     2. **Ranger Station Webhooks**: Broadcasts real-time structured JSON payloads with precise GPS coordinates, threat class, and CADIE factor evidence to base stations.
     3. **Persistent SQLite Store**: Records alerts in `emergency_alerts` table with active/acknowledged workflow.
-    4. **Top Banner Streamlit Alert Console**: Displays pulsing high-priority banner on the dashboard with audio alarm and one-click ranger acknowledgment button to silence sirens.
-    5. **Mobile Phone Notification Bar (PWA / HTML5 Web Push)**: Pops up native high-priority notifications with vibration haptics in Android / iOS mobile status bars, synthesized Web Audio sirens, and zero-config background push via `ntfy.sh`.
+    4. **Top Banner Flashing Strobe HUD**: Displays animated strobe alert banner on the dashboard with one-click ranger acknowledgment to silence alarms.
+    5. **Mobile Phone Status Bar Push**: Instant push notifications to Android / iOS notification bars via `ntfy.sh` with custom haptic vibration and synthesized siren sound.
+    6. **SMTP Email Delivery**: Automated HTML email dispatches with direct links to [https://auraforest-sentinel.streamlit.app/](https://auraforest-sentinel.streamlit.app/).
+
 
 

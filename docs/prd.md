@@ -91,12 +91,25 @@ Real-world outdoor monitoring poses critical technical challenges:
 - **Mobile Phone Notification Bar (PWA & HTML5 Web Push)**: Automatically pops up in the Android / iOS notification bar with high priority, custom haptic vibration patterns, synthesized emergency siren audio, and ntfy mobile push support.
 - **Operator Incident Workflow**: Real-time pulsing alert banner on dashboard with 1-click incident acknowledgment and siren silencing.
 
+### 3.7. Citizen Eco-Observation & Threat Reporting Portal
+- **Live Access**: [https://auraforest-sentinel.streamlit.app/](https://auraforest-sentinel.streamlit.app/)
+- **Registration & Verification**: 6-digit email OTP verification via SMTP before tip submission privileges are granted.
+- **Geotagged Incident Reporting**:
+  - Live HTML5 browser GPS capture of the observer's exact field position.
+  - Camera snapshot / file upload with client-side preview.
+  - Incident category selection (Poaching, Illegal Logging, Forest Fire, Wildlife Distress).
+- **Chief Dispatch & Field Resolution**:
+  - Chief Ranger reviews pending citizen reports and marks them for unit dispatch.
+  - Dispatched reports appear in real-time on the Tactical Radar map.
+  - Field Rangers resolve incidents on-scene; resolved points automatically transition to the persistent **Resolved Incidents Historical Audit Log**.
+
 ---
 
 ## 4. Non-Functional Requirements
 
 | Metric | Target Requirement |
 | :--- | :--- |
+| **Live Cloud Availability** | 99.9% uptime at [https://auraforest-sentinel.streamlit.app/](https://auraforest-sentinel.streamlit.app/) |
 | **System Reliability** | 99.9% uptime with autonomous Wi-Fi reconnect and local SD fail-safe |
 | **Audio Ingestion Latency** | $< 1.5$ seconds round-trip from capture to CADIE triage |
 | **Database Query Speed** | $< 15$ ms for latest 100 historical telemetry points |
@@ -114,5 +127,8 @@ Real-world outdoor monitoring poses critical technical challenges:
 2. **Wildlife Conservation Biologist**:
    - Reviews discovered unknown sound clusters to detect uncatalogued avian or mammalian species.
    - Listens to raw audio evidence and assigns taxonomical human labels.
-3. **Edge Systems Engineer**:
+3. **Public Citizen / Eco-Observer**:
+   - Submits geotagged photo reports of wildlife distress, fire, or illegal logging with email OTP security.
+4. **Edge Systems Engineer**:
    - Monitors device battery voltage, sensor hardware health, Wi-Fi RSSI, and transmission policy states.
+

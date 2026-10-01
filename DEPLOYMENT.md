@@ -4,6 +4,24 @@ This guide covers all methods to deploy the **AuraForest Sentinel Tactical Edge 
 
 ---
 
+## 🌐 Option 0: Live Production Cloud Deployment (Streamlit Community Cloud)
+
+AuraForest Sentinel is live in production on Streamlit Community Cloud:
+
+- 🔗 **Live URL**: [https://auraforest-sentinel.streamlit.app/](https://auraforest-sentinel.streamlit.app/)
+- **Continuous Deployment**: Automatically syncs on every push to the `main` branch of this GitHub repository.
+- **Secrets Management**: Configured via Streamlit Community Cloud App Settings -> **Secrets**:
+  ```toml
+  SMTP_HOST = "smtp.gmail.com"
+  SMTP_PORT = "587"
+  SMTP_SSL = "false"
+  SMTP_USER = "your-email@gmail.com"
+  SMTP_PASS = "your-16-char-app-password"
+  SMTP_FROM = "your-email@gmail.com"
+  ```
+
+---
+
 ## 🚀 Option 1: 1-Click Local / Server Deployment (Recommended for Local/Windows/Linux)
 
 The easiest way to run both the FastAPI Backend and Streamlit Dashboard concurrently:

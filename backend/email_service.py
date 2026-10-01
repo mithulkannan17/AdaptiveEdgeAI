@@ -51,6 +51,10 @@ def _load_env_file() -> None:
 _load_env_file()
 
 
+LIVE_PORTAL_URL = "https://auraforest-sentinel.streamlit.app/"
+PORTAL_URL = os.getenv("PORTAL_URL", LIVE_PORTAL_URL)
+
+
 class EmailService:
     """Dispatches verification OTPs and notification emails to users."""
 
@@ -176,6 +180,7 @@ class EmailService:
         self.reload_config()
         recipient_email = recipient_email.strip().lower()
         subject = f"🔐 Your AuraForest Sentinel Verification Code: {otp_code}"
+        portal_link = os.getenv("PORTAL_URL", LIVE_PORTAL_URL)
 
         # Plaintext version
         plain_body = f"""
@@ -184,6 +189,9 @@ Hello {user_name},
 Your one-time email verification code for AuraForest Sentinel registration is: {otp_code}
 
 This code is valid for 5 minutes. Please enter it in the sign-up form to activate your account.
+
+Live Sentinel Portal URL:
+{portal_link}
 
 If you did not request this verification code, please ignore this email.
 
@@ -268,6 +276,19 @@ Ministry of Environment & Forests
       color: #829a97;
       margin-top: 6px;
     }}
+    .cta-btn {{
+      display: inline-block;
+      background: linear-gradient(135deg, #7cf0b2 0%, #73d9e8 100%);
+      color: #041210 !important;
+      font-weight: 800;
+      font-size: 14px;
+      text-decoration: none;
+      padding: 12px 28px;
+      border-radius: 8px;
+      margin: 16px 0;
+      text-align: center;
+      letter-spacing: 0.02em;
+    }}
     .footer {{
       border-top: 1px solid rgba(32, 54, 62, 0.7);
       padding-top: 18px;
@@ -296,6 +317,12 @@ Ministry of Environment & Forests
       </div>
       <div class="text">
         Enter this 6-digit code in the registration portal to complete your account setup and access real-time eco-readings and threat reporting.
+      </div>
+      <div style="text-align:center;">
+        <a href="{portal_link}" class="cta-btn">🌐 Open Live Sentinel Portal</a>
+      </div>
+      <div style="text-align:center; font-size:12px; color:#829a97; margin-top:8px;">
+        Direct Link: <a href="{portal_link}" style="color:#73d9e8;">{portal_link}</a>
       </div>
     </div>
     <div class="footer">
@@ -384,6 +411,7 @@ Ministry of Environment & Forests
         """
         recipient_email = recipient_email.strip().lower()
         subject = f"🛡️ Official Commission & Sentinel Access Credentials — Ranger {full_name}"
+        portal_link = os.getenv("PORTAL_URL", LIVE_PORTAL_URL)
 
         plain_body = f"""
 Official Appointment & Security Notice
@@ -401,7 +429,8 @@ YOUR ACCESS CREDENTIALS:
 • Deployment Sector: {sector}
 
 INSTRUCTIONS:
-1. Log in to the AuraForest Sentinel Portal (http://localhost:8501)
+1. Open the Live AuraForest Sentinel Portal:
+   {portal_link}
 2. Select 'Field Ranger' or enter your username & password.
 3. Access your live Tactical Incident Response Console and GPS Radar.
 
@@ -511,6 +540,19 @@ AuraForest Wildlife Reserve · Ministry of Environment & Forests
       color: #73d9e8 !important;
       font-size: 15px;
     }}
+    .cta-btn {{
+      display: inline-block;
+      background: linear-gradient(135deg, #73d9e8 0%, #7cf0b2 100%);
+      color: #041210 !important;
+      font-weight: 800;
+      font-size: 14px;
+      text-decoration: none;
+      padding: 12px 28px;
+      border-radius: 8px;
+      margin: 16px 0;
+      text-align: center;
+      letter-spacing: 0.02em;
+    }}
     .footer {{
       border-top: 1px solid rgba(32, 54, 62, 0.7);
       padding-top: 18px;
@@ -557,9 +599,15 @@ AuraForest Wildlife Reserve · Ministry of Environment & Forests
       </div>
       <div class="text">
         <b>Deployment Instructions:</b><br/>
-        1. Access the Sentinel Operations Portal from your patrol terminal or mobile phone.<br/>
+        1. Open the Sentinel Operations Portal from your patrol smartphone or terminal.<br/>
         2. Enter your assigned username and password.<br/>
-        3. Review active acoustic AI threat alerts and GPS navigation to coordinate with nearby patrol buddies.
+        3. Review active acoustic AI threat alerts, GPS radar, and coordinate field dispatches with nearby units.
+      </div>
+      <div style="text-align:center;">
+        <a href="{portal_link}" class="cta-btn">🚀 Access Sentinel Tactical Portal</a>
+      </div>
+      <div style="text-align:center; font-size:12px; color:#829a97; margin-top:8px;">
+        Live Web Portal: <a href="{portal_link}" style="color:#73d9e8;">{portal_link}</a>
       </div>
     </div>
     <div class="footer">
@@ -648,6 +696,7 @@ AuraForest Wildlife Reserve · Ministry of Environment & Forests
         """
         recipient_email = recipient_email.strip().lower()
         subject = f"👑 AuraForest Sentinel Master Administrator Credentials — Chief Ranger Command"
+        portal_link = os.getenv("PORTAL_URL", LIVE_PORTAL_URL)
 
         plain_body = f"""
 AuraForest Sentinel — Chief Ranger Master Command Credentials
@@ -665,6 +714,7 @@ YOUR MASTER ACCESS CREDENTIALS:
 • Command Sector:     {sector}
 
 PORTAL ACCESS:
+• Live Cloud Portal:  {portal_link}
 • Local Console URL:  http://localhost:8501
 
 ADMIN PRIVILEGES:
@@ -782,6 +832,19 @@ Ministry of Environment, Forest and Climate Change
       color: #73d9e8 !important;
       font-size: 16px;
     }}
+    .cta-btn {{
+      display: inline-block;
+      background: linear-gradient(135deg, #f6c445 0%, #f39c12 100%);
+      color: #0b1216 !important;
+      font-weight: 800;
+      font-size: 14px;
+      text-decoration: none;
+      padding: 12px 28px;
+      border-radius: 8px;
+      margin: 16px 0;
+      text-align: center;
+      letter-spacing: 0.02em;
+    }}
     .footer {{
       border-top: 1px solid rgba(32, 54, 62, 0.7);
       padding-top: 18px;
@@ -826,8 +889,14 @@ Ministry of Environment, Forest and Climate Change
           <span class="cred-val">{sector}</span>
         </div>
       </div>
-      <div class="text" style="font-size:12px; color:#829a97;">
-        <b>Next Steps:</b> Log in to the Sentinel portal at <a href="http://localhost:8501" style="color:#73d9e8;">http://localhost:8501</a> using the credentials above to command field units, configure nodes, and inspect alerts.
+      <div class="text" style="font-size:13px; color:#c4d7d3;">
+        <b>Next Steps:</b> Click the button below to log in to the Sentinel portal to command field units, monitor live acoustic threats, and dispatch patrol units.
+      </div>
+      <div style="text-align:center;">
+        <a href="{portal_link}" class="cta-btn">👑 Launch Master Command Console</a>
+      </div>
+      <div style="text-align:center; font-size:12px; color:#829a97; margin-top:8px;">
+        Live Web Console: <a href="{portal_link}" style="color:#f6c445;">{portal_link}</a>
       </div>
     </div>
     <div class="footer">

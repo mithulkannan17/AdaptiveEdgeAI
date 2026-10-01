@@ -69,6 +69,22 @@
 - Added interactive RBAC identity switcher in [`dashboard/app.py`](file:///d:/user/Workspace/Major%20project/AuraForest/AdaptiveEdgeAI/dashboard/app.py) with authenticated API requests.
 - Added 21 automated unit tests in [`tests/test_security.py`](file:///d:/user/Workspace/Major%20project/AuraForest/AdaptiveEdgeAI/tests/test_security.py).
 
+### ✅ Task 10: Tactical Radar, Geolocation Sentry & Pulsing Shockwave Alerts
+- Built Pydeck 3D geospatial radar mapping active IoT nodes, field ranger units, and citizen tips.
+- Added HTML5 high-accuracy Geolocation sentry syncing live browser GPS coordinates into `st.session_state` and `db.update_ranger_location()`.
+- Implemented animated dual concentric shockwave strobe halos (500m radius + pulsing 5px red border) over active threat coordinates.
+- Added Sanctuary Base Sector preset selector (Bandipur, Nagarhole, Kaziranga, Mudumalai, Corbett, Sundarbans).
+
+### ✅ Task 11: Citizen Incident Portal & Resolved Incidents Audit Log
+- Implemented full citizen incident reporting flow with camera snapshot capture and 6-digit email OTP verification.
+- Built Chief Ranger dispatch triage console: marking citizen reports for field unit response.
+- Implemented Field Ranger on-scene incident resolution: solved reports automatically disappear from active map and transition to the dedicated **Resolved Incidents Historical Audit Log** page.
+
+### ✅ Task 12: Production Cloud Deployment & SMTP Email Relay
+- Successfully deployed live web platform on Streamlit Community Cloud: [https://auraforest-sentinel.streamlit.app/](https://auraforest-sentinel.streamlit.app/).
+- Armed real SMTP relay with Google App Password support delivering verification OTPs and Ranger access credentials to real inboxes.
+- Embedded live platform URL and action buttons in all automated email dispatches.
+
 ---
 
 ## 3. Test Coverage Summary
