@@ -14,6 +14,7 @@ python-multipart>=0.0.9
 # Edge AI, Audio Inference & Signal Processing
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch>=2.0.0
+torchvision>=0.15.0
 torchaudio>=2.0.0
 numpy>=1.24.0
 pandas>=2.0.0
