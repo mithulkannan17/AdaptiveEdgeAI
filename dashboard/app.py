@@ -1,12 +1,12 @@
 """
 AuraForest — Sentinel Dashboard
-Completely redesigned Streamlit UI with modern Sidebar & Tabbed Navbar navigation.
+Completely redesigned Streamlit UI with Role-Based Access Control (RBAC):
+  1. 👑 Chief Ranger (Admin): Full sentinel control, nearby field ranger dispatcher, map, citizen reports inbox, auth audit log.
+  2. 🛡️ Field Ranger Unit: Tactical incident response, GPS sector map, alert resolution ("Mark as Solved"), field telemetry.
+  3. 👁️ Public Citizen & Visitor: Environmental climate readings, forest safety advisories, and public illegal activity tip report box with photo upload.
 
 Run:
     streamlit run dashboard/app.py
-
-The dashboard reads the existing RuntimeDataSource and therefore
-does not change the backend/API or inference pipeline.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ import time
 import sys
 import json
 import os
+import pandas as pd
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 from urllib.parse import quote
@@ -158,11 +159,11 @@ div[data-baseweb="tab-list"] {
 
 button[data-baseweb="tab"] {
     font-family: 'DM Sans', sans-serif;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--muted);
     border-radius: 10px 10px 0 0;
-    padding: 11px 20px;
+    padding: 10px 18px;
     background: transparent;
     border: none;
     transition: all 0.2s ease;
@@ -492,12 +493,6 @@ div[data-testid="stMetric"] {
     letter-spacing: .06em;
 }
 
-.code-value {
-    font-family: "JetBrains Mono", monospace;
-    color: #b9cbc7;
-    font-size: 11px;
-}
-
 .chip {
     display: inline-block;
     border: 1px solid rgba(124, 240, 178, 0.25);
@@ -629,11 +624,11 @@ def confidence(value: Any) -> str:
 
 def status_class(value: Any) -> str:
     text = str(value or "").upper()
-    if text in {"WORKING", "OK", "ONLINE", "ACTIVE", "TRUE"}:
+    if text in {"WORKING", "OK", "ONLINE", "ACTIVE", "TRUE", "VERIFIED", "RESOLVED"}:
         return "ok"
     if text in {"NOT_WORKING", "FAILED", "OFFLINE", "ERROR", "FALSE"}:
         return "bad"
-    return "neutral"
+    return "warn" if text in {"PENDING", "ASSIGNED", "DISPATCHED"} else "neutral"
 
 
 def display_status(name: str, value: Any) -> str:
@@ -670,7 +665,7 @@ def metric(
 
 
 # ============================================================
-# UNKNOWN DISCOVERY API
+# BACKEND API CLIENT WITH AUTH HEADERS
 # ============================================================
 
 AURA_API_URL = os.getenv(
@@ -693,7 +688,6 @@ def discovery_api(
         "X-API-Key": os.getenv("AURAFOREST_MASTER_KEY", "aura_sentry_sec_key_99"),
     }
 
-    # Attach bearer token if user is authenticated in dashboard session
     auth_token = st.session_state.get("aura_auth_token")
     if auth_token:
         headers["Authorization"] = f"Bearer {auth_token}"
@@ -715,15 +709,9 @@ def discovery_api(
 
 
 def get_unknown_discovery_state() -> tuple[dict, list[dict], str | None]:
-    """Return discovery status, clusters, and an optional error."""
     try:
-        status_response = discovery_api(
-            "/api/v1/edge/unknown/status"
-        )
-        clusters_response = discovery_api(
-            "/api/v1/edge/unknown/clusters"
-        )
-
+        status_response = discovery_api("/api/v1/edge/unknown/status")
+        clusters_response = discovery_api("/api/v1/edge/unknown/clusters")
         return (
             status_response.get("discovery") or {},
             clusters_response.get("clusters") or [],
@@ -735,54 +723,24 @@ def get_unknown_discovery_state() -> tuple[dict, list[dict], str | None]:
         return {}, [], str(exc)
 
 
-def get_cluster_samples_from_dashboard(
-    cluster_id: str,
-) -> tuple[list[dict], str | None]:
-    """Return persistent sample evidence for a discovered cluster."""
+def get_cluster_samples_from_dashboard(cluster_id: str) -> tuple[list[dict], str | None]:
     try:
-        response = discovery_api(
-            f"/api/v1/edge/unknown/clusters/{quote(cluster_id, safe='')}/samples"
-        )
+        response = discovery_api(f"/api/v1/edge/unknown/clusters/{quote(cluster_id, safe='')}/samples")
         return response.get("samples") or [], None
     except Exception as exc:
         return [], str(exc)
 
 
-def get_sample_metadata_from_dashboard(
-    sample_id: str,
-) -> tuple[dict, str | None]:
-    """Return metadata for one persisted unknown-sound sample."""
-    try:
-        response = discovery_api(
-            f"/api/v1/edge/unknown/samples/{quote(sample_id, safe='')}"
-        )
-        return response, None
-    except Exception as exc:
-        return {}, str(exc)
-
-
 def sample_audio_url(sample_id: str) -> str:
-    """Build the backend streaming URL for a persisted review sample."""
-    return (
-        f"{AURA_API_URL}/api/v1/edge/unknown/samples/"
-        f"{quote(sample_id, safe='')}/audio"
-    )
+    return f"{AURA_API_URL}/api/v1/edge/unknown/samples/{quote(sample_id, safe='')}/audio"
 
 
-def label_cluster_from_dashboard(
-    cluster_id: str,
-    label: str,
-    notes: str,
-) -> tuple[bool, str]:
-    """Apply a human review label through the backend API."""
+def label_cluster_from_dashboard(cluster_id: str, label: str, notes: str) -> tuple[bool, str]:
     try:
         response = discovery_api(
             f"/api/v1/edge/unknown/clusters/{cluster_id}/label",
             method="POST",
-            payload={
-                "label": label,
-                "notes": notes,
-            },
+            payload={"label": label, "notes": notes},
         )
         if response.get("success"):
             return True, "Cluster label saved."
@@ -791,10 +749,7 @@ def label_cluster_from_dashboard(
         return False, str(exc)
 
 
-def unlabel_cluster_from_dashboard(
-    cluster_id: str,
-) -> tuple[bool, str]:
-    """Remove a human review label through the backend API."""
+def unlabel_cluster_from_dashboard(cluster_id: str) -> tuple[bool, str]:
     try:
         response = discovery_api(
             f"/api/v1/edge/unknown/clusters/{cluster_id}/unlabel",
@@ -808,12 +763,8 @@ def unlabel_cluster_from_dashboard(
 
 
 def clear_unknown_buffer_from_dashboard() -> tuple[bool, str]:
-    """Clear only pending unknown observations."""
     try:
-        response = discovery_api(
-            "/api/v1/edge/unknown/buffer/clear",
-            method="POST",
-        )
+        response = discovery_api("/api/v1/edge/unknown/buffer/clear", method="POST")
         if response.get("success"):
             return True, "Pending unknown buffer cleared."
         return False, str(response)
@@ -822,13 +773,8 @@ def clear_unknown_buffer_from_dashboard() -> tuple[bool, str]:
 
 
 def trigger_clustering_from_dashboard(force: bool = True) -> tuple[bool, str]:
-    """Trigger DBSCAN clustering on all pending unknown observations."""
     try:
-        response = discovery_api(
-            "/api/v1/edge/unknown/cluster",
-            method="POST",
-            payload={"force": force},
-        )
+        response = discovery_api("/api/v1/edge/unknown/cluster", method="POST", payload={"force": force})
         if response.get("success"):
             return True, response.get("message", "Clustering executed successfully.")
         return False, str(response)
@@ -837,11 +783,10 @@ def trigger_clustering_from_dashboard(force: bool = True) -> tuple[bool, str]:
 
 
 # ============================================================
-# EMERGENCY ALERT API HELPERS
+# EMERGENCY ALERT API & RESOLUTION HELPERS
 # ============================================================
 
 def get_active_emergency_alerts_from_dashboard() -> list[dict]:
-    """Fetch unacknowledged active emergency alerts from backend."""
     try:
         res = discovery_api("/api/v1/edge/alerts/active")
         return res.get("alerts", [])
@@ -850,7 +795,6 @@ def get_active_emergency_alerts_from_dashboard() -> list[dict]:
 
 
 def get_alerts_history_from_dashboard() -> list[dict]:
-    """Fetch emergency alert dispatch history from backend."""
     try:
         res = discovery_api("/api/v1/edge/alerts/history")
         return res.get("alerts", [])
@@ -858,11 +802,7 @@ def get_alerts_history_from_dashboard() -> list[dict]:
         return []
 
 
-def acknowledge_alert_from_dashboard(
-    alert_id: str,
-    acknowledged_by: str = "Ranger Command Console",
-) -> tuple[bool, str]:
-    """Mark an emergency alert as acknowledged/silenced."""
+def acknowledge_alert_from_dashboard(alert_id: str, acknowledged_by: str = "Ranger Station") -> tuple[bool, str]:
     try:
         res = discovery_api(
             f"/api/v1/edge/alerts/{alert_id}/acknowledge",
@@ -870,7 +810,35 @@ def acknowledge_alert_from_dashboard(
             payload={"acknowledged_by": acknowledged_by},
         )
         if res.get("success"):
-            return True, "Alert acknowledged and silenced."
+            return True, "Alert acknowledged and siren silenced."
+        return False, str(res)
+    except Exception as e:
+        return False, str(e)
+
+
+def resolve_alert_from_dashboard(alert_id: str, resolved_by: str, notes: str) -> tuple[bool, str]:
+    try:
+        res = discovery_api(
+            f"/api/v1/edge/alerts/{alert_id}/resolve",
+            method="POST",
+            payload={"resolved_by": resolved_by, "resolution_notes": notes},
+        )
+        if res.get("success"):
+            return True, "Alert successfully marked as RESOLVED and secured on site."
+        return False, str(res)
+    except Exception as e:
+        return False, str(e)
+
+
+def assign_alert_from_dashboard(alert_id: str, ranger_id: str, ranger_name: str) -> tuple[bool, str]:
+    try:
+        res = discovery_api(
+            f"/api/v1/edge/alerts/{alert_id}/assign",
+            method="POST",
+            payload={"ranger_id": ranger_id, "ranger_name": ranger_name},
+        )
+        if res.get("success"):
+            return True, f"Alert assigned to {ranger_name}."
         return False, str(res)
     except Exception as e:
         return False, str(e)
@@ -885,7 +853,6 @@ def dispatch_manual_alert_from_dashboard(
     lat_val: float = 12.2958,
     lon_val: float = 76.6394,
 ) -> tuple[bool, str]:
-    """Trigger an emergency alert broadcast directly from dashboard."""
     try:
         res = discovery_api(
             "/api/v1/edge/alerts/dispatch",
@@ -911,15 +878,80 @@ def dispatch_manual_alert_from_dashboard(
         return False, str(e)
 
 
+def get_field_rangers_from_dashboard() -> list[dict]:
+    try:
+        res = discovery_api("/api/v1/edge/rangers")
+        return res.get("rangers", [])
+    except Exception:
+        # Fallback list
+        return [
+            {"ranger_id": "ranger_01", "name": "Ranger Amar Singh", "callsign": "ALPHA-1", "sector": "Sector 4 (Tiger Corridor)", "latitude": 12.2980, "longitude": 76.6420, "status": "ON_PATROL", "battery": 92},
+            {"ranger_id": "ranger_02", "name": "Ranger Deepa Rao", "callsign": "BRAVO-2", "sector": "Sector 2 (River Ridge)", "latitude": 12.2920, "longitude": 76.6340, "status": "RESPONDING", "battery": 85},
+            {"ranger_id": "ranger_03", "name": "Ranger Vikrant Kumar", "callsign": "SIERRA-3", "sector": "Sector 7 (North Boundary)", "latitude": 12.3020, "longitude": 76.6450, "status": "STANDBY", "battery": 98},
+        ]
+
+
+def submit_citizen_report_from_dashboard(
+    reporter_name: str,
+    category: str,
+    description: str,
+    contact_info: str = "",
+    photo_filename: str = "",
+    lat_val: float = 12.2960,
+    lon_val: float = 76.6400,
+) -> tuple[bool, str]:
+    try:
+        res = discovery_api(
+            "/api/v1/public/report",
+            method="POST",
+            payload={
+                "reporter_name": reporter_name,
+                "contact_info": contact_info,
+                "threat_category": category,
+                "description": description,
+                "photo_filename": photo_filename,
+                "location_lat": lat_val,
+                "location_lon": lon_val,
+            },
+        )
+        if res.get("success"):
+            return True, res.get("message", "Citizen report submitted.")
+        return False, str(res)
+    except Exception as e:
+        return False, str(e)
+
+
+def get_citizen_reports_from_dashboard() -> list[dict]:
+    try:
+        res = discovery_api("/api/v1/public/reports")
+        return res.get("reports", [])
+    except Exception:
+        return []
+
+
+def update_citizen_report_status_from_dashboard(report_id: str, status: str, notes: str) -> tuple[bool, str]:
+    try:
+        res = discovery_api(
+            f"/api/v1/public/reports/{report_id}/status",
+            method="POST",
+            payload={"status": status, "notes": notes},
+        )
+        if res.get("success"):
+            return True, f"Report {report_id} updated to {status}."
+        return False, str(res)
+    except Exception as e:
+        return False, str(e)
+
+
+def get_auth_audit_log_from_dashboard() -> list[dict]:
+    try:
+        res = discovery_api("/api/v1/auth/audit_log")
+        return res.get("audit_logs", [])
+    except Exception:
+        return []
+
+
 def render_mobile_phone_notification_bridge(active_alerts_list: list[dict]) -> None:
-    """
-    Client-side Bridge for Native Mobile Phone Notification Bar Alerts.
-    Supports:
-      1. HTML5 Web Push / Notification API (Pops up directly in Android / iOS / Desktop Notification Bar)
-      2. Device Vibration Haptic Pulses (navigator.vibrate)
-      3. Web Audio API synthesized Emergency Siren
-      4. Direct ntfy mobile background push subscription
-    """
     has_alert = len(active_alerts_list) > 0
     top_alert = active_alerts_list[0] if has_alert else {}
     threat_type = str(top_alert.get("threat_type", "Threat")).upper()
@@ -1103,25 +1135,70 @@ policy = state.get("adaptive_policy") or {}
 unknown = state.get("unknown_discovery") or {}
 device_id = state.get("device_id") or "NO DEVICE"
 timestamp = state.get("timestamp")
-
-# Hardware health may be present in future/extended records.
-# Keep the UI compatible with both old and new database records.
 hardware = state.get("hardware_health") or telemetry.get("hardware_health") or {}
 
 
 # ============================================================
-# SIDEBAR DIAGNOSTICS & TELEMETRY
+# SIDEBAR: RBAC & DIAGNOSTICS
 # ============================================================
 
 active_alerts = get_active_emergency_alerts_from_dashboard()
+
+if "aura_user_role" not in st.session_state:
+    st.session_state["aura_user_role"] = "admin"
+    st.session_state["aura_user_name"] = "Chief Ranger (Admin)"
 
 with st.sidebar:
     st.markdown(
         """
         <div style="padding: 6px 0 16px 0; border-bottom: 1px solid rgba(32, 54, 62, 0.7); margin-bottom: 16px;">
             <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;color:var(--green);font-weight:700;">AURAFOREST SENTINEL</div>
-            <div style="font-size:22px;font-weight:800;color:#fff;margin-top:2px;letter-spacing:-0.02em;">◈ Edge Sentry</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:4px;">Autonomous Bioacoustic & Threat Defense</div>
+            <div style="font-size:22px;font-weight:800;color:#fff;margin-top:2px;letter-spacing:-0.02em;">◈ Bio-Defense Sentry</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">Multi-Tier Acoustic & Threat Intelligence</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # ------------------------------------------------------
+    # RBAC Identity Switcher
+    # ------------------------------------------------------
+    st.markdown('<div class="metric-label" style="margin-bottom:6px;">ACTIVE USER ROLE (RBAC)</div>', unsafe_allow_html=True)
+    role_options = {
+        "admin": "👑 Chief Ranger (Admin)",
+        "ranger": "🛡️ Field Ranger Unit",
+        "viewer": "👁️ Public Citizen / Visitor",
+    }
+    current_role = st.session_state.get("aura_user_role", "admin")
+    selected_role = st.selectbox(
+        "Active Role",
+        options=list(role_options.keys()),
+        format_func=lambda r: role_options[r],
+        index=list(role_options.keys()).index(current_role) if current_role in role_options else 0,
+        key="rbac_role_selector",
+        label_visibility="collapsed",
+    )
+    if selected_role != current_role:
+        st.session_state["aura_user_role"] = selected_role
+        st.session_state["aura_user_name"] = role_options[selected_role]
+        st.rerun()
+
+    role_colors = {
+        "admin": ("#7cf0b2", "rgba(124, 240, 178, 0.12)", "Chief Admin Control"),
+        "ranger": ("#73d9e8", "rgba(115, 217, 232, 0.12)", "Tactical Response Unit"),
+        "viewer": ("#f2c66d", "rgba(242, 198, 109, 0.12)", "Public Eco-Visitor"),
+    }
+    b_color, b_bg, b_desc = role_colors.get(selected_role, ("#7cf0b2", "rgba(124, 240, 178, 0.1)", "Standard"))
+
+    st.markdown(
+        f"""
+        <div style="background:{b_bg}; border:1px solid {b_color}; border-radius:12px; padding:10px 14px; margin-bottom:16px;">
+            <div style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:{b_color};">
+                ● {selected_role.upper()} MODE ACTIVE
+            </div>
+            <div style="font-size:11px; color:#edf6f3; margin-top:3px;">
+                {b_desc}
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -1140,7 +1217,7 @@ with st.sidebar:
         f"""
         <div class="panel" style="padding:14px; margin-bottom:16px; border-radius:14px; background:rgba(16, 26, 31, 0.9);">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span class="metric-label">DEVICE IDENTIFIER</span>
+                <span class="metric-label">NODE ID</span>
                 <span style="font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:var(--green);">{device_id}</span>
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
@@ -1148,7 +1225,7 @@ with st.sidebar:
                 <span style="font-family:'JetBrains Mono',monospace; font-size:11px; color:#7cf0b2; font-weight:600;">ONLINE ●</span>
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-                <span class="metric-label">BATTERY GAUGE</span>
+                <span class="metric-label">BATTERY</span>
                 <span style="font-family:'JetBrains Mono',monospace; font-size:11px; color:#73d9e8; font-weight:600;">{batt_pct:.1f}% ({batt_v:.2f}V)</span>
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
@@ -1160,7 +1237,6 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    # Active Emergency Sentry Alert Badge in Sidebar
     if active_alerts:
         top_sidebar_alert = active_alerts[0]
         s_threat = str(top_sidebar_alert.get("threat_type", "Threat")).upper()
@@ -1170,61 +1246,11 @@ with st.sidebar:
             <div style="background:linear-gradient(135deg, rgba(255,112,112,0.22), rgba(255,71,87,0.1)); border:1.5px solid #ff7070; border-radius:12px; padding:12px; margin-bottom:16px; box-shadow:0 0 15px rgba(255,112,112,0.3);">
                 <div style="color:#ff7070; font-size:10px; font-weight:700; font-family:'JetBrains Mono',monospace; letter-spacing:.1em;">🚨 ACTIVE THREAT ALERT</div>
                 <div style="color:#fff; font-size:13px; font-weight:700; margin-top:3px;">{s_threat} ({s_conf:.1f}%)</div>
-                <div style="color:#edf5f2; font-size:10px; margin-top:3px; font-family:'JetBrains Mono',monospace;">Local siren & strobe pulsing</div>
+                <div style="color:#edf5f2; font-size:10px; margin-top:3px; font-family:'JetBrains Mono',monospace;">Local siren & strobe active</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
-
-    # ------------------------------------------------------
-    # Ranger Security & RBAC Identity
-    # ------------------------------------------------------
-    if "aura_user_role" not in st.session_state:
-        st.session_state["aura_user_role"] = "admin"
-        st.session_state["aura_user_name"] = "Chief Ranger (Admin)"
-
-    st.markdown('<div class="metric-label" style="margin-bottom:8px;">SECURITY & IDENTITY (RBAC)</div>', unsafe_allow_html=True)
-    
-    role_options = {
-        "admin": "👑 Chief Ranger (Admin)",
-        "ranger": "🛡️ Field Ranger Unit",
-        "viewer": "👁️ Public Observer (Guest)",
-    }
-    
-    current_role = st.session_state.get("aura_user_role", "admin")
-    selected_role = st.selectbox(
-        "Active Role",
-        options=list(role_options.keys()),
-        format_func=lambda r: role_options[r],
-        index=list(role_options.keys()).index(current_role) if current_role in role_options else 0,
-        key="rbac_role_selector",
-        label_visibility="collapsed",
-    )
-    if selected_role != current_role:
-        st.session_state["aura_user_role"] = selected_role
-        st.session_state["aura_user_name"] = role_options[selected_role]
-        st.rerun()
-
-    role_badge_colors = {
-        "admin": ("#7cf0b2", "rgba(124, 240, 178, 0.1)"),
-        "ranger": ("#73d9e8", "rgba(115, 217, 232, 0.1)"),
-        "viewer": ("#829a97", "rgba(130, 154, 151, 0.1)"),
-    }
-    badge_fg, badge_bg = role_badge_colors.get(selected_role, ("#7cf0b2", "rgba(124, 240, 178, 0.1)"))
-
-    st.markdown(
-        f"""
-        <div style="background:{badge_bg}; border:1px solid {badge_fg}; border-radius:10px; padding:8px 12px; margin-bottom:14px;">
-            <div style="font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; color:{badge_fg};">
-                LEVEL: {selected_role.upper()} · AUTH ARMED
-            </div>
-            <div style="font-size:11px; color:#edf6f3; margin-top:2px;">
-                {'Full system & broadcast permissions' if selected_role=='admin' else ('Operational triage permissions' if selected_role=='ranger' else 'Read-only telemetry observer')}
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
     st.markdown('<div class="metric-label" style="margin-bottom:8px;">SYSTEM TELEMETRY CONTROL</div>', unsafe_allow_html=True)
     if st.button("↻ Force Telemetry Sync", use_container_width=True, key="btn_sidebar_refresh"):
@@ -1234,7 +1260,7 @@ with st.sidebar:
         f"""
         <div style="margin-top:24px; padding-top:14px; border-top:1px solid var(--line); font-family:'JetBrains Mono',monospace; font-size:10px; color:#526563;">
             <div>BACKEND: {AURA_API_URL}</div>
-            <div style="margin-top:2px;">SECURITY: HMAC-SHA256 Token Active</div>
+            <div style="margin-top:2px;">SECURITY: HMAC-SHA256 Token Armed</div>
             <div style="margin-top:2px;">SYNC: Every 3.0s</div>
         </div>
         """,
@@ -1246,15 +1272,20 @@ with st.sidebar:
 # MAIN HEADER
 # ============================================================
 
+role_header_titles = {
+    "admin": ("CHIEF RANGER COMMAND CONSOLE", "Autonomous Bioacoustic & Threat Defense · Full Sentinel Access"),
+    "ranger": ("FIELD RANGER TACTICAL RESPONSE CONSOLE", "Incident Response · GPS Navigation · On-Site Resolution"),
+    "viewer": ("AURAFOREST PUBLIC CITIZEN & ECO-SENTRY", "Live Climate & Air Quality · Safety Alerts · Public Tip Box"),
+}
+h_title, h_sub = role_header_titles.get(current_role, ("Sentinel Command", "Edge Intelligence"))
+
 st.markdown(
     f"""
     <div class="hero">
         <div>
-            <div class="kicker">AURAFOREST / EDGE INTELLIGENCE</div>
-            <div class="brand"><span class="brand-mark">◈</span>Sentinel Command</div>
-            <div class="subtitle">
-                Environmental acoustic intelligence · adaptive edge monitoring · autonomous threat triage
-            </div>
+            <div class="kicker">AURAFOREST / {current_role.upper()} INTERFACE</div>
+            <div class="brand"><span class="brand-mark">◈</span>{h_title}</div>
+            <div class="subtitle">{h_sub}</div>
         </div>
         <div class="live-pill"><span class="dot"></span>SENTINEL ONLINE</div>
     </div>
@@ -1262,14 +1293,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ============================================================
-# ACTIVE EMERGENCY ALERT NOTIFICATION BANNER
-# ============================================================
-
+# Active Emergency Alert Notification Banner
 cadie_risk = str(cadie.get("risk_level") or "").upper()
 requires_attention = bool(cadie.get("requires_attention", False))
-
-# Render client-side Phone Notification Bar bridge
 render_mobile_phone_notification_bridge(active_alerts)
 
 if active_alerts:
@@ -1294,7 +1320,7 @@ if active_alerts:
                     {threat_name} DETECTED ({threat_conf:.1f}% Confidence) · {coords_text}
                 </div>
                 <div style="color:#edf5f2;font-size:11px;margin-top:4px;font-family:'JetBrains Mono',monospace;">
-                    Device: {top_alert.get('device_id')} · Channels: Phone Notification Bar · Local Siren Active · Webhook Broadcast Sent · Ranger Dispatch Alert
+                    Device: {top_alert.get('device_id')} · Assigned: {top_alert.get('assigned_ranger_name') or 'Unassigned'} · Status: {top_alert.get('status')}
                 </div>
             </div>
             """,
@@ -1302,987 +1328,534 @@ if active_alerts:
         )
     with banner_col2:
         st.write("")
-        if st.button(
-            "✅ Acknowledge Alert",
-            key=f"btn_ack_top_{alert_id}",
-            use_container_width=True,
-            type="primary",
-            help="Acknowledge alert and silence the local device siren",
-        ):
-            ok, msg = acknowledge_alert_from_dashboard(alert_id)
-            if ok:
-                st.success(msg)
-                st.rerun()
-            else:
-                st.error(msg)
-elif cadie_risk in ["CRITICAL", "HIGH"] or requires_attention:
-    st.markdown(
-        f"""
-        <div style="background: linear-gradient(135deg, rgba(242, 198, 109, 0.18), rgba(255, 159, 67, 0.06)); border: 1.5px solid #f2c66d; border-radius: 16px; padding: 14px 20px; margin-bottom: 18px; box-shadow: 0 0 20px rgba(242, 198, 109, 0.18);">
-            <div style="color:#f2c66d;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.12em;">⚠️ ELEVATED THREAT ALERT — CADIE REQUIRES ATTENTION</div>
-            <div style="font-size:16px;font-weight:700;color:#fff;margin-top:4px;">
-                Signal: {str(event.get('label') or prediction.get('label', 'Threat')).upper()} · Triage: {cadie_risk} ({cadie.get('action', 'MONITOR')})
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-# ============================================================
-# PRIMARY NAVIGATION TABS (NAVBAR)
-# ============================================================
-
-tab_overview, tab_spectrum, tab_alerts, tab_discovery, tab_health = st.tabs([
-    "📡 Live Sentinel Overview",
-    "📊 Spectrum & Acoustic AI",
-    "🚨 Emergency Alert Center",
-    "🔬 Unknown Sound Discovery",
-    "📈 Node Health & Logs",
-])
-
-
-# ============================================================
-# TAB 1: LIVE SENTINEL OVERVIEW
-# ============================================================
-
-with tab_overview:
-    # Top Telemetry Metrics
-    st.markdown(
-        '<div class="section"><div class="section-title">Live Environmental Telemetry</div>'
-        '<div class="section-meta">REAL-TIME SENSOR SNAPSHOT · ESP32-S3 DMA BUS</div></div>',
-        unsafe_allow_html=True,
-    )
-
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
-
-    with c1:
-        metric(
-            "Temperature",
-            f"{safe_num(telemetry.get('temperature')):.1f}",
-            "°C",
-            "ambient thermal state",
-            accent="amber",
-            icon="🌡️",
-        )
-
-    with c2:
-        metric(
-            "Humidity",
-            f"{safe_num(telemetry.get('humidity')):.1f}",
-            "%",
-            "relative humidity",
-            accent="cyan",
-            icon="💧",
-        )
-
-    with c3:
-        metric(
-            "Light Level",
-            f"{safe_num(telemetry.get('light_level')):.0f}",
-            "lux",
-            "BH1750 optical index",
-            accent="gold",
-            icon="☀️",
-        )
-
-    with c4:
-        metric(
-            "Battery Gauge",
-            f"{safe_num(telemetry.get('battery_percent')):.1f}",
-            "%",
-            f"{safe_num(telemetry.get('battery_voltage')):.3f} V · MAX17048",
-            accent="emerald",
-            icon="⚡",
-        )
-
-    with c5:
-        vibration = bool(telemetry.get("vibration_detected"))
-        metric(
-            "Vibration",
-            "DETECTED" if vibration else "CLEAR",
-            "",
-            "SW-420 seismic latch",
-            accent="coral" if vibration else "purple",
-            icon="📳",
-        )
-
-    with c6:
-        dev_status = telemetry.get("device_status") if isinstance(telemetry.get("device_status"), dict) else {}
-        gas_info = dev_status.get("gas_assessment") or telemetry.get("gas_assessment") or {}
-        gas_status = str(gas_info.get("overall_status") or "NOMINAL").upper()
-        gas_score = safe_num(gas_info.get("gas_risk_score", 0.0))
-        gas_accent = "emerald" if gas_status == "NOMINAL" else ("amber" if gas_status == "ELEVATED" else "coral")
-        metric(
-            "Atmosphere / Gas",
-            gas_status,
-            f"Risk {gas_score:.2f}",
-            "MQ-2 / MQ-135 Engine",
-            accent=gas_accent,
-            icon="🧪",
-        )
-
-    # AI Event + CADIE
-    st.markdown(
-        '<div class="section"><div class="section-title">Acoustic Intelligence & Decision Engine</div>'
-        '<div class="section-meta">MODEL INFERENCE → CADIE MULTIMODAL FUSION → AUTONOMOUS RESPONSE</div></div>',
-        unsafe_allow_html=True,
-    )
-
-    left, mid, right = st.columns([1.35, 1.15, 1])
-
-    with left:
-        label = event.get("label") or prediction.get("label") or "Ambient Forest"
-        conf = safe_num(
-            event.get("confidence", prediction.get("confidence", 0.0))
-        )
-        detected = event.get("detected", False)
-        risk_raw = str(cadie.get("risk_level") or "LOW").upper()
-
-        if risk_raw in ["HIGH", "CRITICAL"] or any(k in label.lower() for k in ["chainsaw", "gunshot", "fire"]):
-            threat_class = "threat-critical"
-            conf_color = "#ff7070"
-        elif risk_raw in ["ELEVATED", "MEDIUM"] or any(k in label.lower() for k in ["vehicle", "engine", "rain"]):
-            threat_class = "threat-elevated"
-            conf_color = "#f2c66d"
-        else:
-            threat_class = "threat-nominal"
-            conf_color = "#7cf0b2"
-
-        st.markdown(
-            f"""
-            <div class="big-event {threat_class}">
-                <div class="kicker">ACTIVE ACOUSTIC PERCEPTION</div>
-                <div class="event-label">{label}</div>
-                <div class="event-caption">
-                    {"🔴 THREAT SIGNAL DETECTED" if detected else "🟢 STEADY STATE MONITORING"}
-                    · class {event.get("class_id", prediction.get("class_id", "—"))}
-                </div>
-                <div style="margin-top:24px">
-                    <div style="display:flex;justify-content:space-between">
-                        <span class="event-caption">MODEL CONFIDENCE</span>
-                        <span class="confidence" style="color:{conf_color}">{confidence(conf)}</span>
-                    </div>
-                    <div class="bar"><div style="width:{max(0,min(100,conf*100))}%;background:{conf_color};box-shadow:0 0 10px {conf_color}"></div></div>
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    with mid:
-        risk = str(cadie.get("risk_level") or "LOW").upper()
-        risk_cls = status_class(
-            "FAILED" if risk in ["HIGH", "CRITICAL"] else ("WORKING" if risk in ["LOW", "MINIMAL"] else "WARN")
-        )
-        factors_list = cadie.get("contributing_factors") or []
-        factors_html = ""
-        if factors_list:
-            items = "".join(f'<span class="chip" style="margin-bottom:4px;">{f}</span> ' for f in factors_list[:4])
-            factors_html = f'<div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px;"><div class="kicker" style="font-size:9px;margin-bottom:6px;">MULTIMODAL CORROBORATION</div><div>{items}</div></div>'
-
-        st.markdown(
-            f"""
-            <div class="panel">
-                <div class="panel-title">Decision Engine (CADIE)</div>
-                <div class="decision-box">
-                    <div class="kicker">TRIAGE RISK LEVEL</div>
-                    <div class="decision-risk {risk_cls}">{risk}</div>
-                    <div class="decision-action" style="color:var(--green)">ACTION: {cadie.get("action", "MONITOR")}</div>
-                </div>
-                {display_status("CADIE Score", f"{safe_num(cadie.get('score')):.3f}")}
-                {display_status("Ranger Attention", "YES (ALERT)" if cadie.get("requires_attention") else "NO (MONITOR)")}
-                {display_status("Primary Trigger", cadie.get("signal", label))}
-                {factors_html}
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    with right:
-        inference_ms = safe_num(
-            prediction.get(
-                "inference_time_ms",
-                event.get("inference_time_ms"),
-            )
-        )
-
-        unknown_decision = unknown.get("decision") or {}
-        unknown_detected = bool(unknown_decision.get("is_unknown", False))
-
-        model_name = prediction.get("model") or "MobileNetV3-Small"
-        buffer_size = unknown.get("buffer_size", "—")
-        environment_type = environment.get("environment_type") or "—"
-
-        inference_panel = (
-            '<div class="panel">'
-            '<div class="panel-title">Inference & Edge Health</div>'
-            f'{display_status("Model Engine", model_name)}'
-            f"{display_status('Latency', f'{inference_ms:.2f} ms')}"
-            f'{display_status("Open-Set Discovery", "ACTIVE" if unknown_detected else "IDLE")}'
-            f'{display_status("Unknown Buffer", str(buffer_size))}'
-            f'{display_status("Environment Type", environment_type)}'
-            '</div>'
-        )
-
-        st.markdown(inference_panel, unsafe_allow_html=True)
-
-    # Context & Adaptation
-    st.markdown(
-        '<div class="section"><div class="section-title">Context & Adaptation</div>'
-        '<div class="section-meta">THE EDGE NODE ADJUSTS ITS OPERATING POLICY FROM OBSERVED CONDITIONS</div></div>',
-        unsafe_allow_html=True,
-    )
-
-    a, b, c, d = st.columns([1, 1, 1, 1.1])
-
-    with a:
-        st.markdown('<div class="panel"><div class="panel-title">Environment Profile</div>', unsafe_allow_html=True)
-        env_items = [
-            ("Type", environment.get("environment_type", "—")),
-            ("Observations", environment.get("observation_count", "—")),
-            ("Natural score", f"{safe_num(environment.get('natural_score')):.2f}"),
-            ("Anthropogenic", f"{safe_num(environment.get('anthropogenic_score')):.2f}"),
-            ("Weather", f"{safe_num(environment.get('weather_score')):.2f}"),
-            ("Aquatic", f"{safe_num(environment.get('aquatic_score')):.2f}"),
-            ("Uncertainty", f"{safe_num(environment.get('uncertainty')):.2f}"),
-        ]
-        for n, v in env_items:
-            st.markdown(display_status(n, v), unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    with b:
-        st.markdown('<div class="panel"><div class="panel-title">Adaptive Policy</div>', unsafe_allow_html=True)
-        policy_items = [
-            ("Threshold", f"{safe_num(policy.get('detection_threshold')):.2f}"),
-            ("Transmission", policy.get("transmission_mode", "—")),
-            ("Sampling", policy.get("sampling_mode", "—")),
-            ("Policy context", policy.get("environment_type", "—")),
-            ("Ignored classes", len(policy.get("ignored_classes", []) or [])),
-        ]
-        for n, v in policy_items:
-            st.markdown(display_status(n, v), unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    with c:
-        st.markdown('<div class="panel"><div class="panel-title">Priority Map</div>', unsafe_allow_html=True)
-        priorities = policy.get("class_priority") or {}
-        if priorities:
-            ordered = sorted(priorities.items(), key=lambda x: (-safe_num(x[1]), x[0]))
-            for name, value in ordered[:8]:
-                st.markdown(
-                    f'<span class="chip">{name} · P{value}</span>',
-                    unsafe_allow_html=True,
-                )
-        else:
-            st.markdown('<span class="neutral">No priority data</span>', unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    with d:
-        st.markdown('<div class="panel"><div class="panel-title">Gas Sensor Fusion</div>', unsafe_allow_html=True)
-        dev_status = telemetry.get("device_status") if isinstance(telemetry.get("device_status"), dict) else {}
-        gas_info = dev_status.get("gas_assessment") or telemetry.get("gas_assessment") or {}
-        mq2_ratio = safe_num(gas_info.get("mq2_ratio"), 1.0)
-        mq135_ratio = safe_num(gas_info.get("mq135_ratio"), 1.0)
-        mq2_trend = str(gas_info.get("mq2_trend") or "STABLE")
-        mq135_trend = str(gas_info.get("mq135_trend") or "STABLE")
-        gas_summary = gas_info.get("qualitative_summary", "Nominal baseline")
-        calibrated = gas_info.get("baseline_calibrated", True)
-
-        gas_items = [
-            ("MQ-2 (Smoke)", f"{mq2_ratio:.2f}x · {mq2_trend}"),
-            ("MQ-135 (Air/CO)", f"{mq135_ratio:.2f}x · {mq135_trend}"),
-            ("Baseline", "CALIBRATED" if calibrated else "WARMING UP"),
-            ("Gas Risk", f"{safe_num(gas_info.get('gas_risk_score')):.2f}"),
-        ]
-        for n, v in gas_items:
-            st.markdown(display_status(n, v), unsafe_allow_html=True)
-        st.markdown(f'<div class="section-meta" style="margin-top:8px;font-size:10px;">{gas_summary}</div>', unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-
-# ============================================================
-# TAB 2: SPECTRUM & ACOUSTIC AI
-# ============================================================
-
-with tab_spectrum:
-    render_spectrum_section(label, mic_level=safe_num(telemetry.get("microphone_level", 500.0)))
-
-    st.markdown(
-        '<div class="section"><div class="section-title">Model Alternatives (Top-K)</div>'
-        '<div class="section-meta">TOP-K PROBABILITY DISTRIBUTION ACROSS ACOUSTIC CLASSES</div></div>',
-        unsafe_allow_html=True,
-    )
-
-    top_k = prediction.get("top_k") or []
-    if top_k:
-        rows = []
-        for item in top_k:
-            if isinstance(item, dict):
-                name = item.get("label", "Unknown")
-                conf = safe_num(item.get("confidence"))
-            elif isinstance(item, (list, tuple)) and len(item) >= 2:
-                name = item[0]
-                conf = safe_num(item[1])
-            else:
-                continue
-
-            rows.append(
-                {
-                    "CLASS": str(name),
-                    "CONFIDENCE": f"{conf * 100:.3f}%",
-                    "SCORE": conf,
-                }
-            )
-
-        if rows:
-            st.dataframe(
-                rows,
+        if current_role in ["admin", "ranger"]:
+            if st.button(
+                "✅ Silence Siren",
+                key=f"btn_ack_top_{alert_id}",
                 use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "CLASS": st.column_config.TextColumn("CLASS"),
-                    "CONFIDENCE": st.column_config.TextColumn("CONFIDENCE"),
-                    "SCORE": st.column_config.ProgressColumn(
-                        "SCORE",
-                        min_value=0,
-                        max_value=1,
-                        format="%.4f",
-                    ),
-                },
-            )
-    else:
+                type="primary",
+                help="Acknowledge alert and silence local siren",
+            ):
+                ok, msg = acknowledge_alert_from_dashboard(alert_id, acknowledged_by=st.session_state.get("aura_user_name", "Ranger"))
+                if ok:
+                    st.success(msg)
+                    st.rerun()
+
+
+# ============================================================
+# HELPER: BUILD INTERACTIVE MAP DATAFRAME
+# ============================================================
+
+def build_map_data(sentinel_lat: float, sentinel_lon: float, alerts: list[dict], rangers: list[dict]) -> pd.DataFrame:
+    records = []
+    # 1. Sentinel Node
+    records.append({
+        "latitude": sentinel_lat,
+        "longitude": sentinel_lon,
+        "name": f"Sentinel Node: {device_id}",
+        "type": "Sentinel Node",
+    })
+    # 2. Active Alerts
+    for al in alerts:
+        a_lat = al.get("location_lat")
+        a_lon = al.get("location_lon")
+        if a_lat and a_lon:
+            records.append({
+                "latitude": float(a_lat),
+                "longitude": float(a_lon),
+                "name": f"🚨 {al.get('threat_type')} Alert",
+                "type": "Emergency Threat",
+            })
+    # 3. Field Rangers
+    for rng in rangers:
+        r_lat = rng.get("latitude")
+        r_lon = rng.get("longitude")
+        if r_lat and r_lon:
+            records.append({
+                "latitude": float(r_lat),
+                "longitude": float(r_lon),
+                "name": f"🛡️ {rng.get('name')} ({rng.get('callsign')})",
+                "type": "Field Ranger",
+            })
+    return pd.DataFrame(records)
+
+
+sent_lat = float(safe_num(telemetry.get("latitude"), 12.2958))
+sent_lon = float(safe_num(telemetry.get("longitude"), 76.6394))
+field_rangers = get_field_rangers_from_dashboard()
+map_dataframe = build_map_data(sent_lat, sent_lon, active_alerts, field_rangers)
+
+
+# ============================================================
+# 👑 VIEW 1: CHIEF RANGER (ADMIN) DASHBOARD
+# ============================================================
+
+if current_role == "admin":
+    t1, t2, t3, t4, t5, t6, t7 = st.tabs([
+        "📡 Live Sentinel Overview",
+        "🗺️ Sentinel Map & Ranger Dispatch",
+        "📊 Spectrum & Acoustic AI",
+        "🚨 Emergency Broadcast Console",
+        "📨 Public Citizen Reports",
+        "🔬 Unknown Sound Discovery",
+        "🔒 Auth & Security Audit Log",
+    ])
+
+    # Tab 1: Live Overview
+    with t1:
         st.markdown(
-            '<div class="panel"><span class="neutral">No classification alternatives available.</span></div>',
+            '<div class="section"><div class="section-title">Live Environmental Telemetry</div>'
+            '<div class="section-meta">REAL-TIME SENSOR SNAPSHOT · ESP32-S3 DMA BUS</div></div>',
             unsafe_allow_html=True,
         )
+        c1, c2, c3, c4, c5, c6 = st.columns(6)
+        with c1:
+            metric("Temperature", f"{safe_num(telemetry.get('temperature')):.1f}", "°C", "ambient thermal state", accent="amber", icon="🌡️")
+        with c2:
+            metric("Humidity", f"{safe_num(telemetry.get('humidity')):.1f}", "%", "relative humidity", accent="cyan", icon="💧")
+        with c3:
+            metric("Light Level", f"{safe_num(telemetry.get('light_level')):.0f}", "lux", "BH1750 optical index", accent="gold", icon="☀️")
+        with c4:
+            metric("Battery Gauge", f"{safe_num(telemetry.get('battery_percent')):.1f}", "%", f"{safe_num(telemetry.get('battery_voltage')):.3f} V · MAX17048", accent="emerald", icon="⚡")
+        with c5:
+            vibration = bool(telemetry.get("vibration_detected"))
+            metric("Vibration", "DETECTED" if vibration else "CLEAR", "", "SW-420 seismic latch", accent="coral" if vibration else "purple", icon="📳")
+        with c6:
+            dev_status = telemetry.get("device_status") if isinstance(telemetry.get("device_status"), dict) else {}
+            gas_info = dev_status.get("gas_assessment") or telemetry.get("gas_assessment") or {}
+            gas_status = str(gas_info.get("overall_status") or "NOMINAL").upper()
+            gas_score = safe_num(gas_info.get("gas_risk_score", 0.0))
+            gas_accent = "emerald" if gas_status == "NOMINAL" else ("amber" if gas_status == "ELEVATED" else "coral")
+            metric("Atmosphere / Gas", gas_status, f"Risk {gas_score:.2f}", "MQ-2 / MQ-135 Engine", accent=gas_accent, icon="🧪")
 
+        # Decision Engine
+        st.markdown(
+            '<div class="section"><div class="section-title">Acoustic Intelligence & CADIE Decision Engine</div>'
+            '<div class="section-meta">MODEL INFERENCE → CADIE MULTIMODAL FUSION → AUTONOMOUS RESPONSE</div></div>',
+            unsafe_allow_html=True,
+        )
+        left, mid, right = st.columns([1.35, 1.15, 1])
+        with left:
+            label = event.get("label") or prediction.get("label") or "Ambient Forest"
+            conf = safe_num(event.get("confidence", prediction.get("confidence", 0.0)))
+            detected = event.get("detected", False)
+            risk_raw = str(cadie.get("risk_level") or "LOW").upper()
+            threat_class = "threat-critical" if risk_raw in ["HIGH", "CRITICAL"] else ("threat-elevated" if risk_raw in ["ELEVATED", "MEDIUM"] else "threat-nominal")
+            conf_color = "#ff7070" if risk_raw in ["HIGH", "CRITICAL"] else ("#f2c66d" if risk_raw in ["ELEVATED", "MEDIUM"] else "#7cf0b2")
 
-# ============================================================
-# TAB 3: EMERGENCY ALERTS
-# ============================================================
-
-with tab_alerts:
-    st.markdown(
-        '<div class="section"><div class="section-title">Emergency Alert Broadcast Console</div>'
-        '<div class="section-meta">MULTI-CHANNEL DISPATCH · DEVICE STROBE · WEBHOOK BROADCAST · AUDIT LOG</div></div>',
-        unsafe_allow_html=True,
-    )
-
-    alert_history = get_alerts_history_from_dashboard()
-
-    with st.container(border=True):
-        al_c1, al_c2 = st.columns([1.8, 1.2])
-
-        with al_c1:
             st.markdown(
-                """
-                <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:#fff;">
-                    📢 Broadcast Manual Emergency Alert
+                f"""
+                <div class="big-event {threat_class}">
+                    <div class="kicker">ACTIVE ACOUSTIC PERCEPTION</div>
+                    <div class="event-label">{label}</div>
+                    <div class="event-caption">{"🔴 THREAT SIGNAL DETECTED" if detected else "🟢 STEADY STATE MONITORING"} · class {event.get("class_id", prediction.get("class_id", "—"))}</div>
+                    <div style="margin-top:24px">
+                        <div style="display:flex;justify-content:space-between">
+                            <span class="event-caption">MODEL CONFIDENCE</span>
+                            <span class="confidence" style="color:{conf_color}">{confidence(conf)}</span>
+                        </div>
+                        <div class="bar"><div style="width:{max(0,min(100,conf*100))}%;background:{conf_color};box-shadow:0 0 10px {conf_color}"></div></div>
+                    </div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
-            f_threat_col, f_risk_col, f_act_col = st.columns(3)
-            with f_threat_col:
-                m_threat = st.selectbox(
-                    "Threat Category & Event",
-                    [
-                        "🔥 Fire (Highest Priority)",
-                        "🪚 Logging: Chainsaw / Drill (Highest Priority)",
-                        "🚗 Vehicles: Truck / Engine (Moderate — Need to be addressed)",
-                        "👤 Human Intrusion / Speech (Moderate — Need to be addressed)",
-                        "🌿 Others: Wildlife / Ambient (Low)",
-                    ],
-                    key="manual_alert_threat",
-                )
-            with f_risk_col:
-                m_risk = st.selectbox(
-                    "Priority Level",
-                    ["CRITICAL", "HIGH", "MODERATE", "LOW"],
-                    key="manual_alert_risk",
-                )
-            with f_act_col:
-                m_action = st.selectbox(
-                    "Dispatch Action",
-                    ["DISPATCH_RANGERS", "INTERCEPT_VEHICLE", "INVESTIGATE_INTRUSION", "RECORD_EVIDENCE", "MONITOR"],
-                    key="manual_alert_action",
-                )
-
-            clean_threat = m_threat.split(" (")[0].replace("🔥 ", "").replace("🪚 ", "").replace("🚗 ", "").replace("👤 ", "").replace("🌿 ", "")
-
-            if st.button("🚨 Broadcast Emergency Alert Now", type="primary", use_container_width=True, key="btn_manual_broadcast"):
-                ok, msg = dispatch_manual_alert_from_dashboard(
-                    threat_type=clean_threat,
-                    confidence=0.98,
-                    risk_level=m_risk,
-                    action=m_action,
-                    device_id_val=str(device_id if device_id != "NO DEVICE" else "sentinel_001"),
-                    lat_val=float(safe_num(telemetry.get("latitude"), 12.2958)),
-                    lon_val=float(safe_num(telemetry.get("longitude"), 76.6394)),
-                )
-                if ok:
-                    st.success(msg)
-                    st.rerun()
-                else:
-                    st.error(msg)
-
-        with al_c2:
+        with mid:
+            risk = str(cadie.get("risk_level") or "LOW").upper()
+            risk_cls = status_class("FAILED" if risk in ["HIGH", "CRITICAL"] else ("WORKING" if risk in ["LOW", "MINIMAL"] else "WARN"))
+            factors_list = cadie.get("contributing_factors") or []
+            factors_html = "".join(f'<span class="chip" style="margin-bottom:4px;">{f}</span> ' for f in factors_list[:4])
             st.markdown(
                 f"""
-                <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:#fff;">
-                    📡 Dispatch Channels Status
+                <div class="panel">
+                    <div class="panel-title">Decision Engine (CADIE)</div>
+                    <div class="decision-box">
+                        <div class="kicker">TRIAGE RISK LEVEL</div>
+                        <div class="decision-risk {risk_cls}">{risk}</div>
+                        <div class="decision-action" style="color:var(--green)">ACTION: {cadie.get("action", "MONITOR")}</div>
+                    </div>
+                    {display_status("CADIE Score", f"{safe_num(cadie.get('score')):.3f}")}
+                    {display_status("Ranger Attention", "YES (ALERT)" if cadie.get("requires_attention") else "NO (MONITOR)")}
+                    {display_status("Primary Trigger", cadie.get("signal", label))}
                 </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with right:
+            inference_ms = safe_num(prediction.get("inference_time_ms", event.get("inference_time_ms")))
+            st.markdown(
+                f"""
+                <div class="panel">
+                    <div class="panel-title">Inference & Edge Health</div>
+                    {display_status("Model Engine", prediction.get("model", "MobileNetV3-Small"))}
+                    {display_status("Latency", f"{inference_ms:.2f} ms")}
+                    {display_status("Open-Set Discovery", "ACTIVE" if bool((unknown.get("decision") or {}).get("is_unknown")) else "IDLE")}
+                    {display_status("Unknown Buffer", str(unknown.get("buffer_size", "—")))}
+                    {display_status("Environment Type", environment.get("environment_type", "—"))}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+    # Tab 2: Map & Field Ranger Dispatch
+    with t2:
+        st.markdown(
+            '<div class="section"><div class="section-title">Live Tactical Map & Field Ranger Dispatch</div>'
+            '<div class="section-meta">GPS LOCATION OF SENTINELS · ACTIVE THREATS · NEARBY FIELD RANGER PATROL UNITS</div></div>',
+            unsafe_allow_html=True,
+        )
+        map_col, dispatch_col = st.columns([2.2, 1.3])
+        with map_col:
+            st.map(map_dataframe, zoom=13, use_container_width=True)
+            st.caption("🟢 Sentinel Nodes | 🔴 Active Threat Coordinates | 🔵 Nearby Field Ranger Units")
+
+        with dispatch_col:
+            st.markdown(
+                """
+                <div class="panel">
+                    <div class="panel-title">Nearby Field Rangers Roster</div>
+                """,
+                unsafe_allow_html=True,
+            )
+            for rng in field_rangers:
+                r_id = rng.get("ranger_id")
+                r_name = rng.get("name")
+                r_call = rng.get("callsign")
+                r_sec = rng.get("sector")
+                r_status = rng.get("status")
+                r_batt = rng.get("battery")
+                r_phone = rng.get("phone", "—")
+
+                with st.container(border=True):
+                    st.markdown(f"**{r_name}** (`{r_call}`)")
+                    st.caption(f"📍 {r_sec} · 🔋 {r_batt}% · 📞 {r_phone}")
+                    st.markdown(f"Status: `{r_status}`")
+
+                    if active_alerts:
+                        top_a_id = active_alerts[0].get("alert_id")
+                        if st.button(f"⚡ Assign Alert to {r_call}", key=f"btn_assign_{r_id}_{top_a_id}", use_container_width=True):
+                            ok, msg = assign_alert_from_dashboard(top_a_id, r_id, r_name)
+                            if ok:
+                                st.success(msg)
+                                st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+
+    # Tab 3: Spectrum & AI
+    with t3:
+        render_spectrum_section(label, mic_level=safe_num(telemetry.get("microphone_level", 500.0)))
+
+    # Tab 4: Emergency Broadcast Console
+    with t4:
+        st.markdown(
+            '<div class="section"><div class="section-title">Emergency Alert Broadcast Console</div>'
+            '<div class="section-meta">MULTI-CHANNEL DISPATCH · DEVICE STROBE · WEBHOOK BROADCAST · AUDIT LOG</div></div>',
+            unsafe_allow_html=True,
+        )
+        alert_history = get_alerts_history_from_dashboard()
+        with st.container(border=True):
+            al_c1, al_c2 = st.columns([1.8, 1.2])
+            with al_c1:
+                st.markdown("<div style='font-size:13px;font-weight:700;margin-bottom:8px;color:#fff;'>📢 Broadcast Manual Emergency Alert</div>", unsafe_allow_html=True)
+                f_th, f_rk, f_ac = st.columns(3)
+                with f_th:
+                    m_threat = st.selectbox("Threat Category", ["🔥 Fire (Highest Priority)", "🪚 Logging: Chainsaw / Drill (Highest Priority)", "🚗 Vehicles: Truck / Engine (Moderate)", "👤 Human Intrusion / Speech (Moderate)", "🌿 Others: Wildlife / Ambient (Low)"], key="adm_threat")
+                with f_rk:
+                    m_risk = st.selectbox("Priority Level", ["CRITICAL", "HIGH", "MODERATE", "LOW"], key="adm_risk")
+                with f_ac:
+                    m_action = st.selectbox("Dispatch Action", ["DISPATCH_RANGERS", "INTERCEPT_VEHICLE", "INVESTIGATE_INTRUSION", "RECORD_EVIDENCE", "MONITOR"], key="adm_action")
+
+                clean_th = m_threat.split(" (")[0].replace("🔥 ", "").replace("🪚 ", "").replace("🚗 ", "").replace("👤 ", "").replace("🌿 ", "")
+                if st.button("🚨 Broadcast Emergency Alert Now", type="primary", use_container_width=True, key="btn_adm_broadcast"):
+                    ok, msg = dispatch_manual_alert_from_dashboard(threat_type=clean_th, confidence=0.98, risk_level=m_risk, action=m_action, device_id_val=device_id, lat_val=sent_lat, lon_val=sent_lon)
+                    if ok:
+                        st.success(msg)
+                        st.rerun()
+
+            with al_c2:
+                st.markdown(f"""
+                <div style='font-size:13px;font-weight:700;margin-bottom:8px;color:#fff;'>📡 Dispatch Channels Status</div>
                 {display_status("Device Red Strobe", "ONLINE (GPIO 38)")}
                 {display_status("Ranger Hotline", "CONNECTED")}
                 {display_status("Webhook Dispatcher", "ACTIVE")}
                 {display_status("Total Alerts Logged", str(len(alert_history)))}
-                """,
-                unsafe_allow_html=True,
-            )
+                """, unsafe_allow_html=True)
 
         if alert_history:
             st.markdown("<div style='margin-top:12px;font-size:12px;font-weight:700;'>Dispatched Alert Audit Log:</div>", unsafe_allow_html=True)
-            alert_rows = []
+            a_rows = []
             for a_item in alert_history[:8]:
-                a_id = a_item.get("alert_id")
-                a_threat = a_item.get("threat_type")
-                a_risk = a_item.get("risk_level")
-                a_conf = f"{safe_num(a_item.get('confidence')) * 100:.1f}%"
-                a_status = a_item.get("status")
-                a_created = a_item.get("created_at", "—")[:19].replace("T", " ")
-
-                alert_rows.append({
-                    "ALERT ID": str(a_id),
-                    "THREAT": str(a_threat),
-                    "RISK": str(a_risk),
-                    "CONFIDENCE": a_conf,
-                    "STATUS": str(a_status),
-                    "DISPATCHED AT": a_created,
+                a_rows.append({
+                    "ALERT ID": str(a_item.get("alert_id")),
+                    "THREAT": str(a_item.get("threat_type")),
+                    "RISK": str(a_item.get("risk_level")),
+                    "CONFIDENCE": f"{safe_num(a_item.get('confidence')) * 100:.1f}%",
+                    "STATUS": str(a_item.get("status")),
+                    "ASSIGNED RANGER": str(a_item.get("assigned_ranger_name") or "Unassigned"),
+                    "RESOLVED BY": str(a_item.get("resolved_by") or "—"),
                 })
+            st.dataframe(a_rows, use_container_width=True, hide_index=True)
 
-            st.dataframe(
-                alert_rows,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "ALERT ID": st.column_config.TextColumn("ALERT ID"),
-                    "THREAT": st.column_config.TextColumn("THREAT"),
-                    "RISK": st.column_config.TextColumn("RISK"),
-                    "CONFIDENCE": st.column_config.TextColumn("CONFIDENCE"),
-                    "STATUS": st.column_config.TextColumn("STATUS"),
-                    "DISPATCHED AT": st.column_config.TextColumn("DISPATCHED AT"),
-                },
-            )
-
-
-# ============================================================
-# TAB 4: UNKNOWN SOUND DISCOVERY
-# ============================================================
-
-with tab_discovery:
-    st.markdown(
-        '<div class="section"><div class="section-title">Unknown Sound Intelligence</div>'
-        '<div class="section-meta">OPEN-SET REJECTION → AUDIO EVIDENCE → DBSCAN CLUSTERS → HUMAN REVIEW</div></div>',
-        unsafe_allow_html=True,
-    )
-
-    discovery_status, discovery_clusters, discovery_error = (
-        get_unknown_discovery_state()
-    )
-
-    if discovery_error:
+    # Tab 5: Citizen Reports Inbox
+    with t5:
         st.markdown(
-            '<div class="panel"><span class="warn">'
-            'Discovery API unavailable. Start the FastAPI backend to enable '
-            'clustering monitoring and manual labeling.'
-            '</span><div class="section-meta" style="margin-top:8px">'
-            + str(discovery_error).replace("<", "&lt;").replace(">", "&gt;")
-            + '</div></div>',
+            '<div class="section"><div class="section-title">Public Citizen Reports & Illegal Activity Inbox</div>'
+            '<div class="section-meta">CITIZEN TIPS · PHOTO EVIDENCE · REVIEW & DISPATCH CONTROLS</div></div>',
             unsafe_allow_html=True,
         )
-    else:
-        buffer_size = int(safe_num(discovery_status.get("buffer_size")))
-        batch_size = int(
-            safe_num(discovery_status.get("clustering_batch_size"), 30)
-        )
-        total_unknown = int(
-            safe_num(discovery_status.get("total_unknown_samples"))
-        )
-        cluster_runs = int(
-            safe_num(discovery_status.get("total_cluster_runs"))
-        )
-        discovered = int(
-            safe_num(discovery_status.get("clusters_discovered"))
-        )
-        labeled = int(
-            safe_num(discovery_status.get("labeled_clusters"))
-        )
-        unlabeled = int(
-            safe_num(discovery_status.get("unlabeled_clusters"))
-        )
-        until_cluster = int(
-            safe_num(discovery_status.get("samples_until_clustering"))
-        )
-
-        progress = (
-            0.0
-            if batch_size <= 0
-            else min(1.0, buffer_size / batch_size)
-        )
-
-        st.html(
-            f"""
-            <div class="panel">
-                <div class="panel-title">Discovery monitor</div>
-
-                <div class="discovery-grid">
-                    <div class="discovery-stat">
-                        <div class="discovery-stat-label">Pending unknown</div>
-                        <div class="discovery-stat-value">{buffer_size}</div>
-                    </div>
-                    <div class="discovery-stat">
-                        <div class="discovery-stat-label">Unknown observations</div>
-                        <div class="discovery-stat-value">{total_unknown}</div>
-                    </div>
-                    <div class="discovery-stat">
-                        <div class="discovery-stat-label">Clusters</div>
-                        <div class="discovery-stat-value">{discovered}</div>
-                    </div>
-                    <div class="discovery-stat">
-                        <div class="discovery-stat-label">Cluster runs</div>
-                        <div class="discovery-stat-value">{cluster_runs}</div>
-                    </div>
-                </div>
-
-                <div class="status-row">
-                    <span class="status-name">Clustering batch</span>
-                    <span class="status-value" style="color:var(--cyan)">
-                        {buffer_size} / {batch_size}
-                    </span>
-                </div>
-
-                <div class="discovery-progress">
-                    <div style="width:{progress * 100:.1f}%"></div>
-                </div>
-
-                <div class="section-meta">
-                    {until_cluster} sample(s) until the next automatic clustering run
-                </div>
-            </div>
-            """
-        )
-
-        d1, d2, d3, d4 = st.columns(4)
-
-        with d1:
-            metric(
-                "Discovered clusters",
-                str(discovered),
-                "",
-                f"{unlabeled} awaiting human review",
-            )
-
-        with d2:
-            metric(
-                "Reviewed clusters",
-                str(labeled),
-                "",
-                f"{unlabeled} still unlabeled",
-            )
-
-        with d3:
-            last_ids = discovery_status.get("last_cluster_ids") or []
-            metric(
-                "Last cluster result",
-                str(len(last_ids)),
-                "",
-                "new stable cluster IDs" if last_ids else "no recent cluster batch",
-            )
-
-        with d4:
-            evidence_clusters = sum(
-                1 for cluster in discovery_clusters
-                if int(safe_num(cluster.get("sample_count"))) > 0
-            )
-            metric(
-                "Evidence-ready clusters",
-                str(evidence_clusters),
-                "",
-                "clusters available for audio review",
-            )
-
-        btn_col1, btn_col2, btn_spacer = st.columns([1.2, 1.2, 2.6])
-        with btn_col1:
-            if st.button(
-                "⚡ Run Clustering Now",
-                key="btn_trigger_clustering",
-                use_container_width=True,
-                help="Immediately cluster all pending unknown sounds with DBSCAN",
-            ):
-                if buffer_size == 0:
-                    st.info("Pending unknown buffer is currently empty.")
-                else:
-                    with st.spinner("Clustering unknown audio embeddings..."):
-                        ok, msg = trigger_clustering_from_dashboard(force=True)
-                        if ok:
-                            st.success(msg)
-                            st.rerun()
-                        else:
-                            st.error(msg)
-
-        with btn_col2:
-            if st.button(
-                "🗑️ Clear Pending Buffer",
-                key="btn_clear_buffer",
-                use_container_width=True,
-                help="Clear pending unclustered buffer without deleting clusters",
-            ):
-                ok, msg = clear_unknown_buffer_from_dashboard()
-                if ok:
-                    st.success(msg)
-                    st.rerun()
-                else:
-                    st.error(msg)
-
-        st.markdown(
-            '<div class="panel" style="margin-top:12px">'
-            '<div class="panel-title">Human review queue</div>',
-            unsafe_allow_html=True,
-        )
-
-        if not discovery_clusters:
-            st.markdown(
-                '<span class="neutral">No persistent clusters have been discovered yet. '
-                'Unknown samples accumulate until the clustering batch is reached.</span>',
-                unsafe_allow_html=True,
-            )
+        citizen_reports = get_citizen_reports_from_dashboard()
+        if not citizen_reports:
+            st.info("No citizen reports pending review.")
         else:
-            for cluster in discovery_clusters:
-                cluster_id = str(cluster.get("cluster_id", "UNKNOWN"))
-                status = str(cluster.get("status", "UNLABELED")).upper()
-                cluster_lbl = cluster.get("label")
-                count = int(safe_num(cluster.get("sample_count")))
-                noise = int(safe_num(cluster.get("noise_samples")))
-                notes = str(cluster.get("notes") or "")
+            for rep in citizen_reports:
+                r_id = rep.get("report_id")
+                r_name = rep.get("reporter_name", "Anonymous")
+                r_cat = rep.get("threat_category", "Illegal Activity")
+                r_desc = rep.get("description", "")
+                r_stat = rep.get("status", "PENDING")
+                r_time = rep.get("created_at", "")[:19].replace("T", " ")
 
                 with st.container(border=True):
-                    top_a, top_b, top_c = st.columns([1.3, 1, 1])
+                    c_h1, c_h2, c_h3 = st.columns([1.5, 1.5, 1.2])
+                    with c_h1:
+                        st.markdown(f"**Report ID:** `{r_id}`")
+                        st.markdown(f"**Reporter:** {r_name} · **Category:** `{r_cat}`")
+                    with c_h2:
+                        st.markdown(f"**Description:** {r_desc}")
+                        st.caption(f"Logged: {r_time}")
+                    with c_h3:
+                        st.markdown(f"Status: **{r_stat}**")
+                        b1, b2 = st.columns(2)
+                        with b1:
+                            if st.button("✅ Verify", key=f"btn_ver_{r_id}", use_container_width=True):
+                                update_citizen_report_status_from_dashboard(r_id, "VERIFIED", "Chief Ranger verified report")
+                                st.rerun()
+                        with b2:
+                            if st.button("🛡️ Dispatch", key=f"btn_disp_{r_id}", use_container_width=True):
+                                update_citizen_report_status_from_dashboard(r_id, "DISPATCHED", "Ranger unit dispatched to investigate")
+                                st.rerun()
 
-                    with top_a:
-                        st.markdown(
-                            f'<div class="cluster-id">{cluster_id}</div>'
-                            f'<div class="cluster-meta">{status} · {count} samples · {noise} noise</div>',
-                            unsafe_allow_html=True,
-                        )
-
-                    with top_b:
-                        st.markdown(
-                            f'<div class="cluster-meta">LABEL</div>'
-                            f'<div style="font-weight:700">{cluster_lbl or "UNLABELED"}</div>',
-                            unsafe_allow_html=True,
-                        )
-
-                    with top_c:
-                        st.markdown(
-                            f'<div class="cluster-meta">SOURCE BATCH</div>'
-                            f'<div style="font-weight:700">{int(safe_num(cluster.get("source_batch_size")))}</div>',
-                            unsafe_allow_html=True,
-                        )
-
-                    form_key = "cluster_" + cluster_id.replace("-", "_")
-
-                    with st.expander(
-                        f"Review recorded evidence · {count} sample(s)",
-                        expanded=False,
-                    ):
-                        samples, samples_error = get_cluster_samples_from_dashboard(
-                            cluster_id
-                        )
-
-                        if samples_error:
-                            st.warning(
-                                "Could not load recorded samples: " + samples_error
-                            )
-                        elif not samples:
-                            st.info(
-                                "No individual audio evidence is attached to this cluster yet. "
-                                "Older clusters created before audio persistence may not have sample records."
-                            )
-                        else:
-                            st.caption(
-                                "Play the original retained recording before assigning a human label. "
-                                "Audio is streamed directly from the AuraForest backend."
-                            )
-
-                            for index, sample in enumerate(samples, start=1):
-                                sample_id = str(sample.get("sample_id") or "")
-                                captured_at = str(sample.get("captured_at") or "—")
-                                predicted_class = sample.get("predicted_class", "—")
-                                conf_val = safe_num(sample.get("confidence"))
-                                audio_available = bool(sample.get("audio_available"))
-
-                                sample_left, sample_mid, sample_right = st.columns([1.7, 1.1, 1.3])
-
-                                with sample_left:
-                                    st.markdown(
-                                        f"**Sample {index}** · `{sample_id}`"
-                                    )
-                                    st.caption(
-                                        f"Captured: {captured_at} · Raw predicted class: {predicted_class}"
-                                    )
-
-                                with sample_mid:
-                                    st.metric(
-                                        "Confidence",
-                                        f"{conf_val:.1%}",
-                                    )
-
-                                with sample_right:
-                                    if audio_available and sample_id:
-                                        st.audio(
-                                            sample_audio_url(sample_id),
-                                            format="audio/wav",
-                                        )
-                                    else:
-                                        st.caption("Audio evidence unavailable")
-
-                                if index < len(samples):
-                                    st.divider()
-
-                    label_col, notes_col, action_col = st.columns([1, 1.4, .75])
-
-                    with label_col:
-                        new_label = st.text_input(
-                            "Human label",
-                            value=str(cluster_lbl or ""),
-                            placeholder="e.g. Tiger, Monkey, River",
-                            key=form_key + "_label",
-                        )
-
-                    with notes_col:
-                        new_notes = st.text_input(
-                            "Review notes",
-                            value=notes,
-                            placeholder="Why this label was chosen",
-                            key=form_key + "_notes",
-                        )
-
-                    with action_col:
-                        st.write("")
-                        if st.button(
-                            "Save label",
-                            key=form_key + "_save",
-                            use_container_width=True,
-                        ):
-                            if not new_label.strip():
-                                st.error("Enter a label first.")
-                            else:
-                                ok, message = label_cluster_from_dashboard(
-                                    cluster_id,
-                                    new_label,
-                                    new_notes,
-                                )
-                                if ok:
-                                    st.success(message)
-                                    st.rerun()
-                                else:
-                                    st.error(message)
-
-                        if status == "LABELED":
-                            if st.button(
-                                "Unlabel",
-                                key=form_key + "_unlabel",
-                                use_container_width=True,
-                            ):
-                                ok, message = unlabel_cluster_from_dashboard(
-                                    cluster_id
-                                )
-                                if ok:
-                                    st.success(message)
-                                    st.rerun()
-                                else:
-                                    st.error(message)
-
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        clear_col, threshold_col = st.columns([1, 2])
-
-        with clear_col:
-            if st.button(
-                "Clear pending buffer",
-                use_container_width=True,
-            ):
-                ok, message = clear_unknown_buffer_from_dashboard()
-                if ok:
-                    st.success(message)
-                    st.rerun()
-                else:
-                    st.error(message)
-
-        with threshold_col:
-            st.markdown(
-                display_status(
-                    "Open-set gate",
-                    (
-                        f"confidence ≥ {safe_num(discovery_status.get('confidence_threshold')):.2f} "
-                        f"AND margin ≥ {safe_num(discovery_status.get('margin_threshold')):.2f}"
-                    ),
-                ),
-                unsafe_allow_html=True,
-            )
-
-
-# ============================================================
-# TAB 5: NODE HEALTH & LOGS
-# ============================================================
-
-with tab_health:
-    st.markdown(
-        '<div class="section"><div class="section-title">Node Integrity & Diagnostics</div>'
-        '<div class="section-meta">HARDWARE HEALTH · GPS GEOLOCATION · RUNTIME AUDIT STREAM</div></div>',
-        unsafe_allow_html=True,
-    )
-
-    h1, h2 = st.columns([1.2, 1])
-
-    with h1:
-        st.markdown('<div class="panel"><div class="panel-title">Hardware Component Health</div>', unsafe_allow_html=True)
-
-        hardware_names = [
-            "INMP441",
-            "BH1750",
-            "MAX17048",
-            "DHT11",
-            "SW-420",
-            "NEO-6M",
-            "MicroSD",
-            "WiFi",
-            "Telemetry_Backend",
-            "Audio_Backend",
-            "Overall_Hardware",
-        ]
-
-        for name in hardware_names:
-            value = hardware.get(name)
-            if value is None:
-                value = "NOT REPORTED"
-            st.markdown(display_status(name, value), unsafe_allow_html=True)
-
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    with h2:
-        st.markdown('<div class="panel"><div class="panel-title">Node Location & Coordinates</div>', unsafe_allow_html=True)
-
-        location = state.get("location") or {}
-
-        lat = location.get("latitude", telemetry.get("latitude"))
-        lon = location.get("longitude", telemetry.get("longitude"))
-        alt = location.get("altitude", telemetry.get("altitude"))
-        acc = location.get("accuracy", telemetry.get("accuracy"))
-
-        location_items = [
-            ("Device", device_id),
-            ("Latitude", "—" if lat is None else f"{safe_num(lat):.6f}"),
-            ("Longitude", "—" if lon is None else f"{safe_num(lon):.6f}"),
-            ("Altitude", "—" if alt is None else f"{safe_num(alt):.1f} m"),
-            ("Accuracy", "—" if acc is None else f"{safe_num(acc):.1f} m"),
-            ("Source", location.get("source", "RUNTIME")),
-            ("Last record", "—" if timestamp is None else datetime.fromtimestamp(safe_num(timestamp)).strftime("%Y-%m-%d %H:%M:%S")),
-        ]
-
-        for n, v in location_items:
-            st.markdown(display_status(n, v), unsafe_allow_html=True)
-
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown(
-        '<div class="section" style="margin-top:24px;"><div class="section-title">Recent Event Stream</div>'
-        '<div class="section-meta">LATEST 10 EDGE DETECTIONS FROM RUNTIME DATABASE</div></div>',
-        unsafe_allow_html=True,
-    )
-
-    try:
-        recent_events = source.get_recent_events(limit=10)
-    except AttributeError:
-        recent_events = []
-    except Exception:
-        recent_events = []
-
-    if recent_events:
-        event_rows = []
-
-        for recent in recent_events:
-            recent_prediction = recent.get("prediction") or {}
-            recent_event = recent.get("event") or {}
-            recent_decision = recent.get("decision") or {}
-            recent_device = recent.get("device_id") or "Unknown"
-
-            recent_label = (
-                recent_prediction.get("label")
-                or recent_event.get("label")
-                or "Unknown"
-            )
-
-            recent_conf = safe_num(
-                recent_prediction.get(
-                    "confidence",
-                    recent_event.get("confidence", 0),
-                )
-            )
-
-            recent_risk = str(
-                recent_decision.get("risk_level")
-                or "LOW"
-            ).upper()
-
-            recent_action = (
-                recent_decision.get("recommended_action")
-                or recent_decision.get("action")
-                or "MONITOR"
-            )
-
-            event_rows.append(
-                {
-                    "DEVICE": str(recent_device),
-                    "EVENT": str(recent_label),
-                    "CONFIDENCE": f"{recent_conf * 100:.1f}%",
-                    "RISK": recent_risk,
-                    "ACTION": str(recent_action),
-                }
-            )
-
-        if event_rows:
-            st.dataframe(
-                event_rows,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "DEVICE": st.column_config.TextColumn("DEVICE"),
-                    "EVENT": st.column_config.TextColumn("EVENT"),
-                    "CONFIDENCE": st.column_config.TextColumn("CONFIDENCE"),
-                    "RISK": st.column_config.TextColumn("RISK"),
-                    "ACTION": st.column_config.TextColumn("ACTION"),
-                },
-            )
-    else:
+    # Tab 6: Unknown Discovery
+    with t6:
         st.markdown(
-            '<div class="panel"><span class="neutral">'
-            'No recent event history available.'
-            '</span></div>',
+            '<div class="section"><div class="section-title">Unknown Sound Intelligence</div>'
+            '<div class="section-meta">OPEN-SET REJECTION → AUDIO EVIDENCE → DBSCAN CLUSTERS → HUMAN REVIEW</div></div>',
             unsafe_allow_html=True,
         )
+        discovery_status, discovery_clusters, discovery_error = get_unknown_discovery_state()
+        if discovery_error:
+            st.warning("Discovery backend unavailable.")
+        else:
+            buffer_size = int(safe_num(discovery_status.get("buffer_size")))
+            discovered = int(safe_num(discovery_status.get("clusters_discovered")))
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                metric("Pending Unknown", str(buffer_size), "samples", "awaiting batch", accent="cyan")
+            with col2:
+                metric("Discovered Clusters", str(discovered), "classes", "DBSCAN clusters", accent="purple")
+            with col3:
+                if st.button("⚡ Run Clustering Now", key="btn_disc_cluster", use_container_width=True):
+                    trigger_clustering_from_dashboard(force=True)
+                    st.rerun()
+
+    # Tab 7: Security Audit Log
+    with t7:
+        st.markdown(
+            '<div class="section"><div class="section-title">Security & Authentication Audit Log</div>'
+            '<div class="section-meta">IMMUTABLE RECORD OF LOGINS, KEY CHECKS, DISPATCHES, AND RESOLUTIONS</div></div>',
+            unsafe_allow_html=True,
+        )
+        audit_logs = get_auth_audit_log_from_dashboard()
+        if audit_logs:
+            log_rows = []
+            for l_item in audit_logs:
+                log_rows.append({
+                    "TIMESTAMP": str(l_item.get("created_at", ""))[:19].replace("T", " "),
+                    "USER": str(l_item.get("username")),
+                    "ROLE": str(l_item.get("role")).upper(),
+                    "ACTION": str(l_item.get("action")),
+                    "DETAILS": str(l_item.get("details")),
+                })
+            st.dataframe(log_rows, use_container_width=True, hide_index=True)
+        else:
+            st.info("No security audit logs recorded yet.")
 
 
 # ============================================================
-# FOOTER / REFRESH
+# 🛡️ VIEW 2: FIELD RANGER TACTICAL RESPONSE DASHBOARD
+# ============================================================
+
+elif current_role == "ranger":
+    r_tab1, r_tab2, r_tab3, r_tab4 = st.tabs([
+        "🚨 Tactical Alert Response & Resolution",
+        "🗺️ Patrol Sector Map & GPS Nav",
+        "📡 Field Telemetry & Gas Sentry",
+        "📊 Acoustic Frequency Monitor",
+    ])
+
+    # Tab 1: Alert Response & Resolve
+    with r_tab1:
+        st.markdown(
+            '<div class="section"><div class="section-title">Assigned Threat Incidents & Tactical Resolution</div>'
+            '<div class="section-meta">ADDRESS ACTIVE EMERGENCY ALERTS · SECURE PERIMETER · MARK AS SOLVED</div></div>',
+            unsafe_allow_html=True,
+        )
+        if not active_alerts:
+            st.success("🟢 No active emergency alerts in your sector. Perimeter is secure.")
+        else:
+            for al in active_alerts:
+                al_id = al.get("alert_id")
+                al_th = str(al.get("threat_type")).upper()
+                al_cf = safe_num(al.get("confidence")) * 100
+                al_lat = al.get("location_lat", sent_lat)
+                al_lon = al.get("location_lon", sent_lon)
+                al_stat = al.get("status")
+
+                with st.container(border=True):
+                    st.markdown(
+                        f"""
+                        <div style="background:rgba(255,112,112,0.12); border-left:4px solid #ff7070; padding:12px 16px; border-radius:10px; margin-bottom:12px;">
+                            <div style="font-size:16px; font-weight:800; color:#ff7070;">🚨 THREAT: {al_th} ({al_cf:.1f}% Confidence)</div>
+                            <div style="font-size:12px; color:#edf6f3; margin-top:4px;">Coordinates: {al_lat:.5f}°N, {al_lon:.5f}°E · Alert ID: <code>{al_id}</code></div>
+                            <div style="font-size:11px; color:#829a97; margin-top:2px;">Assigned: {al.get('assigned_ranger_name') or 'Field Unit'} · Status: {al_stat}</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+                    res_col1, res_col2 = st.columns([2.5, 1])
+                    with res_col1:
+                        res_notes = st.text_input(
+                            "On-Site Action / Resolution Notes",
+                            value="Threat investigated, perpetrators deterred, location secured.",
+                            key=f"notes_{al_id}",
+                        )
+                    with res_col2:
+                        st.write("")
+                        if st.button("✅ Mark Alert as Solved", key=f"btn_res_{al_id}", use_container_width=True, type="primary"):
+                            ok, msg = resolve_alert_from_dashboard(al_id, resolved_by=st.session_state.get("aura_user_name", "Field Ranger"), notes=res_notes)
+                            if ok:
+                                st.success(msg)
+                                st.rerun()
+
+    # Tab 2: Sector Map
+    with r_tab2:
+        st.markdown(
+            '<div class="section"><div class="section-title">Tactical Sector Map & Navigation</div>'
+            '<div class="section-meta">FIELD RANGER GPS · TARGET THREAT COORDINATES · PATROL BUDDY POSITIONS</div></div>',
+            unsafe_allow_html=True,
+        )
+        st.map(map_dataframe, zoom=14, use_container_width=True)
+
+    # Tab 3: Field Telemetry
+    with r_tab3:
+        st.markdown(
+            '<div class="section"><div class="section-title">Field Environment & Gas Sentry</div>'
+            '<div class="section-meta">LIVE SENSOR READINGS FROM CLOSEST SENTINEL NODE</div></div>',
+            unsafe_allow_html=True,
+        )
+        rc1, rc2, rc3, rc4 = st.columns(4)
+        with rc1:
+            metric("Ambient Temp", f"{safe_num(telemetry.get('temperature')):.1f}", "°C", "thermal sensor", accent="amber", icon="🌡️")
+        with rc2:
+            metric("Humidity", f"{safe_num(telemetry.get('humidity')):.1f}", "%", "RH level", accent="cyan", icon="💧")
+        with rc3:
+            metric("Battery SOC", f"{safe_num(telemetry.get('battery_percent')):.1f}", "%", "MAX17048", accent="emerald", icon="⚡")
+        with rc4:
+            metric("Gas Atmosphere", str((telemetry.get("device_status") or {}).get("gas_assessment", {}).get("overall_status") or "NOMINAL").upper(), "", "MQ-2/MQ-135", accent="purple", icon="🧪")
+
+    # Tab 4: Acoustic Frequency
+    with r_tab4:
+        render_spectrum_section(label, mic_level=safe_num(telemetry.get("microphone_level", 500.0)))
+
+
+# ============================================================
+# 👁️ VIEW 3: PUBLIC CITIZEN & VISITOR ECO-DASHBOARD
+# ============================================================
+
+elif current_role == "viewer":
+    p_tab1, p_tab2, p_tab3 = st.tabs([
+        "🌿 Forest Climate & Eco-Readings",
+        "⚠️ Forest Safety & Alerts",
+        "📸 Report Illegal Activity / Sighting",
+    ])
+
+    # Tab 1: Eco-Readings
+    with p_tab1:
+        st.markdown(
+            '<div class="section"><div class="section-title">Live Forest Environmental Readings</div>'
+            '<div class="section-meta">PUBLIC REAL-TIME CLIMATE AND AIR QUALITY IN THE FOREST RESERVE</div></div>',
+            unsafe_allow_html=True,
+        )
+        pc1, pc2, pc3 = st.columns(3)
+        with pc1:
+            metric("Forest Temperature", f"{safe_num(telemetry.get('temperature')):.1f}", "°C", "Pleasant climate", accent="amber", icon="🌲")
+        with pc2:
+            metric("Relative Humidity", f"{safe_num(telemetry.get('humidity')):.1f}", "%", "Canopy moisture", accent="cyan", icon="💧")
+        with pc3:
+            metric("Air Quality", "FRESH & CLEAN", "", "Natural forest atmosphere", accent="emerald", icon="🍃")
+
+    # Tab 2: Forest Safety Advisories
+    with p_tab2:
+        st.markdown(
+            '<div class="section"><div class="section-title">Public Forest Safety Notices</div>'
+            '<div class="section-meta">OFFICIAL RANGER ADVISORIES AND WEATHER/WILDFIRE ALERTS</div></div>',
+            unsafe_allow_html=True,
+        )
+        if active_alerts:
+            for al in active_alerts:
+                st.error(f"⚠️ SAFETY NOTICE: Elevated activity ({al.get('threat_type')}) detected in Sector. Please stay on marked trails.")
+        else:
+            st.success("✅ Forest Reserve is safe. All sectors are currently green.")
+
+    # Tab 3: Citizen Tip Box
+    with p_tab3:
+        st.markdown(
+            '<div class="section"><div class="section-title">Citizen Tip: Report Illegal Forest Activity</div>'
+            '<div class="section-meta">REPORT CHAINSAWS, ILLEGAL FELLING, POACHERS, OR FIRES DIRECTLY TO CHIEF RANGER</div></div>',
+            unsafe_allow_html=True,
+        )
+        with st.container(border=True):
+            r_col1, r_col2 = st.columns(2)
+            with r_col1:
+                cit_name = st.text_input("Your Name (or leave Anonymous)", value="Citizen Observer")
+                cit_cat = st.selectbox("Observed Threat Category", [
+                    "🪚 Illegal Tree Felling / Chainsaw Activity",
+                    "🔥 Wildfire / Smoke Sighting",
+                    "🏹 Poaching / Animal Trap Sighting",
+                    "🚗 Unauthorized Vehicle Intrusion",
+                    "🗑️ Illegal Waste Dumping / Encroachment",
+                ])
+                cit_contact = st.text_input("Contact Phone / Email (Optional)")
+            with r_col2:
+                cit_desc = st.text_area("Detailed Description of Sighting", placeholder="Describe what you heard or saw, number of persons/vehicles, exact trail marker, etc.")
+                cit_file = st.file_uploader("Upload Photo Evidence (Optional)", type=["png", "jpg", "jpeg"])
+
+            if st.button("📤 Send Report to Chief Ranger Command", type="primary", use_container_width=True):
+                if not cit_desc.strip():
+                    st.error("Please provide a description of the observed activity.")
+                else:
+                    photo_name = cit_file.name if cit_file else "no_photo.jpg"
+                    ok, msg = submit_citizen_report_from_dashboard(
+                        reporter_name=cit_name,
+                        category=cit_cat,
+                        description=cit_desc,
+                        contact_info=cit_contact,
+                        photo_filename=photo_name,
+                        lat_val=sent_lat,
+                        lon_val=sent_lon,
+                    )
+                    if ok:
+                        st.success(f"✅ {msg} Chief Ranger has been alerted.")
+
+
+# ============================================================
+# FOOTER
 # ============================================================
 
 st.markdown(
     f"""
     <div class="footer">
-        AURAForest Sentinel · {device_id} · source: RuntimeDatabase ·
-        live auto-refresh · 3 second interval
+        AURAForest Sentinel · {device_id} · Role: {current_role.upper()} ·
+        HMAC Authenticated · live auto-refresh (3s)
     </div>
     """,
     unsafe_allow_html=True,

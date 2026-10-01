@@ -2372,4 +2372,204 @@ def acknowledge_alert(
         "alert_id": alert_id,
         "status": "ACKNOWLEDGED",
         "acknowledged_by": payload.acknowledged_by,
-    }
+    }
+
+
+class ResolveAlertRequest(BaseModel):
+    resolved_by: str = "Field Ranger Unit"
+    resolution_notes: str = "Threat investigated and secured on site."
+
+
+class AssignAlertRequest(BaseModel):
+    ranger_id: str
+    ranger_name: str
+
+
+@app.post(
+    "/api/v1/edge/alerts/{alert_id}/resolve"
+)
+def resolve_alert(
+    alert_id: str,
+    payload: ResolveAlertRequest = Body(default_factory=ResolveAlertRequest),
+):
+    """Mark an emergency alert as resolved/solved by field or chief ranger."""
+    success = database.resolve_emergency_alert(
+        alert_id=alert_id,
+        resolved_by=payload.resolved_by,
+        resolution_notes=payload.resolution_notes,
+    )
+    if not success:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Emergency alert '{alert_id}' not found.",
+        )
+    database.insert_auth_audit_log(
+        username=payload.resolved_by,
+        role="ranger",
+        action="RESOLVE_ALERT",
+        details=f"Alert {alert_id} resolved: {payload.resolution_notes}",
+    )
+    return {
+        "success": True,
+        "alert_id": alert_id,
+        "status": "RESOLVED",
+        "resolved_by": payload.resolved_by,
+        "resolution_notes": payload.resolution_notes,
+    }
+
+
+@app.post(
+    "/api/v1/edge/alerts/{alert_id}/assign"
+)
+def assign_alert(
+    alert_id: str,
+    payload: AssignAlertRequest = Body(...),
+):
+    """Assign an active alert to a specific field ranger unit."""
+    success = database.assign_emergency_alert(
+        alert_id=alert_id,
+        ranger_id=payload.ranger_id,
+        ranger_name=payload.ranger_name,
+    )
+    if not success:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Emergency alert '{alert_id}' not found.",
+        )
+    database.insert_auth_audit_log(
+        username="Chief Ranger",
+        role="admin",
+        action="ASSIGN_ALERT",
+        details=f"Alert {alert_id} assigned to {payload.ranger_name} ({payload.ranger_id})",
+    )
+    return {
+        "success": True,
+        "alert_id": alert_id,
+        "status": "ASSIGNED",
+        "assigned_ranger_id": payload.ranger_id,
+        "assigned_ranger_name": payload.ranger_name,
+    }
+
+
+@app.get(
+    "/api/v1/edge/rangers"
+)
+def get_field_rangers():
+    """Return active field ranger units and real-time status."""
+    return {
+        "success": True,
+        "rangers": database.get_field_rangers(),
+    }
+
+
+# ==========================================================
+# PUBLIC CITIZEN TIP & REPORT ENDPOINTS
+# ==========================================================
+
+class CitizenReportRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    reporter_name: str = "Anonymous Citizen"
+    contact_info: str | None = None
+    threat_category: str = "Illegal Logging / Chainsaw Activity"
+    description: str
+    photo_filename: str | None = None
+    location_lat: float | None = 12.2960
+    location_lon: float | None = 76.6400
+
+
+class UpdateReportStatusRequest(BaseModel):
+    status: str = "VERIFIED"
+    notes: str = ""
+
+
+@app.post(
+    "/api/v1/public/report"
+)
+def submit_citizen_report(
+    payload: CitizenReportRequest = Body(...),
+):
+    """Submit a public citizen report of illegal forest activity or sighting."""
+    report_id = "cit_" + uuid.uuid4().hex[:10]
+    database.insert_citizen_report(
+        report_id=report_id,
+        reporter_name=payload.reporter_name,
+        contact_info=payload.contact_info,
+        threat_category=payload.threat_category,
+        description=payload.description,
+        photo_filename=payload.photo_filename,
+        location_lat=payload.location_lat,
+        location_lon=payload.location_lon,
+    )
+    database.insert_auth_audit_log(
+        username=payload.reporter_name,
+        role="public",
+        action="SUBMIT_CITIZEN_REPORT",
+        details=f"Citizen report {report_id}: {payload.threat_category}",
+    )
+    return {
+        "success": True,
+        "report_id": report_id,
+        "message": "Citizen tip successfully received by Chief Ranger Dispatch.",
+    }
+
+
+@app.get(
+    "/api/v1/public/reports"
+)
+def get_citizen_reports(
+    limit: int = 50,
+    status: str | None = None,
+):
+    """Retrieve citizen reports for Chief Ranger review."""
+    reports = database.get_citizen_reports(limit=limit, status=status)
+    return {
+        "success": True,
+        "count": len(reports),
+        "reports": reports,
+    }
+
+
+@app.post(
+    "/api/v1/public/reports/{report_id}/status"
+)
+def update_citizen_report_status(
+    report_id: str,
+    payload: UpdateReportStatusRequest = Body(...),
+):
+    """Update citizen report status (Chief Ranger review)."""
+    success = database.update_citizen_report_status(
+        report_id=report_id,
+        status=payload.status,
+        notes=payload.notes,
+    )
+    if not success:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Report '{report_id}' not found.",
+        )
+    return {
+        "success": True,
+        "report_id": report_id,
+        "status": payload.status,
+    }
+
+
+# ==========================================================
+# AUTH AUDIT LOG ENDPOINT
+# ==========================================================
+
+@app.get(
+    "/api/v1/auth/audit_log"
+)
+def get_audit_log(
+    limit: int = 100,
+):
+    """Retrieve security & authentication audit logs (Chief Ranger Only)."""
+    logs = database.get_auth_audit_log(limit=limit)
+    return {
+        "success": True,
+        "count": len(logs),
+        "audit_logs": logs,
+    }
+

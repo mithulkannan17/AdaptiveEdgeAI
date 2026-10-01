@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -248,6 +249,8 @@ class RuntimeDatabase:
             # --------------------------------------------------
             # Emergency Alert Notifications
             # --------------------------------------------------
+            # Emergency Alerts
+            # --------------------------------------------------
 
             connection.execute(
                 """
@@ -281,7 +284,100 @@ class RuntimeDatabase:
 
                     acknowledged_at TEXT,
 
-                    acknowledged_by TEXT
+                    acknowledged_by TEXT,
+
+                    resolved_at TEXT,
+
+                    resolved_by TEXT,
+
+                    resolution_notes TEXT,
+
+                    assigned_ranger_id TEXT,
+
+                    assigned_ranger_name TEXT
+
+                )
+                """
+            )
+
+            # Column migrations for emergency_alerts
+            alert_cols = {
+                column["name"]
+                for column in connection.execute("PRAGMA table_info(emergency_alerts)").fetchall()
+            }
+            for col_name, col_type in [
+                ("resolved_at", "TEXT"),
+                ("resolved_by", "TEXT"),
+                ("resolution_notes", "TEXT"),
+                ("assigned_ranger_id", "TEXT"),
+                ("assigned_ranger_name", "TEXT"),
+            ]:
+                if col_name not in alert_cols:
+                    connection.execute(
+                        f"ALTER TABLE emergency_alerts ADD COLUMN {col_name} {col_type}"
+                    )
+
+            # --------------------------------------------------
+            # Public Citizen Reports Table
+            # --------------------------------------------------
+
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS citizen_reports (
+
+                    report_id TEXT PRIMARY KEY,
+
+                    timestamp REAL NOT NULL,
+
+                    reporter_name TEXT NOT NULL,
+
+                    contact_info TEXT,
+
+                    threat_category TEXT NOT NULL,
+
+                    description TEXT NOT NULL,
+
+                    photo_filename TEXT,
+
+                    location_lat REAL,
+
+                    location_lon REAL,
+
+                    status TEXT NOT NULL,
+
+                    status_notes TEXT,
+
+                    created_at TEXT NOT NULL,
+
+                    updated_at TEXT
+
+                )
+                """
+            )
+
+            # --------------------------------------------------
+            # Security & Authentication Audit Log
+            # --------------------------------------------------
+
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS auth_audit_log (
+
+                    event_id TEXT PRIMARY KEY,
+
+                    timestamp REAL NOT NULL,
+
+                    username TEXT NOT NULL,
+
+                    role TEXT NOT NULL,
+
+                    action TEXT NOT NULL,
+
+                    ip_address TEXT,
+
+                    details TEXT,
+
+                    created_at TEXT NOT NULL
 
                 )
                 """
@@ -352,6 +448,30 @@ class RuntimeDatabase:
                 CREATE INDEX IF NOT EXISTS
                 idx_emergency_alerts_timestamp
                 ON emergency_alerts(timestamp)
+                """
+            )
+
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS
+                idx_citizen_reports_timestamp
+                ON citizen_reports(timestamp)
+                """
+            )
+
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS
+                idx_citizen_reports_status
+                ON citizen_reports(status)
+                """
+            )
+
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS
+                idx_auth_audit_log_timestamp
+                ON auth_audit_log(timestamp)
                 """
             )
 
@@ -1495,6 +1615,11 @@ class RuntimeDatabase:
                 "created_at": r["created_at"],
                 "acknowledged_at": r["acknowledged_at"],
                 "acknowledged_by": r["acknowledged_by"],
+                "resolved_at": r["resolved_at"] if "resolved_at" in r.keys() else None,
+                "resolved_by": r["resolved_by"] if "resolved_by" in r.keys() else None,
+                "resolution_notes": r["resolution_notes"] if "resolution_notes" in r.keys() else None,
+                "assigned_ranger_id": r["assigned_ranger_id"] if "assigned_ranger_id" in r.keys() else None,
+                "assigned_ranger_name": r["assigned_ranger_name"] if "assigned_ranger_name" in r.keys() else None,
             }
             for r in rows
         ]
@@ -1530,6 +1655,11 @@ class RuntimeDatabase:
                 "created_at": r["created_at"],
                 "acknowledged_at": r["acknowledged_at"],
                 "acknowledged_by": r["acknowledged_by"],
+                "resolved_at": r["resolved_at"] if "resolved_at" in r.keys() else None,
+                "resolved_by": r["resolved_by"] if "resolved_by" in r.keys() else None,
+                "resolution_notes": r["resolution_notes"] if "resolution_notes" in r.keys() else None,
+                "assigned_ranger_id": r["assigned_ranger_id"] if "assigned_ranger_id" in r.keys() else None,
+                "assigned_ranger_name": r["assigned_ranger_name"] if "assigned_ranger_name" in r.keys() else None,
             }
             for r in rows
         ]
@@ -1556,6 +1686,251 @@ class RuntimeDatabase:
             )
             connection.commit()
             return cursor.rowcount > 0
+
+    def resolve_emergency_alert(
+        self,
+        alert_id: str,
+        resolved_by: str = "Field Ranger Unit",
+        resolution_notes: str = "Threat addressed and resolved on site.",
+    ) -> bool:
+        """
+        Mark an emergency alert as RESOLVED/SOLVED by a field ranger or chief ranger.
+        """
+        now_iso = datetime.now(timezone.utc).isoformat()
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE emergency_alerts
+                SET status = 'RESOLVED',
+                    resolved_at = ?,
+                    resolved_by = ?,
+                    resolution_notes = ?
+                WHERE alert_id = ?
+                """,
+                (now_iso, resolved_by.strip(), resolution_notes.strip(), alert_id.strip()),
+            )
+            connection.commit()
+            return cursor.rowcount > 0
+
+    def assign_emergency_alert(
+        self,
+        alert_id: str,
+        ranger_id: str,
+        ranger_name: str,
+    ) -> bool:
+        """
+        Assign an active emergency alert to a nearby field ranger unit.
+        """
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE emergency_alerts
+                SET status = 'ASSIGNED',
+                    assigned_ranger_id = ?,
+                    assigned_ranger_name = ?
+                WHERE alert_id = ?
+                """,
+                (ranger_id.strip(), ranger_name.strip(), alert_id.strip()),
+            )
+            connection.commit()
+            return cursor.rowcount > 0
+
+    # ==========================================================
+    # PUBLIC CITIZEN REPORTS
+    # ==========================================================
+
+    def insert_citizen_report(
+        self,
+        report_id: str,
+        reporter_name: str,
+        threat_category: str,
+        description: str,
+        contact_info: str | None = None,
+        photo_filename: str | None = None,
+        location_lat: float | None = None,
+        location_lon: float | None = None,
+        timestamp: float | None = None,
+    ) -> str:
+        """
+        Store a new public citizen report with optional photo evidence and coordinates.
+        """
+        import time as _t
+        ts = float(timestamp or _t.time())
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO citizen_reports (
+                    report_id, timestamp, reporter_name, contact_info,
+                    threat_category, description, photo_filename,
+                    location_lat, location_lon, status, status_notes,
+                    created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', 'Awaiting Chief Ranger review', ?, ?)
+                """,
+                (
+                    report_id, ts, reporter_name, contact_info,
+                    threat_category, description, photo_filename,
+                    location_lat, location_lon, now_iso, now_iso
+                ),
+            )
+            connection.commit()
+
+        return report_id
+
+    def get_citizen_reports(self, limit: int = 50, status: str | None = None) -> list[dict[str, Any]]:
+        """
+        Retrieve citizen reports submitted by the public.
+        """
+        with self._connect() as connection:
+            if status:
+                rows = connection.execute(
+                    """
+                    SELECT * FROM citizen_reports
+                    WHERE status = ?
+                    ORDER BY timestamp DESC
+                    LIMIT ?
+                    """,
+                    (status.strip().upper(), max(1, int(limit))),
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    """
+                    SELECT * FROM citizen_reports
+                    ORDER BY timestamp DESC
+                    LIMIT ?
+                    """,
+                    (max(1, int(limit)),),
+                ).fetchall()
+
+        return [dict(r) for r in rows]
+
+    def update_citizen_report_status(
+        self,
+        report_id: str,
+        status: str,
+        notes: str = "",
+    ) -> bool:
+        """
+        Update citizen report status (e.g. VERIFIED, DISPATCHED, RESOLVED).
+        """
+        now_iso = datetime.now(timezone.utc).isoformat()
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE citizen_reports
+                SET status = ?,
+                    status_notes = ?,
+                    updated_at = ?
+                WHERE report_id = ?
+                """,
+                (status.strip().upper(), notes.strip(), now_iso, report_id.strip()),
+            )
+            connection.commit()
+            return cursor.rowcount > 0
+
+    # ==========================================================
+    # SECURITY & AUTHENTICATION AUDIT LOG
+    # ==========================================================
+
+    def insert_auth_audit_log(
+        self,
+        username: str,
+        role: str,
+        action: str,
+        details: str = "",
+        ip_address: str = "127.0.0.1",
+        timestamp: float | None = None,
+    ) -> str:
+        """
+        Insert an immutable audit log record.
+        """
+        import uuid as _u
+        import time as _t
+        event_id = "aud_" + _u.uuid4().hex[:12]
+        ts = float(timestamp or _t.time())
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO auth_audit_log (
+                    event_id, timestamp, username, role, action, ip_address, details, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (event_id, ts, username, role, action, ip_address, details, now_iso),
+            )
+            connection.commit()
+
+        return event_id
+
+    def get_auth_audit_log(self, limit: int = 100) -> list[dict[str, Any]]:
+        """
+        Retrieve recent authentication and security audit logs.
+        """
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM auth_audit_log
+                ORDER BY timestamp DESC
+                LIMIT ?
+                """,
+                (max(1, int(limit)),),
+            ).fetchall()
+
+        return [dict(r) for r in rows]
+
+    # ==========================================================
+    # FIELD RANGERS ROSTER & GEOLOCATION
+    # ==========================================================
+
+    def get_field_rangers(self) -> list[dict[str, Any]]:
+        """
+        Return active field ranger units, their current GPS coordinates, and patrol status.
+        """
+        return [
+            {
+                "ranger_id": "ranger_01",
+                "name": "Ranger Amar Singh",
+                "callsign": "ALPHA-1",
+                "rank": "Senior Field Ranger",
+                "sector": "Sector 4 (Tiger Corridor)",
+                "latitude": 12.2980,
+                "longitude": 76.6420,
+                "status": "ON_PATROL",
+                "battery": 92,
+                "assigned_alert": None,
+                "phone": "+91 98450 12345",
+            },
+            {
+                "ranger_id": "ranger_02",
+                "name": "Ranger Deepa Rao",
+                "callsign": "BRAVO-2",
+                "rank": "Rapid Response Lead",
+                "sector": "Sector 2 (River Ridge)",
+                "latitude": 12.2920,
+                "longitude": 76.6340,
+                "status": "RESPONDING",
+                "battery": 85,
+                "assigned_alert": "alert_chainsaw_01",
+                "phone": "+91 98450 23456",
+            },
+            {
+                "ranger_id": "ranger_03",
+                "name": "Ranger Vikrant Kumar",
+                "callsign": "SIERRA-3",
+                "rank": "Acoustic Sentry Officer",
+                "sector": "Sector 7 (North Boundary)",
+                "latitude": 12.3020,
+                "longitude": 76.6450,
+                "status": "STANDBY",
+                "battery": 98,
+                "assigned_alert": None,
+                "phone": "+91 98450 34567",
+            },
+        ]
 
     # ==========================================================
     # DATABASE METRICS & STATS

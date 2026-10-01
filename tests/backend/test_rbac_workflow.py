@@ -1,0 +1,131 @@
+"""
+Tests for RBAC workflows, alert resolution, ranger dispatch, citizen reporting, and audit logs.
+"""
+
+import importlib
+from fastapi.testclient import TestClient
+from backend.database import RuntimeDatabase
+
+
+def create_test_client(tmp_path, monkeypatch):
+    database_path = tmp_path / "runtime_rbac.db"
+    database = RuntimeDatabase(database_path)
+    module = importlib.import_module("backend.main")
+    monkeypatch.setattr(module, "database", database)
+    return TestClient(module.app), database
+
+
+def test_field_rangers_list(tmp_path, monkeypatch):
+    client, db = create_test_client(tmp_path, monkeypatch)
+    response = client.get("/api/v1/edge/rangers")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    rangers = data["rangers"]
+    assert len(rangers) >= 3
+    assert any("Amar" in r["name"] for r in rangers)
+
+
+def test_alert_assign_and_resolve_workflow(tmp_path, monkeypatch):
+    client, db = create_test_client(tmp_path, monkeypatch)
+
+    # Insert a mock alert using dictionary format
+    alert_id = db.insert_emergency_alert({
+        "alert_id": "alert_test_001",
+        "device_id": "edge_node_001",
+        "threat_type": "Chainsaw",
+        "risk_level": "CRITICAL",
+        "confidence": 0.94,
+        "location_lat": 12.2958,
+        "location_lon": 76.6394,
+        "message": "🚨 CRITICAL: Chainsaw logging activity detected in Sector 4.",
+    })
+
+    # 1. Chief Ranger assigns alert to field ranger unit
+    assign_resp = client.post(
+        f"/api/v1/edge/alerts/{alert_id}/assign",
+        json={"ranger_id": "ranger_01", "ranger_name": "Ranger Amar Singh"},
+    )
+    assert assign_resp.status_code == 200
+    assert assign_resp.json()["success"] is True
+    assert assign_resp.json()["status"] == "ASSIGNED"
+
+    # Verify assignment in DB history
+    history = db.get_emergency_alert_history(limit=5)
+    assert history[0]["assigned_ranger_id"] == "ranger_01"
+    assert history[0]["assigned_ranger_name"] == "Ranger Amar Singh"
+
+    # 2. Field ranger marks as solved / resolved
+    resolve_resp = client.post(
+        f"/api/v1/edge/alerts/{alert_id}/resolve",
+        json={
+            "resolved_by": "Ranger Amar Singh",
+            "resolution_notes": "Suspect apprehended and chainsaw confiscated. Area secured.",
+        },
+    )
+    assert resolve_resp.status_code == 200
+    assert resolve_resp.json()["success"] is True
+    assert resolve_resp.json()["status"] == "RESOLVED"
+
+    # Verify resolution in DB history
+    updated_alerts = db.get_emergency_alert_history(limit=5)
+    assert updated_alerts[0]["resolved_by"] == "Ranger Amar Singh"
+    assert "confiscated" in updated_alerts[0]["resolution_notes"]
+
+
+def test_citizen_report_submission_and_review(tmp_path, monkeypatch):
+    client, db = create_test_client(tmp_path, monkeypatch)
+
+    # Citizen submits report
+    payload = {
+        "reporter_name": "Jane Citizen",
+        "contact_info": "jane@example.com",
+        "threat_category": "Illegal Tree Felling",
+        "description": "Observed 3 individuals cutting sandalwood trees near the north creek.",
+        "location_lat": 12.2990,
+        "location_lon": 76.6410,
+        "photo_filename": "evidence.jpg",
+    }
+    submit_resp = client.post("/api/v1/public/report", json=payload)
+    assert submit_resp.status_code == 200
+    assert submit_resp.json()["success"] is True
+    report_id = submit_resp.json()["report_id"]
+
+    # Chief Ranger reviews reports
+    reports_resp = client.get("/api/v1/public/reports")
+    assert reports_resp.status_code == 200
+    reports = reports_resp.json()["reports"]
+    assert len(reports) == 1
+    assert reports[0]["reporter_name"] == "Jane Citizen"
+
+    # Chief updates report status
+    status_resp = client.post(
+        f"/api/v1/public/reports/{report_id}/status",
+        json={"status": "DISPATCHED", "notes": "Dispatched Ranger Deepa to inspect creek."},
+    )
+    assert status_resp.status_code == 200
+
+    # Verify updated report
+    updated_reports = client.get("/api/v1/public/reports").json()["reports"]
+    assert updated_reports[0]["status"] == "DISPATCHED"
+    assert updated_reports[0]["status_notes"] == "Dispatched Ranger Deepa to inspect creek."
+
+
+def test_auth_audit_log(tmp_path, monkeypatch):
+    client, db = create_test_client(tmp_path, monkeypatch)
+
+    # Insert an audit log entry
+    db.insert_auth_audit_log(
+        username="admin_chief",
+        role="admin",
+        action="LOGIN_CHIEF_RANGER",
+        details="Chief Ranger logged into operations console.",
+    )
+
+    resp = client.get("/api/v1/auth/audit_log")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    logs = data["audit_logs"]
+    assert len(logs) >= 1
+    assert logs[0]["action"] == "LOGIN_CHIEF_RANGER"
