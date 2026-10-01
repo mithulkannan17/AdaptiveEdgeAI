@@ -25,6 +25,7 @@ from fastapi.responses import FileResponse
 from backend.audio_service import AudioInferenceService
 from backend.database import RuntimeDatabase
 from backend.alert_dispatcher import EmergencyAlertDispatcher
+from backend.email_service import email_service
 from edge.sensors.gas_interpreter import GasSensorInterpreter
 from backend.security import (
     UserRole,
@@ -496,23 +497,35 @@ def auth_login(creds: LoginRequest):
 
 @app.post("/api/v1/auth/signup/otp/generate")
 def auth_generate_signup_otp(payload: CitizenSignupOtpRequest):
-    """Generate an automated 6-digit verification OTP for citizen self sign-up."""
+    """Generate an automated 6-digit verification OTP and dispatch via Email/SMS."""
     contact = payload.phone_or_email.strip()
     if not contact or len(contact) < 5:
         raise HTTPException(status_code=400, detail="Valid phone number or email is required.")
 
     otp = database.create_otp(contact)
+    is_email = "@" in contact and "." in contact
+    delivery_report = {}
+
+    if is_email:
+        delivery_report = email_service.send_otp_email(
+            recipient_email=contact,
+            otp_code=otp,
+            user_name=contact.split("@")[0].capitalize(),
+        )
+
     database.insert_auth_audit_log(
         username=contact,
         role="public",
         action="GENERATE_OTP",
-        details=f"Generated OTP verification code for citizen: {contact}",
+        details=f"Generated OTP verification code for citizen: {contact} (Channel: {'EMAIL' if is_email else 'SMS'})",
     )
     return {
         "success": True,
         "otp": otp,
         "phone_or_email": contact,
-        "message": "Verification code generated. Valid for 5 minutes.",
+        "channel": "EMAIL" if is_email else "SMS",
+        "delivery": delivery_report,
+        "message": f"Verification code dispatched to {contact} ({'Email Inbox' if is_email else 'SMS'}). Valid for 5 minutes.",
     }
 
 

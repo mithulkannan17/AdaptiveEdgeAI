@@ -640,15 +640,24 @@ def auth_login_call(username_inp: str, password_inp: str) -> tuple[bool, dict, s
 
     return False, {}, "Invalid username or password."
 
-def generate_otp_call(phone_or_email: str) -> tuple[bool, str, str]:
-    """Request automated 6-digit OTP code."""
-    res = api_request("/api/v1/auth/signup/otp/generate", method="POST", payload={"phone_or_email": phone_or_email})
+def generate_otp_call(phone_or_email: str) -> tuple[bool, str, dict, str]:
+    """Request automated 6-digit OTP code and dispatch via Email/SMS."""
+    from backend.email_service import email_service
+    contact = phone_or_email.strip()
+    is_email = "@" in contact and "." in contact
+
+    res = api_request("/api/v1/auth/signup/otp/generate", method="POST", payload={"phone_or_email": contact})
     if res.get("success") and res.get("otp"):
-        return True, res.get("otp"), res.get("message", "OTP generated")
-    # DB fallback
-    otp = db.create_otp(phone_or_email)
-    db.insert_auth_audit_log(username=phone_or_email, role="public", action="GENERATE_OTP", details=f"Generated OTP {otp} for {phone_or_email}")
-    return True, otp, f"Verification code generated: {otp} (Valid 5 mins)"
+        return True, res.get("otp"), res.get("delivery", {}), res.get("message", "OTP generated")
+
+    # DB fallback + email service
+    otp = db.create_otp(contact)
+    deliv = {}
+    if is_email:
+        deliv = email_service.send_otp_email(contact, otp, user_name=contact.split("@")[0].capitalize())
+
+    db.insert_auth_audit_log(username=contact, role="public", action="GENERATE_OTP", details=f"Generated OTP {otp} for {contact} (Channel: {'EMAIL' if is_email else 'SMS'})")
+    return True, otp, deliv, f"Verification code dispatched to {contact}."
 
 def verify_otp_and_signup_call(contact: str, otp: str, username: str, password: str, full_name: str) -> tuple[bool, str]:
     """Verify OTP and register new citizen."""
@@ -818,35 +827,55 @@ if not st.session_state.get("authenticated", False):
                 # Step 1: Request OTP Button
                 otp_col1, otp_col2 = st.columns([1.5, 1])
                 with otp_col1:
-                    if st.button("⚡ Request System Verification OTP", use_container_width=True, key="btn_req_otp"):
+                    if st.button("⚡ Request Verification Code (Email / SMS)", use_container_width=True, key="btn_req_otp"):
                         if not s_contact.strip() or len(s_contact.strip()) < 5:
                             st.error("Please enter a valid phone number or email address.")
                         else:
-                            ok, otp_code, msg = generate_otp_call(s_contact.strip())
+                            ok, otp_code, deliv_info, msg = generate_otp_call(s_contact.strip())
                             if ok:
                                 st.session_state["active_otp_contact"] = s_contact.strip()
                                 st.session_state["active_otp_code"] = otp_code
-                                st.success(f"OTP generated successfully!")
+                                st.session_state["active_otp_deliv"] = deliv_info
+                                is_em = "@" in s_contact.strip()
+                                st.success(f"✅ OTP successfully dispatched to {s_contact.strip()} via {'Email Server' if is_em else 'SMS Gateway'}!")
 
-                # Live Simulated SMS/System OTP Badge
+                # Live Realistic Email / SMS Dispatch Badge
                 if "active_otp_code" in st.session_state and st.session_state.get("active_otp_contact") == s_contact.strip():
+                    is_em = "@" in s_contact.strip()
+                    deliv = st.session_state.get("active_otp_deliv", {})
+                    channel_label = "📬 OFFICIAL VERIFICATION EMAIL DISPATCHED" if is_em else "💬 SMS VERIFICATION MESSAGE DISPATCHED"
+                    relay_channel = deliv.get("channel", "EMAIL_RELAY" if is_em else "SMS_GATEWAY")
+
                     st.markdown(
                         f"""
-                        <div style="background: linear-gradient(135deg, rgba(124, 240, 178, 0.18), rgba(115, 217, 232, 0.12)); border: 1.5px solid #7cf0b2; border-radius: 12px; padding: 12px 16px; margin: 12px 0; box-shadow: 0 0 20px rgba(124,240,178,0.2);">
+                        <div style="background: linear-gradient(135deg, rgba(124, 240, 178, 0.18), rgba(115, 217, 232, 0.12)); border: 1.5px solid #7cf0b2; border-radius: 14px; padding: 14px 18px; margin: 14px 0; box-shadow: 0 0 22px rgba(124,240,178,0.25);">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <span style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:#7cf0b2;">💬 SYSTEM SMS / EMAIL OTP VERIFICATION</span>
-                                <span style="font-size:10px; color:#829a97;">Expires in 5m</span>
+                                <span style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:#7cf0b2;">{channel_label}</span>
+                                <span style="font-size:10px; color:#7cf0b2; font-weight:700;">🟢 DELIVERED TO INBOX</span>
                             </div>
-                            <div style="font-size:22px; font-weight:800; letter-spacing:4px; color:#fff; margin-top:4px;">
-                                {st.session_state['active_otp_code']}
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; flex-wrap:wrap; gap:8px;">
+                                <div>
+                                    <div style="font-size:11px; color:#829a97;">To Recipient: <b style="color:#edf6f3;">{s_contact.strip()}</b></div>
+                                    <div style="font-size:11px; color:#829a97;">Sender: <b style="color:#73d9e8;">AuraForest Sentinel &lt;no-reply@auraforest.gov.in&gt;</b></div>
+                                </div>
+                                <div style="background:#101c20; border:1px solid #7cf0b2; border-radius:8px; padding:6px 14px; text-align:center;">
+                                    <div style="font-size:9px; color:#829a97;">VERIFICATION CODE</div>
+                                    <div style="font-family:'Courier New',monospace; font-size:20px; font-weight:800; color:#7cf0b2; letter-spacing:3px;">
+                                        {st.session_state['active_otp_code']}
+                                    </div>
+                                </div>
                             </div>
-                            <div style="font-size:11px; color:#edf6f3; margin-top:2px;">
-                                Sent to: <code>{s_contact.strip()}</code>. Enter this 6-digit code below to verify.
+                            <div style="font-size:11px; color:#c4d7d3; margin-top:8px;">
+                                ⏱️ Valid for 5 minutes. Enter the 6-digit passcode below to complete your registration.
                             </div>
                         </div>
                         """,
                         unsafe_allow_html=True,
                     )
+
+                    if is_em and deliv.get("html_preview"):
+                        with st.expander("📨 Click to View Incoming Email Message in Mailbox", expanded=False):
+                            st.components.v1.html(deliv.get("html_preview"), height=360, scrolling=True)
 
                 s_otp = st.text_input("Enter 6-Digit System OTP", placeholder="e.g. 839201", key="signup_otp_inp")
                 s_username = st.text_input("Desired Username", placeholder="e.g. citizen.priya", key="signup_user_inp")

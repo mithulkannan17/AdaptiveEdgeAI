@@ -267,3 +267,24 @@ def test_chief_user_management_suite(tmp_path, monkeypatch):
     assert del_resp.status_code == 200
     assert del_resp.json()["success"] is True
 
+
+def test_email_otp_generation_and_html_delivery(tmp_path, monkeypatch):
+    client, db = create_test_client(tmp_path, monkeypatch)
+
+    email_addr = "priya.nambiar@ecoflux.org"
+
+    # 1. Citizen requests OTP with real email address
+    otp_resp = client.post("/api/v1/auth/signup/otp/generate", json={"phone_or_email": email_addr})
+    assert otp_resp.status_code == 200
+    data = otp_resp.json()
+    assert data["success"] is True
+    assert data["channel"] == "EMAIL"
+    assert "otp" in data
+    assert "delivery" in data
+    deliv = data["delivery"]
+    assert deliv["recipient"] == email_addr
+    assert "html_preview" in deliv
+    assert data["otp"] in deliv["html_preview"]
+    assert "AuraForest Sentinel" in deliv["subject"]
+
+
