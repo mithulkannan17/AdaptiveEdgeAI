@@ -1987,7 +1987,9 @@ elif current_role == "viewer":
                 cit_contact = st.text_input("Contact Phone / Email", value=st.session_state.get("aura_username", ""))
             with r_col2:
                 cit_desc = st.text_area("Description of Sighting", placeholder="Describe what you observed, trail marker, number of individuals, etc.")
-                cit_file = st.file_uploader("Upload Photo Evidence", type=["png", "jpg", "jpeg"])
+                cit_file = st.file_uploader("Upload Photo Evidence", type=["png", "jpg", "jpeg"], key="citizen_photo_upload_inp")
+                if cit_file is not None:
+                    st.image(cit_file, caption=f"📸 Evidence Attached: {cit_file.name}", width=220)
 
             g_c1, g_c2 = st.columns(2)
             with g_c1:
@@ -1995,30 +1997,43 @@ elif current_role == "viewer":
             with g_c2:
                 rep_lon = st.number_input("Incident Longitude (Phone GPS)", value=sent_lon, format="%.6f")
 
-            if st.button("📤 Send Report & GPS Coordinates to Chief Ranger", type="primary", use_container_width=True):
-                if not cit_desc.strip():
-                    st.error("Please provide a description of the observed activity.")
-                else:
-                    photo_str = "no_photo.jpg"
-                    if cit_file is not None:
-                        file_bytes = cit_file.getvalue()
-                        b64 = base64.b64encode(file_bytes).decode("utf-8")
-                        mime = "image/jpeg" if cit_file.name.lower().endswith((".jpg", ".jpeg")) else "image/png"
-                        photo_str = f"data:{mime};base64,{b64}"
+            is_already_sent = st.session_state.get("citizen_report_just_sent", False)
+            btn_label = "✅ Report & Evidence Sent to Chief Ranger!" if is_already_sent else "📤 Send Report & GPS Coordinates to Chief Ranger"
 
-                    report_id = f"cit_{int(time.time())}_{random.randint(100,999)}"
-                    db.insert_citizen_report(
-                        report_id=report_id,
-                        reporter_name=cit_name,
-                        contact_info=cit_contact,
-                        threat_category=cit_cat,
-                        description=cit_desc,
-                        photo_filename=photo_str,
-                        location_lat=rep_lat,
-                        location_lon=rep_lon,
-                    )
-                    st.success(f"✅ Tip received! Chief Ranger and field patrol units have been alerted with your verified GPS coordinates ({rep_lat:.5f}°N, {rep_lon:.5f}°E).")
-                    st.rerun()
+            col_submit, col_reset = st.columns([2, 1])
+            with col_submit:
+                if st.button(btn_label, type="secondary" if is_already_sent else "primary", use_container_width=True, key="btn_citizen_send_tip", disabled=is_already_sent):
+                    if not cit_desc.strip():
+                        st.error("Please provide a description of the observed activity.")
+                    else:
+                        photo_str = "no_photo.jpg"
+                        if cit_file is not None:
+                            file_bytes = cit_file.getvalue()
+                            b64 = base64.b64encode(file_bytes).decode("utf-8")
+                            mime = "image/jpeg" if cit_file.name.lower().endswith((".jpg", ".jpeg")) else "image/png"
+                            photo_str = f"data:{mime};base64,{b64}"
+
+                        report_id = f"cit_{int(time.time())}_{random.randint(100,999)}"
+                        db.insert_citizen_report(
+                            report_id=report_id,
+                            reporter_name=cit_name,
+                            contact_info=cit_contact,
+                            threat_category=cit_cat,
+                            description=cit_desc,
+                            photo_filename=photo_str,
+                            location_lat=rep_lat,
+                            location_lon=rep_lon,
+                        )
+                        st.session_state["citizen_report_just_sent"] = True
+                        st.session_state["citizen_last_report_id"] = report_id
+                        st.success(f"✅ Tip & Photo sent! Chief Ranger and field patrol units have been alerted with your verified GPS coordinates ({rep_lat:.5f}°N, {rep_lon:.5f}°E).")
+                        st.rerun()
+
+            with col_reset:
+                if is_already_sent:
+                    if st.button("➕ Submit Another Report", use_container_width=True, key="btn_citizen_reset_tip"):
+                        st.session_state["citizen_report_just_sent"] = False
+                        st.rerun()
 
 # ============================================================
 # FOOTER
