@@ -16,6 +16,7 @@ import time
 import sys
 import json
 import os
+import base64
 import pandas as pd
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
@@ -1689,30 +1690,65 @@ if current_role == "admin":
             for rep in citizen_reports:
                 r_id = rep.get("report_id")
                 r_name = rep.get("reporter_name", "Anonymous")
+                r_contact = rep.get("contact_info", "—")
                 r_cat = rep.get("threat_category", "Illegal Activity")
                 r_desc = rep.get("description", "")
-                r_stat = rep.get("status", "PENDING")
-                r_time = rep.get("created_at", "")[:19].replace("T", " ")
+                r_stat = str(rep.get("status", "PENDING")).upper()
+                r_photo = rep.get("photo_filename")
+                r_lat = rep.get("location_lat")
+                r_lon = rep.get("location_lon")
+                r_time = str(rep.get("created_at", ""))[:19].replace("T", " ")
+                r_notes = rep.get("status_notes", "")
 
                 with st.container(border=True):
-                    c_h1, c_h2, c_h3 = st.columns([1.5, 1.5, 1.2])
-                    with c_h1:
-                        st.markdown(f"**Report ID:** `{r_id}`")
-                        st.markdown(f"**Reporter:** {r_name} · **Category:** `{r_cat}`")
-                    with c_h2:
+                    c_col1, c_col2, c_col3 = st.columns([1.3, 1.8, 1.1])
+
+                    # Column 1: Photo Evidence Preview
+                    with c_col1:
+                        if r_photo and r_photo != "no_photo.jpg":
+                            if r_photo.startswith("data:image"):
+                                st.image(r_photo, caption=f"📸 Photo Evidence ({r_cat})", use_container_width=True)
+                            elif os.path.exists(r_photo):
+                                st.image(r_photo, caption=f"📸 Photo Evidence ({r_cat})", use_container_width=True)
+                            elif os.path.exists(os.path.join(str(PROJECT_ROOT), "data", "evidence_photos", r_photo)):
+                                st.image(os.path.join(str(PROJECT_ROOT), "data", "evidence_photos", r_photo), caption=f"📸 Photo Evidence ({r_cat})", use_container_width=True)
+                            else:
+                                st.markdown(f"<div style='background:rgba(255,112,112,0.08); border:1px dashed #ff7070; border-radius:10px; padding:18px 12px; text-align:center; color:#ff7070; font-size:11px;'>📸 Attached File:<br/><code>{r_photo[:25]}...</code></div>", unsafe_allow_html=True)
+                        else:
+                            st.markdown("<div style='background:rgba(255,255,255,0.03); border:1px dashed var(--line); border-radius:10px; padding:28px 12px; text-align:center; color:var(--muted); font-size:11px;'>📷 No photo attached by citizen</div>", unsafe_allow_html=True)
+
+                    # Column 2: Details & Location
+                    with c_col2:
+                        st.markdown(f"**Threat:** `{r_cat}`")
+                        st.markdown(f"**Report ID:** `{r_id}` · **Logged:** {r_time}")
+                        st.markdown(f"**Reporter:** {r_name} (Contact: `{r_contact}`)")
                         st.markdown(f"**Description:** {r_desc}")
-                        st.caption(f"Logged: {r_time}")
-                    with c_h3:
-                        st.markdown(f"Status: **{r_stat}**")
-                        b1, b2 = st.columns(2)
-                        with b1:
-                            if st.button("✅ Verify", key=f"btn_ver_{r_id}", use_container_width=True):
-                                update_citizen_report_status_from_dashboard(r_id, "VERIFIED", "Chief Ranger verified report")
-                                st.rerun()
-                        with b2:
-                            if st.button("🛡️ Dispatch", key=f"btn_disp_{r_id}", use_container_width=True):
-                                update_citizen_report_status_from_dashboard(r_id, "DISPATCHED", "Ranger unit dispatched to investigate")
-                                st.rerun()
+                        if r_lat is not None and r_lon is not None:
+                            st.caption(f"📍 GPS Pinpoint: `{r_lat:.5f}°N, {r_lon:.5f}°E`")
+                        if r_notes:
+                            st.markdown(f"**Triage Notes:** *{r_notes}*")
+
+                    # Column 3: Triage & Action Controls
+                    with c_col3:
+                        stat_color = "#7cf0b2" if r_stat in ["RESOLVED", "VERIFIED"] else ("#f2c66d" if r_stat == "DISPATCHED" else "#ff7070")
+                        st.markdown(
+                            f"""
+                            <div style="background:rgba(255,255,255,0.04); border:1px solid {stat_color}; border-radius:10px; padding:8px 12px; text-align:center; margin-bottom:10px;">
+                                <div style="font-size:10px; color:var(--muted); letter-spacing:.1em; font-family:'JetBrains Mono',monospace;">STATUS</div>
+                                <div style="font-size:14px; font-weight:800; color:{stat_color};">{r_stat}</div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+                        if st.button("✅ Verify Tip", key=f"btn_ver_{r_id}", use_container_width=True):
+                            update_citizen_report_status_from_dashboard(r_id, "VERIFIED", "Chief Ranger verified citizen report")
+                            st.rerun()
+                        if st.button("⚡ Dispatch Patrol", key=f"btn_disp_{r_id}", use_container_width=True, type="primary"):
+                            update_citizen_report_status_from_dashboard(r_id, "DISPATCHED", "Dispatched nearest Field Ranger patrol unit to coordinates")
+                            st.rerun()
+                        if st.button("✔️ Mark Resolved", key=f"btn_res_cit_{r_id}", use_container_width=True):
+                            update_citizen_report_status_from_dashboard(r_id, "RESOLVED", "Incident inspected and resolved on site")
+                            st.rerun()
 
     # Tab 6: Unknown Discovery
     with t6:
@@ -1919,18 +1955,35 @@ elif current_role == "viewer":
                 if not cit_desc.strip():
                     st.error("Please provide a description of the observed activity.")
                 else:
-                    photo_name = cit_file.name if cit_file else "no_photo.jpg"
+                    photo_data_str = "no_photo.jpg"
+                    if cit_file is not None:
+                        try:
+                            evidence_dir = os.path.join(str(PROJECT_ROOT), "data", "evidence_photos")
+                            os.makedirs(evidence_dir, exist_ok=True)
+                            file_bytes = cit_file.getvalue()
+                            clean_filename = f"cit_{int(time.time())}_{cit_file.name.replace(' ', '_')}"
+                            saved_file_path = os.path.join(evidence_dir, clean_filename)
+                            with open(saved_file_path, "wb") as f:
+                                f.write(file_bytes)
+
+                            b64_encoded = base64.b64encode(file_bytes).decode("utf-8")
+                            mime_type = "image/jpeg" if cit_file.name.lower().endswith((".jpg", ".jpeg")) else "image/png"
+                            photo_data_str = f"data:{mime_type};base64,{b64_encoded}"
+                        except Exception:
+                            photo_data_str = cit_file.name
+
                     ok, msg = submit_citizen_report_from_dashboard(
                         reporter_name=cit_name,
                         category=cit_cat,
                         description=cit_desc,
                         contact_info=cit_contact,
-                        photo_filename=photo_name,
+                        photo_filename=photo_data_str,
                         lat_val=sent_lat,
                         lon_val=sent_lon,
                     )
                     if ok:
-                        st.success(f"✅ {msg} Chief Ranger has been alerted.")
+                        st.success(f"✅ {msg} Chief Ranger has received your report along with photo evidence.")
+                        st.rerun()
 
 
 # ============================================================
