@@ -49,11 +49,11 @@ AuraForest Sentinel bridges low-power microcontroller hardware with deep neural 
 graph TD
     subgraph EdgeHardware ["ESP32-S3 Sentinel Hardware Node"]
         INMP441["INMP441 MEMS Mic (I2S DMA 16kHz)"]
-        DHT11["DHT11 (Temp/Humidity)"]
+        DHT11["DHT11 (Temp / Humidity)"]
         BH1750["BH1750 (Lux Ambient Light)"]
         MAX17048["MAX17048 (LiPo Fuel Gauge)"]
         SW420["SW-420 (Vibration ISR GPIO16)"]
-        MQ2["MQ-2 Smoke/Gas (ADC1 GPIO1)"]
+        MQ2["MQ-2 Smoke / Gas (ADC1 GPIO1)"]
         MQ135["MQ-135 Air Quality (ADC1 GPIO2)"]
         NEO6M["NEO-6M GPS (UART RX/TX)"]
         SDCard["MicroSD Card (SPI Failover)"]
@@ -67,7 +67,7 @@ graph TD
         MQ2 --> FirmwareCore
         MQ135 --> FirmwareCore
         NEO6M --> FirmwareCore
-        FirmwareCore -.->|Offline Failover| SDCard
+        FirmwareCore -.-> SDCard
     end
 
     subgraph BackendGateway ["FastAPI Intelligence Backend (Port 8000)"]
@@ -87,14 +87,14 @@ graph TD
         AudioPipeline --> ESCModel
         ESCModel --> CADIE
         GasInterpreter --> CADIE
-        ESCModel -->|Open-Set Gate| UnknownMgr
+        ESCModel --> UnknownMgr
         UnknownMgr --> DBSCAN
         CADIE --> AlertDispatch
         CADIE --> DBLayer
         AlertDispatch --> EmailSvc
     end
 
-    subgraph SentinelUI ["Streamlit Command Center (https://auraforest-sentinel.streamlit.app/)"]
+    subgraph SentinelUI ["Streamlit Tactical Command Center"]
         LiveRadar["Tactical Radar & Pydeck Map"]
         CADIEView["CADIE Decision & Triage HUD"]
         SpectrumVis["32-Band FFT & Log-Mel Spectrogram"]
@@ -103,10 +103,9 @@ graph TD
         IncidentsLog["Resolved Incidents Historical Audit"]
     end
 
-    FirmwareCore -->|HTTP POST JSON Telemetry| RESTRouter
-    FirmwareCore -->|HTTP POST 160KB Audio (16kHz PCM)| RESTRouter
-    DBLayer <--> SentinelUI
-    RESTRouter <--> SentinelUI
+    FirmwareCore --> RESTRouter
+    DBLayer --> SentinelUI
+    RESTRouter --> SentinelUI
 ```
 
 ---
