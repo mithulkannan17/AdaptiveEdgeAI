@@ -75,8 +75,10 @@ def main() -> None:
         str(PROJECT_ROOT / "dashboard" / "app.py"),
         f"--server.port={dashboard_port}",
         "--server.address=0.0.0.0",
-        "--browser.serverAddress=localhost",
         "--server.headless=true",
+        "--server.enableCORS=false",
+        "--server.enableXsrfProtection=false",
+        "--browser.gatherUsageStats=false",
         "--theme.base=dark",
     ]
 
