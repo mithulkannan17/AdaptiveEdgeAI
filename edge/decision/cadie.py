@@ -517,17 +517,39 @@ class CADIE:
         # Confidence-Driven Primacy & Multimodal Context
         #
         # Prediction confidence is the primary foundation of the
-        # decision score and threat triage. Hardware readings
-        # (gas anomalies, seismic vibration) provide additive
-        # corroboration, but nominal hardware readings NEVER
-        # suppress or bottleneck high-confidence acoustic detections.
+        # --------------------------------------------------
+        # Multimodal Sensor Cross-Corroboration (CADIE Core)
+        # --------------------------------------------------
+        # Solves "When do we alert?" by fusing acoustic events with
+        # physical sensor telemetry to eliminate false alarms:
+        # 1. Fire: Audio crackle + DHT11 (Temp/Humidity) + MQ-2/MQ-135 (Smoke/Gas)
+        # 2. Logging: Audio chainsaw/drill + SW-420 (Seismic mechanical vibration)
         # --------------------------------------------------
 
-        # Check vibration from device_status
+        lbl_lower = str(getattr(prediction, "label", "")).lower()
+        temp_val = float(device_status.get("temperature", 25.0) or 25.0)
+        humidity_val = float(device_status.get("humidity", 60.0) or 60.0)
+        mq2_val = float(device_status.get("mq2_raw", 0.0) or 0.0)
+        mq2_v = float(device_status.get("mq2_adc_voltage", device_status.get("mq2_voltage", 0.0)) or 0.0)
         vibration_latched = bool(
             device_status.get("vibration_detected", False)
             or device_status.get("vibration", False)
         )
+
+        fire_multimodal_confirmed = False
+        chainsaw_multimodal_confirmed = False
+
+        # Fire Cross-Corroboration:
+        if any(k in lbl_lower for k in ["fire", "wildfire", "smoke", "burn", "flame"]):
+            has_smoke = mq2_val >= 500 or mq2_v >= 0.70 or (gas_factor >= 0.35)
+            has_heat = temp_val >= 38.0 or (humidity_val <= 30.0 and temp_val >= 34.0)
+            if has_smoke or has_heat:
+                fire_multimodal_confirmed = True
+
+        # Chainsaw / Logging Cross-Corroboration:
+        if any(k in lbl_lower for k in ["chainsaw", "drill", "jackhammer", "logging", "saw"]):
+            if vibration_latched:
+                chainsaw_multimodal_confirmed = True
 
         # Base decision score with confidence primacy (>= 50% weight)
         if is_gas_active:
@@ -539,10 +561,6 @@ class CADIE:
                 + 0.06 * gas_factor
                 + 0.04 * battery_factor
             )
-            # Additive cross-modal boost: fire acoustic + smoke gas anomaly
-            lbl_lower = str(getattr(prediction, "label", "")).lower()
-            if any(k in lbl_lower for k in ["fire", "smoke", "burn"]) and gas_factor >= 0.40:
-                score = min(1.0, score + 0.12 * gas_factor)
         else:
             score = (
                 0.52 * confidence
@@ -552,20 +570,31 @@ class CADIE:
                 + 0.05 * battery_factor
             )
 
-        # Vibration additive corroboration
-        if vibration_latched and priority >= self.high_priority:
+        # Apply Cross-Modal Boosts
+        if fire_multimodal_confirmed:
+            score = min(1.0, score + 0.18)
+        elif chainsaw_multimodal_confirmed:
+            score = min(1.0, score + 0.15)
+        elif vibration_latched and priority >= self.high_priority:
             score = min(1.0, score + 0.08)
 
         # --------------------------------------------------
         # Confidence-First Guarantee:
         # High confidence on critical/high-priority threats
         # directly anchors the decision score to ensure alerts
-        # are triggered reliably without hardware gating.
+        # are triggered reliably.
         # --------------------------------------------------
         if event.detected and confidence >= 0.85 and priority >= self.high_priority:
             score = max(score, min(1.0, confidence))
         elif event.detected and confidence >= 0.70 and priority >= self.high_priority:
             score = max(score, min(1.0, 0.75 + (confidence - 0.70) * 0.8))
+
+        # Anti-False-Alarm Gating:
+        # If acoustic prediction for fire or chainsaw is marginal (< 0.65) and
+        # auxiliary physical sensors are completely nominal, dampen score to avoid false alert.
+        if confidence < 0.65 and not fire_multimodal_confirmed and not chainsaw_multimodal_confirmed:
+            if any(k in lbl_lower for k in ["fire", "chainsaw", "drill", "jackhammer"]):
+                score = min(score, 0.50)
 
         # Undetected events should never become a high-risk
         # decision simply because of contextual factors.
@@ -621,10 +650,14 @@ class CADIE:
                 "Environmental context increases event significance."
             )
 
-        if is_gas_active and gas_summary:
+        if fire_multimodal_confirmed:
+            factors.append(f"[FIRE] Multimodal Corroboration: Fire crackle acoustics verified with DHT11 ({temp_val:.1f}C, {humidity_val:.1f}% RH) & MQ-2/MQ-135 Gas/Smoke ({mq2_v:.2f}V).")
+        elif is_gas_active and gas_summary:
             factors.append(f"Hardware corroboration: {gas_summary}")
 
-        if vibration_latched:
+        if chainsaw_multimodal_confirmed:
+            factors.append("[LOGGING] Multimodal Corroboration: Chainsaw/Drill acoustic signature corroborated by SW-420 mechanical vibration.")
+        elif vibration_latched:
             factors.append("Hardware corroboration: Vibration sensor triggered.")
 
         if battery_percent is not None:
