@@ -69,7 +69,7 @@ class RuntimeDataSource:
         )
 
         self.event_history_limit = max(1, int(event_history_limit))
-        self.timeout_seconds = max(0.5, float(timeout_seconds))
+        self.timeout_seconds = max(0.5, float(timeout_seconds if timeout_seconds != 2.5 else 1.5))
         self._last_state: dict[str, Any] | None = None
         self._last_error: str | None = None
 
@@ -124,13 +124,21 @@ class RuntimeDataSource:
         self._last_error = None
 
         health = self._get_json("/health")
-        telemetry_response = self._get_json(
-            f"/api/v1/edge/devices/{quote(self.device_id, safe='')}/telemetry"
-        )
-        latest_response = self._get_json("/api/v1/edge/events/latest")
-        history_response = self._get_json(
-            f"/api/v1/edge/events?limit={self.event_history_limit}"
-        )
+        
+        # If /health check failed or timed out, do NOT waste time cascading
+        # 3 additional blocking timeouts on every refresh cycle.
+        if health is None:
+            telemetry_response = None
+            latest_response = None
+            history_response = None
+        else:
+            telemetry_response = self._get_json(
+                f"/api/v1/edge/devices/{quote(self.device_id, safe='')}/telemetry"
+            )
+            latest_response = self._get_json("/api/v1/edge/events/latest")
+            history_response = self._get_json(
+                f"/api/v1/edge/events?limit={self.event_history_limit}"
+            )
 
         # The API may temporarily fail or app is running in standalone mode.
         # Check direct SQLite database before falling back to empty state.
