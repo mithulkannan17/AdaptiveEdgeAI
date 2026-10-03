@@ -36,3 +36,4 @@ database/*.db
 Thumbs.db
 
 datasets/
+cloudflared.exe
