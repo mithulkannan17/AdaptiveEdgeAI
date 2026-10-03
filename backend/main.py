@@ -12,6 +12,7 @@ context to the adaptive audio-intelligence pipeline.
 from __future__ import annotations
 
 from typing import Any
+import json
 import struct
 import uuid
 
