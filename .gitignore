@@ -20,10 +20,9 @@ logs/
 *.log
 
 # Models
-models/checkpoints/
-models/*.pth
-models/*.pt
-models/*.onnx
+# models/checkpoints/
+*.pt
+*.onnx
 
 # Dataset
 processed/
