@@ -79,7 +79,7 @@ const uint16_t LOCAL_SERVER_PORT = 8000;
 
 // Deployed Cloud Backend URL (Render / Koyeb / Railway)
 // Replace with your live Render URL once created (e.g. "https://auraforest-backend.onrender.com")
-const char *CLOUD_BACKEND_URL = "https://auraforest-sentinel.onrender.com";
+const char *CLOUD_BACKEND_URL = "https://auraforest-backend.onrender.com";
 
 const char *API_PATH =
     "/api/v1/edge/telemetry";
@@ -1912,7 +1912,16 @@ bool sendAudioToBackend()
 
     HTTPClient http;
 
-    http.setTimeout(30000);
+    http.setTimeout(45000);
+
+    Serial.print(
+        "Free heap before audio upload: ");
+
+    Serial.print(
+        ESP.getFreeHeap());
+
+    Serial.println(
+        " bytes");
 
     bool beginResult = false;
     if (url.startsWith("https://"))
@@ -2103,23 +2112,43 @@ bool performAudioInference()
 
     /*
       Allocate the 5-second PCM buffer.
-
-      80,000 samples x 2 bytes
-      = 160,000 bytes
+      80,000 samples x 2 bytes = 160,000 bytes
     */
-
     if (audioBuffer == nullptr)
     {
-        audioBuffer =
-            (int16_t *)
-                malloc(
-                    AUDIO_BUFFER_BYTES);
+        if (psramFound())
+        {
+            audioBuffer =
+                (int16_t *)
+                    ps_malloc(
+                        AUDIO_BUFFER_BYTES);
+
+            if (audioBuffer != nullptr)
+            {
+                Serial.println(
+                    "Allocated 160 KB audio buffer in PSRAM.");
+            }
+        }
+
+        if (audioBuffer == nullptr)
+        {
+            audioBuffer =
+                (int16_t *)
+                    malloc(
+                        AUDIO_BUFFER_BYTES);
+
+            if (audioBuffer != nullptr)
+            {
+                Serial.println(
+                    "Allocated 160 KB audio buffer in SRAM.");
+            }
+        }
     }
 
     if (audioBuffer == nullptr)
     {
         Serial.println(
-            "ERROR: Unable to allocate 160 KB audio buffer.");
+            "ERROR: Unable to allocate 160 KB audio buffer (out of heap).");
 
         return false;
     }
@@ -2683,6 +2712,8 @@ void setup()
     connectWiFi();
 
     secureClient.setInsecure();
+    secureClient.setBufferSizes(4096, 1024);
+    secureClient.setTimeout(30);
 
     Serial.println();
 

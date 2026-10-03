@@ -1421,7 +1421,7 @@ def receive_edge_event(
 @app.post(
     "/api/v1/edge/audio"
 )
-async def receive_edge_audio(
+def receive_edge_audio(
 
     device_id: str,
 
