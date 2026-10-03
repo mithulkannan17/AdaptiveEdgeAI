@@ -1553,18 +1553,16 @@ async def receive_edge_audio(
         ) from exc
 
     # ------------------------------------------------------
-    # Run complete inference pipeline in worker threadpool
+    # Run complete inference pipeline
     # ------------------------------------------------------
 
     try:
-        inference_result = await anyio.to_thread.run_sync(
-            lambda: audio_service.infer_pcm16(
-                audio_bytes=audio,
-                sample_rate=sample_rate,
-                top_k=5,
-                device_status=device_status,
-                audio_path=str(audio_evidence_path),
-            )
+        inference_result = audio_service.infer_pcm16(
+            audio_bytes=audio,
+            sample_rate=sample_rate,
+            top_k=5,
+            device_status=device_status,
+            audio_path=str(audio_evidence_path),
         )
 
     except ValueError as exc:
