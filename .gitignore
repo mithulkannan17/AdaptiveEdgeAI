@@ -9,6 +9,7 @@ venv/
 .env
 data/*.db
 data/runtime.db
+data/unknown_audio/
 
 # IDE
 .vscode/

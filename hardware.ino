@@ -42,6 +42,7 @@
 #include <FS.h>
 
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 
 #include <ArduinoJson.h>
@@ -68,21 +69,39 @@ const char *WIFI_PASSWORD = "kannan17";
 // BACKEND CONFIGURATION
 // ============================================================
 
-const char *SERVER_IP = "192.168.29.244";
+// Set USE_CLOUD_BACKEND to 1 to post directly to your deployed Cloud backend (Render/Koyeb)
+// Set to 0 to post to your local PC IP
+#define USE_CLOUD_BACKEND 0
 
-const uint16_t SERVER_PORT = 8000;
+// Local Station PC IP & Port
+const char *LOCAL_SERVER_IP = "192.168.29.244";
+const uint16_t LOCAL_SERVER_PORT = 8000;
+
+// Deployed Cloud Backend URL (Render / Koyeb / Railway)
+// Replace with your live Render URL once created (e.g. "https://auraforest-backend.onrender.com")
+const char *CLOUD_BACKEND_URL = "https://auraforest-sentinel.onrender.com";
 
 const char *API_PATH =
     "/api/v1/edge/telemetry";
 
-/*
-  IMPORTANT:
-
-  Change this ONLY if your FastAPI audio route
-  has a different path.
-*/
 const char *AUDIO_API_PATH =
     "/api/v1/edge/audio";
+
+WiFiClientSecure secureClient;
+
+String getBaseURL()
+{
+#if USE_CLOUD_BACKEND
+    String base = String(CLOUD_BACKEND_URL);
+    while (base.endsWith("/"))
+    {
+        base.remove(base.length() - 1);
+    }
+    return base;
+#else
+    return "http://" + String(LOCAL_SERVER_IP) + ":" + String(LOCAL_SERVER_PORT);
+#endif
+}
 
 // ============================================================
 // DEMO LOCATION FALLBACK
@@ -1418,11 +1437,7 @@ bool testBackendConnection()
     }
 
     String healthURL =
-        "http://" +
-        String(SERVER_IP) +
-        ":" +
-        String(SERVER_PORT) +
-        "/health";
+        getBaseURL() + "/health";
 
     Serial.println();
 
@@ -1434,11 +1449,17 @@ bool testBackendConnection()
 
     HTTPClient http;
 
-    http.setTimeout(5000);
+    http.setTimeout(8000);
 
-    bool beginResult =
-        http.begin(
-            healthURL);
+    bool beginResult = false;
+    if (healthURL.startsWith("https://"))
+    {
+        beginResult = http.begin(secureClient, healthURL);
+    }
+    else
+    {
+        beginResult = http.begin(healthURL);
+    }
 
     if (!beginResult)
     {
@@ -1490,18 +1511,21 @@ bool sendToBackend(
     wifiOK = true;
 
     String url =
-        "http://" +
-        String(SERVER_IP) +
-        ":" +
-        String(SERVER_PORT) +
-        String(API_PATH);
+        getBaseURL() + String(API_PATH);
 
     HTTPClient http;
 
-    http.setTimeout(5000);
+    http.setTimeout(8000);
 
-    bool beginResult =
-        http.begin(url);
+    bool beginResult = false;
+    if (url.startsWith("https://"))
+    {
+        beginResult = http.begin(secureClient, url);
+    }
+    else
+    {
+        beginResult = http.begin(url);
+    }
 
     if (!beginResult)
     {
@@ -1860,10 +1884,7 @@ bool sendAudioToBackend()
             3);
 
     String url =
-        "http://" +
-        String(SERVER_IP) +
-        ":" +
-        String(SERVER_PORT) +
+        getBaseURL() +
         String(AUDIO_API_PATH) +
         "?device_id=" +
         DEVICE_ID +
@@ -1893,8 +1914,15 @@ bool sendAudioToBackend()
 
     http.setTimeout(30000);
 
-    bool beginResult =
-        http.begin(url);
+    bool beginResult = false;
+    if (url.startsWith("https://"))
+    {
+        beginResult = http.begin(secureClient, url);
+    }
+    else
+    {
+        beginResult = http.begin(url);
+    }
 
     if (!beginResult)
     {
@@ -2653,6 +2681,8 @@ void setup()
     // ----------------------------------------------------------
 
     connectWiFi();
+
+    secureClient.setInsecure();
 
     Serial.println();
 
