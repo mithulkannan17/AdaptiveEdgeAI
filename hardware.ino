@@ -87,8 +87,6 @@ const char *API_PATH =
 const char *AUDIO_API_PATH =
     "/api/v1/edge/audio";
 
-WiFiClientSecure secureClient;
-
 String getBaseURL()
 {
 #if USE_CLOUD_BACKEND
@@ -1449,12 +1447,16 @@ bool testBackendConnection()
 
     HTTPClient http;
 
-    http.setTimeout(8000);
+    http.setTimeout(10000);
+    http.setReuse(false);
 
+    WiFiClientSecure client;
     bool beginResult = false;
     if (healthURL.startsWith("https://"))
     {
-        beginResult = http.begin(secureClient, healthURL);
+        client.setInsecure();
+        client.setTimeout(10);
+        beginResult = http.begin(client, healthURL);
     }
     else
     {
@@ -1515,12 +1517,16 @@ bool sendToBackend(
 
     HTTPClient http;
 
-    http.setTimeout(8000);
+    http.setTimeout(10000);
+    http.setReuse(false);
 
+    WiFiClientSecure client;
     bool beginResult = false;
     if (url.startsWith("https://"))
     {
-        beginResult = http.begin(secureClient, url);
+        client.setInsecure();
+        client.setTimeout(10);
+        beginResult = http.begin(client, url);
     }
     else
     {
@@ -1913,6 +1919,7 @@ bool sendAudioToBackend()
     HTTPClient http;
 
     http.setTimeout(45000);
+    http.setReuse(false);
 
     Serial.print(
         "Free heap before audio upload: ");
@@ -1923,10 +1930,13 @@ bool sendAudioToBackend()
     Serial.println(
         " bytes");
 
+    WiFiClientSecure audioClient;
     bool beginResult = false;
     if (url.startsWith("https://"))
     {
-        beginResult = http.begin(secureClient, url);
+        audioClient.setInsecure();
+        audioClient.setTimeout(45);
+        beginResult = http.begin(audioClient, url);
     }
     else
     {
@@ -2710,9 +2720,6 @@ void setup()
     // ----------------------------------------------------------
 
     connectWiFi();
-
-    secureClient.setInsecure();
-    secureClient.setTimeout(30);
 
     Serial.println();
 
