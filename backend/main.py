@@ -21,8 +21,14 @@ from fastapi import FastAPI
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict
 from pathlib import Path
-from fastapi.responses import FileResponse
 import anyio
+import torch
+
+try:
+    torch.set_num_threads(1)
+    torch.set_num_interop_threads(1)
+except Exception:
+    pass
 
 from backend.audio_service import AudioInferenceService
 from backend.database import RuntimeDatabase
