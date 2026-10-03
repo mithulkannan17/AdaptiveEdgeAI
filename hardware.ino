@@ -2712,7 +2712,6 @@ void setup()
     connectWiFi();
 
     secureClient.setInsecure();
-    secureClient.setBufferSizes(4096, 1024);
     secureClient.setTimeout(30);
 
     Serial.println();
