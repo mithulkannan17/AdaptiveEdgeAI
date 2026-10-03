@@ -97,32 +97,45 @@ class EmergencyAlertDispatcher:
     ) -> bool:
         """
         Evaluate if an event warrants an emergency alert.
-        Priority is placed primarily on acoustic model prediction confidence:
-        - Fire & Logging (High / Highest priority): triggers at >= 0.70
-        - Vehicles & Human (Moderate priority): triggers at >= 0.75 or CADIE High
-        - Others (Low priority): monitored
+        Emergency alerts & audible sirens trigger ONLY on confirmed high-priority threats:
+        - Fire & Logging & Gunshots (Critical Priority): triggers at >= 0.70 confidence
+        - Unauthorized Vehicles & Human Intrusion: triggers at >= 0.78 confidence + HIGH/CRITICAL CADIE risk
+        - Benign sounds (Birds, Insects, Wildlife, Water, Wind, Rain, Ambient, Silence, Unknown) NEVER trigger emergency sirens.
         """
         risk = str(cadie_decision.get("risk_level", "")).upper()
         requires_attention = bool(cadie_decision.get("requires_attention", False))
-        label = str(prediction.get("label", "")).lower()
+        label = str(prediction.get("label", "")).strip().lower()
         confidence = float(prediction.get("confidence", 0.0))
 
-        # 1. Fire & Logging (High - Highest Priority)
-        if any(t in label for t in ["fire", "chainsaw", "drill", "jackhammer", "gunshot", "explosion"]) and confidence >= 0.70:
+        # 0. Strict filter for benign / non-threat classes
+        benign_classes = {
+            "bird", "birds", "chirp", "tweet", "wildlife", "animal", "dog", "cat",
+            "insects", "insect", "cricket", "cicada", "bee",
+            "water", "river", "stream", "ocean", "waves", "waterfall",
+            "wind", "breeze", "rain", "thunderstorm", "thunder",
+            "ambient", "silence", "unknown", "background", "none"
+        }
+        if label in benign_classes or any(b in label for b in ["bird", "insect", "water", "wind", "rain", "ambient", "silence"]):
+            return False
+
+        # 1. Fire, Logging & Poaching/Gunshot (Critical / Highest Priority)
+        high_threat_keywords = ["fire", "wildfire", "chainsaw", "drill", "jackhammer", "gunshot", "explosion", "poaching", "logging"]
+        if any(t in label for t in high_threat_keywords) and confidence >= 0.70:
             return True
 
-        # 2. Vehicles & Human (Moderate - Need to be addressed)
-        if any(t in label for t in ["vehicle", "human", "footsteps", "truck", "engine", "intrusion"]) and (confidence >= 0.75 or risk in {"CRITICAL", "HIGH"}):
-            return True
+        # 2. Heavy Vehicles & Human Intrusion (Moderate Priority - requires corroboration)
+        moderate_threat_keywords = ["vehicle", "truck", "car", "engine", "motorcycle", "human", "footsteps", "intrusion"]
+        if any(t in label for t in moderate_threat_keywords):
+            if confidence >= 0.78 and (risk in {"CRITICAL", "HIGH"} or requires_attention):
+                return True
 
-        # 3. General High Acoustic Confidence Trigger
-        if confidence >= 0.85:
-            return True
+        # 3. Emergency Vehicles (Siren detection) - triggers only if high confidence and CADIE validated
+        if "emergencyvehicle" in label or "siren" in label:
+            if confidence >= 0.82 and risk in {"CRITICAL", "HIGH"}:
+                return True
 
-        # 4. CADIE Elevated Risk Triage
-        if risk in {"CRITICAL", "HIGH"} and confidence >= 0.55:
-            return True
-        if requires_attention and confidence >= 0.60:
+        # 4. CADIE Critical Risk override (Only for unmapped critical threats with >= 0.85 confidence)
+        if risk == "CRITICAL" and confidence >= 0.85 and not any(b in label for b in benign_classes):
             return True
 
         return False

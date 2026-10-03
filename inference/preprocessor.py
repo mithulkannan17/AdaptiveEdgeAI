@@ -290,18 +290,12 @@ class PreProcessor:
         waveform: torch.Tensor,
     ) -> torch.Tensor:
         """
-        Peak-normalize waveform exactly as training does.
+        Peak-normalize waveform with soft noise-floor protection.
 
-        Training:
-
-            peak = np.max(np.abs(audio))
-
-            if peak > 0:
-                audio = audio / peak
-
-        Silence remains silence.
+        Standard audio events (peak >= 0.02) are peak-normalized to 1.0.
+        Quiescent sensor noise floor / near-silence is not blown up
+        to full scale, preventing false acoustic hallucination.
         """
-
         if not isinstance(
             waveform,
             torch.Tensor,
@@ -313,12 +307,14 @@ class PreProcessor:
         peak = torch.max(
             torch.abs(waveform)
         )
+        peak_val = float(peak.item())
 
-        if float(peak.item()) > 0.0:
-
-            waveform = (
-                waveform / peak
-            )
+        min_noise_floor_peak = 0.02
+        if peak_val >= min_noise_floor_peak:
+            waveform = waveform / peak_val
+        elif peak_val > 0.0:
+            # Scale proportionally against noise floor without artificial 1000x gain
+            waveform = waveform / min_noise_floor_peak
 
         return waveform.float()
 

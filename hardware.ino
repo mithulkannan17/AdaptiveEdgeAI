@@ -762,14 +762,15 @@ bool captureAudio()
         {
             /*
               INMP441 delivers 24-bit audio
-              inside a 32-bit I2S word.
+              inside a 32-bit I2S word (left-aligned).
 
-              Shift down to obtain a usable
-              signed PCM16 representation.
+              Shift down by 15 to obtain a balanced,
+              high-dynamic-range signed PCM16 representation
+              without premature saturation or excessive noise.
             */
 
             int32_t sample =
-                rawSamples[i] >> 14;
+                rawSamples[i] >> 15;
 
             if (sample > 32767)
             {

@@ -1521,13 +1521,17 @@ def render_siren_audio_synthesizer(is_active: bool = True, threat_label: str = "
 if active_alerts:
     top_alert = active_alerts[0]
     al_threat = str(top_alert.get("threat_type", "Threat")).upper()
+    al_threat_lower = al_threat.lower()
     al_conf = safe_num(top_alert.get("confidence", 0.95)) * 100
     al_lat = top_alert.get("location_lat")
     al_lon = top_alert.get("location_lon")
     al_coords = f"{al_lat:.5f}°N, {al_lon:.5f}°E" if al_lat is not None and al_lon is not None else "Coordinates Acquired"
 
-    # Play in-browser tactical siren sound
-    render_siren_audio_synthesizer(is_active=True, threat_label=al_threat)
+    # Only play tactical siren for genuine high-risk threats, never for benign classes
+    is_genuine_threat = any(t in al_threat_lower for t in ["fire", "chainsaw", "gunshot", "logging", "drill", "jackhammer", "poaching", "vehicle", "intrusion"]) and not any(b in al_threat_lower for b in ["bird", "insect", "water", "wind", "rain", "ambient", "silence", "unknown"])
+
+    if is_genuine_threat:
+        render_siren_audio_synthesizer(is_active=True, threat_label=al_threat)
 
     b_c1, b_c2 = st.columns([3.5, 1.2])
     with b_c1:
@@ -1551,7 +1555,7 @@ if active_alerts:
     with b_c2:
         if current_role in ["admin", "ranger"]:
             st.write("")
-            if st.button("✅ Silence Siren", key="btn_ack_top_alert", use_container_width=True, type="primary"):
+            if st.button("✅ Silence Siren / Dismiss", key="btn_ack_top_alert", use_container_width=True, type="primary"):
                 db.acknowledge_emergency_alert(top_alert.get("alert_id"), acknowledged_by=user_display)
                 st.success("Siren silenced.")
                 st.rerun()
