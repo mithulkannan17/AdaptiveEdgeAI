@@ -128,14 +128,41 @@ class RuntimeDataSource:
             f"/api/v1/edge/events?limit={self.event_history_limit}"
         )
 
-        # The API may temporarily fail. Keep the last valid UI state rather
-        # than replacing the entire dashboard with empty values.
+        # The API may temporarily fail or app is running in standalone mode.
+        # Check direct SQLite database before falling back to empty state.
         if (
             health is None
             and telemetry_response is None
             and latest_response is None
             and history_response is None
         ):
+            try:
+                from backend.database import RuntimeDatabase
+                db_fallback = RuntimeDatabase()
+                db_telemetry = db_fallback.get_latest_telemetry(self.device_id)
+                db_latest_event = db_fallback.get_latest_event()
+                db_history = db_fallback.get_recent_events(limit=self.event_history_limit)
+                
+                if db_telemetry is not None or db_latest_event is not None or (db_history and len(db_history) > 0):
+                    state = self._build_state(
+                        latest_event=db_latest_event,
+                        telemetry_record=db_telemetry,
+                        history_records=db_history or [],
+                        health={"status": "SQLITE_DIRECT", "mode": "STANDALONE_DB"},
+                    )
+                    state["connection"] = {
+                        "online": True,
+                        "status": "SQLITE DIRECT SYNC",
+                        "error": None,
+                        "api_url": self.api_url,
+                        "device_id": self.device_id,
+                        "health": {"status": "SQLITE_DIRECT"},
+                    }
+                    self._last_state = deepcopy(state)
+                    return deepcopy(state)
+            except Exception:
+                pass
+
             if self._last_state is not None:
                 state = deepcopy(self._last_state)
                 connection = state.setdefault("connection", {})
