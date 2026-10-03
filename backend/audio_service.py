@@ -112,11 +112,9 @@ class AudioInferenceService:
         # --------------------------------------------------
         # Noise-robust acoustic preprocessing
         # --------------------------------------------------
-        # The denoiser is intentionally conservative.  AuraForest
-        # monitors environmental soundscapes, so aggressive noise
-        # removal could erase useful events such as wind, rain,
-        # insects, water, or distant machinery.
-        self.noise_robust_enabled = True
+        # The denoiser is disabled by default for cloud inference
+        # to ensure sub-second latency and prevent ESP32 HTTP timeouts.
+        self.noise_robust_enabled = False
         self.noise_n_fft = 512
         self.noise_hop_length = 128
         self.noise_noise_percentile = 20.0
