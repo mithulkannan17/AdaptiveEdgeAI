@@ -85,6 +85,10 @@ class RuntimeDataSource:
             method="GET",
             headers={
                 "Accept": "application/json",
+                "User-Agent": "AuraForestSentinel/1.0",
+                "X-Pinggy-No-Screen": "1",
+                "bypass-tunnel-reminder": "true",
+                "ngrok-skip-browser-warning": "true",
                 "Cache-Control": "no-cache",
                 "Pragma": "no-cache",
             },
