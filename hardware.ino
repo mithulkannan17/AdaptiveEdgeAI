@@ -71,7 +71,7 @@ const char *WIFI_PASSWORD = "kannan17";
 
 // Set USE_CLOUD_BACKEND to 1 to post directly to your deployed Cloud backend (Render/Koyeb)
 // Set to 0 to post to your local PC IP
-#define USE_CLOUD_BACKEND 0
+#define USE_CLOUD_BACKEND 1
 
 // Local Station PC IP & Port
 const char *LOCAL_SERVER_IP = "192.168.29.244";
