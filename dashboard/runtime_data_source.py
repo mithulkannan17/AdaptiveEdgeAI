@@ -512,6 +512,12 @@ class RuntimeDataSource:
                 "vibration_detected"
             ),
             "charging": device_status.get("charging"),
+            "mq2_raw": device_status.get("mq2_raw"),
+            "mq2_adc_voltage": device_status.get("mq2_adc_voltage") or device_status.get("mq2_voltage"),
+            "mq135_raw": device_status.get("mq135_raw"),
+            "mq135_adc_voltage": device_status.get("mq135_adc_voltage") or device_status.get("mq135_voltage"),
+            "gas_assessment": device_status.get("gas_assessment"),
+            "device_status": deepcopy(device_status),
             "latitude": location.get("latitude"),
             "longitude": location.get("longitude"),
             "altitude": location.get("altitude"),

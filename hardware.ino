@@ -2846,6 +2846,8 @@ void loop()
 
         readVibration();
 
+        readGasSensors();
+
         microphoneLevel =
             readMicrophone();
 

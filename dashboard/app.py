@@ -36,7 +36,10 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # Data sources and database
-from runtime_data_source import RuntimeDataSource
+try:
+    from dashboard.runtime_data_source import RuntimeDataSource
+except ImportError:
+    from runtime_data_source import RuntimeDataSource
 from backend.database import RuntimeDatabase
 from dashboard.spectrum_visualizer import render_spectrum_section
 
@@ -103,6 +106,49 @@ AURA_API_URL = os.getenv(
     "AURAFOREST_API_URL",
     "http://127.0.0.1:8000",
 ).rstrip("/")
+
+def format_display_label(raw_label: str) -> str:
+    """
+    Standardized operational label formatter:
+    - chainsaw / drill / jackhammer -> 'Chainsaw / Drill (Logging)' (shows both!)
+    - human / speech / talking / conversation / footsteps / walking -> 'Human Activity (Active)'
+    - fire / wildfire / burning -> 'Wildfire / Crackling Fire'
+    - gunshot / poaching / explosion -> 'Gunshot / Firearm Blast'
+    - vehicle / truck / car / engine -> 'Vehicle Movement'
+    - emergencyvehicle / siren -> 'Emergency Siren'
+    - bird -> 'Birdsong / Avian'
+    - insects -> 'Insects / Canopy Bio-Sound'
+    - water / river / stream -> 'Water Flow / Stream'
+    - wind -> 'Wind / Canopy Breeze'
+    - rain / thunder -> 'Rain / Weather Activity'
+    - ambient / silence -> 'Ambient Forest'
+    """
+    l = str(raw_label or "").strip().lower()
+    if any(k in l for k in ["chainsaw", "drill", "jackhammer", "logging", "saw"]):
+        return "Chainsaw / Drill (Logging)"
+    if any(k in l for k in ["human", "speech", "talking", "conversation", "footsteps", "walking", "voice"]):
+        return "Human Activity (Active)"
+    if any(k in l for k in ["fire", "wildfire", "burning", "flame"]):
+        return "Wildfire / Crackling Fire"
+    if any(k in l for k in ["gunshot", "explosion", "poaching", "blast", "firearm"]):
+        return "Gunshot / Poaching Blast"
+    if any(k in l for k in ["vehicle", "truck", "car", "engine", "motorcycle", "bus"]):
+        return "Vehicle Movement"
+    if "emergencyvehicle" in l or "siren" in l:
+        return "Emergency Siren"
+    if "bird" in l:
+        return "Birdsong / Avian"
+    if "insect" in l:
+        return "Insects / Canopy Bio-Sound"
+    if any(k in l for k in ["water", "river", "stream", "waterfall"]):
+        return "Water Flow / Stream"
+    if "wind" in l:
+        return "Wind / Canopy Breeze"
+    if "rain" in l or "thunder" in l:
+        return "Rain / Weather Activity"
+    if "ambient" in l or "silence" in l:
+        return "Ambient Forest"
+    return raw_label.title() if raw_label else "Ambient Forest"
 
 # Auto-refresh only when logged in
 if st.session_state.get("authenticated", False):
@@ -1192,7 +1238,8 @@ unknown = state.get("unknown_discovery") or {}
 device_id = state.get("device_id") or "ESP32-S3-SENTINEL-01"
 hardware = state.get("hardware_health") or telemetry.get("hardware_health") or {}
 
-label = event.get("label") or prediction.get("label") or "Ambient Forest"
+raw_label = event.get("label") or prediction.get("label") or "Ambient Forest"
+label = format_display_label(raw_label)
 conf = safe_num(event.get("confidence", prediction.get("confidence", 0.0)))
 detected = event.get("detected", False)
 risk_raw = str(cadie.get("risk_level") or "LOW").upper()
@@ -1520,44 +1567,67 @@ def render_siren_audio_synthesizer(is_active: bool = True, threat_label: str = "
 # Active alert notification banner
 if active_alerts:
     top_alert = active_alerts[0]
-    al_threat = str(top_alert.get("threat_type", "Threat")).upper()
-    al_threat_lower = al_threat.lower()
+    al_threat_raw = str(top_alert.get("threat_type", "Threat")).strip()
+    al_threat_lower = al_threat_raw.lower()
+    al_threat_formatted = format_display_label(al_threat_raw).upper()
     al_conf = safe_num(top_alert.get("confidence", 0.95)) * 100
     al_lat = top_alert.get("location_lat")
     al_lon = top_alert.get("location_lon")
     al_coords = f"{al_lat:.5f}°N, {al_lon:.5f}°E" if al_lat is not None and al_lon is not None else "Coordinates Acquired"
 
-    # Only play tactical siren for genuine high-risk threats, never for benign classes
-    is_genuine_threat = any(t in al_threat_lower for t in ["fire", "chainsaw", "gunshot", "logging", "drill", "jackhammer", "poaching", "vehicle", "intrusion"]) and not any(b in al_threat_lower for b in ["bird", "insect", "water", "wind", "rain", "ambient", "silence", "unknown"])
+    # SIREN RULES:
+    # 1. Audible tactical siren ONLY for Fire, Chainsaw/Drill, and Gunshot
+    is_siren_threat = any(t in al_threat_lower for t in ["fire", "wildfire", "chainsaw", "drill", "jackhammer", "gunshot", "explosion", "poaching", "logging"])
+    # 2. Yellow Alert (NO SIREN) for Human Activity, Footsteps, and Vehicles
+    is_yellow_alert = any(t in al_threat_lower for t in ["human", "footsteps", "speech", "walking", "vehicle", "truck", "car", "engine"])
 
-    if is_genuine_threat:
-        render_siren_audio_synthesizer(is_active=True, threat_label=al_threat)
+    if is_siren_threat:
+        render_siren_audio_synthesizer(is_active=True, threat_label=al_threat_formatted)
 
     b_c1, b_c2 = st.columns([3.5, 1.2])
     with b_c1:
-        st.markdown(
-            f"""
-            <div style="background: linear-gradient(135deg, rgba(255, 112, 112, 0.22), rgba(255, 71, 87, 0.08)); border: 1.5px solid #ff7070; border-radius: 14px; padding: 14px 18px; margin-bottom: 16px; box-shadow: 0 0 25px rgba(255, 112, 112, 0.25);">
-                <div style="display:flex;align-items:center;gap:10px;">
-                    <span style="display:inline-block;width:10px;height:10px;background:#ff7070;border-radius:50%;box-shadow:0 0 10px #ff7070;"></span>
-                    <span style="color:#ff7070;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.14em;">🚨 ACTIVE EMERGENCY ALERT</span>
+        if is_siren_threat:
+            st.markdown(
+                f"""
+                <div style="background: linear-gradient(135deg, rgba(255, 112, 112, 0.22), rgba(255, 71, 87, 0.08)); border: 1.5px solid #ff7070; border-radius: 14px; padding: 14px 18px; margin-bottom: 16px; box-shadow: 0 0 25px rgba(255, 112, 112, 0.25);">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="display:inline-block;width:10px;height:10px;background:#ff7070;border-radius:50%;box-shadow:0 0 10px #ff7070;"></span>
+                        <span style="color:#ff7070;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.14em;">🚨 CRITICAL THREAT DETECTED (AUDIBLE SIREN ACTIVE)</span>
+                    </div>
+                    <div style="font-size:18px;font-weight:800;color:#fff;margin-top:4px;">
+                        {al_threat_formatted} ({al_conf:.1f}% Confidence) · {al_coords}
+                    </div>
+                    <div style="color:#edf5f2;font-size:11px;margin-top:2px;font-family:'JetBrains Mono',monospace;">
+                        Device: {top_alert.get('device_id')} · Assigned: {top_alert.get('assigned_ranger_name') or 'Tactical Rapid Response'}
+                    </div>
                 </div>
-                <div style="font-size:18px;font-weight:800;color:#fff;margin-top:4px;">
-                    {al_threat} DETECTED ({al_conf:.1f}% Confidence) · {al_coords}
+                """,
+                unsafe_allow_html=True,
+            )
+        elif is_yellow_alert:
+            st.markdown(
+                f"""
+                <div style="background: linear-gradient(135deg, rgba(242, 198, 109, 0.18), rgba(242, 198, 109, 0.06)); border: 1.5px solid #f2c66d; border-radius: 14px; padding: 14px 18px; margin-bottom: 16px; box-shadow: 0 0 20px rgba(242, 198, 109, 0.2);">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="display:inline-block;width:10px;height:10px;background:#f2c66d;border-radius:50%;box-shadow:0 0 10px #f2c66d;"></span>
+                        <span style="color:#f2c66d;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.14em;">⚠️ CAUTION WARNING (SECTOR PATROL · NO SIREN)</span>
+                    </div>
+                    <div style="font-size:18px;font-weight:800;color:#fff;margin-top:4px;">
+                        {al_threat_formatted} ({al_conf:.1f}% Confidence) · {al_coords}
+                    </div>
+                    <div style="color:#edf5f2;font-size:11px;margin-top:2px;font-family:'JetBrains Mono',monospace;">
+                        Device: {top_alert.get('device_id')} · Assigned: {top_alert.get('assigned_ranger_name') or 'Sector Patrol'}
+                    </div>
                 </div>
-                <div style="color:#edf5f2;font-size:11px;margin-top:2px;font-family:'JetBrains Mono',monospace;">
-                    Device: {top_alert.get('device_id')} · Assigned: {top_alert.get('assigned_ranger_name') or 'Unassigned'}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+                """,
+                unsafe_allow_html=True,
+            )
     with b_c2:
         if current_role in ["admin", "ranger"]:
             st.write("")
-            if st.button("✅ Silence Siren / Dismiss", key="btn_ack_top_alert", use_container_width=True, type="primary"):
+            if st.button("✅ Silence / Dismiss", key="btn_ack_top_alert", use_container_width=True, type="primary"):
                 db.acknowledge_emergency_alert(top_alert.get("alert_id"), acknowledged_by=user_display)
-                st.success("Siren silenced.")
+                st.success("Alert acknowledged.")
                 st.rerun()
 
 elif st.session_state.get("manual_siren_trigger"):
@@ -2188,7 +2258,12 @@ if current_role == "admin":
             gas_info = dev_status.get("gas_assessment") or telemetry.get("gas_assessment") or {}
             gas_status = str(gas_info.get("overall_status") or "NOMINAL").upper()
             gas_score = safe_num(gas_info.get("gas_risk_score", 0.0))
-            metric("Atmosphere / Gas", gas_status, f"Risk {gas_score:.2f}", "MQ-2 / MQ-135 Engine", accent="emerald" if gas_status == "NOMINAL" else "coral", icon="🧪")
+            mq2_val = safe_num(telemetry.get("mq2_raw", dev_status.get("mq2_raw", 0)))
+            mq2_v = safe_num(telemetry.get("mq2_adc_voltage", dev_status.get("mq2_adc_voltage", dev_status.get("mq2_voltage", 0.0))))
+            mq135_val = safe_num(telemetry.get("mq135_raw", dev_status.get("mq135_raw", 0)))
+            mq135_v = safe_num(telemetry.get("mq135_adc_voltage", dev_status.get("mq135_adc_voltage", dev_status.get("mq135_voltage", 0.0))))
+            gas_sub = f"MQ2:{int(mq2_val)} ({mq2_v:.2f}V) · MQ135:{int(mq135_val)} ({mq135_v:.2f}V)" if (mq2_val > 0 or mq135_val > 0) else f"Risk {gas_score:.2f} (MQ2/135)"
+            metric("Atmosphere / Gas", gas_status, gas_sub, "MQ-2 / MQ-135 Gas Sensors", accent="emerald" if gas_status == "NOMINAL" else "coral", icon="🧪")
 
         st.markdown('<div class="section"><div class="section-title">Acoustic Perception & CADIE Decision Engine</div><div class="section-meta">MODEL INFERENCE → CADIE MULTIMODAL FUSION → AUTONOMOUS RESPONSE</div></div>', unsafe_allow_html=True)
         left, mid, right = st.columns([1.35, 1.15, 1])
@@ -2734,16 +2809,93 @@ elif current_role == "ranger":
         render_incident_archive_page()
 
     elif active_page == "📡 Field Telemetry & Gas":
-        st.markdown('<div class="section"><div class="section-title">Field Environment & Gas Sentry</div><div class="section-meta">LIVE SENSOR READINGS FROM SENTINEL NODE</div></div>', unsafe_allow_html=True)
+        st.markdown('<div class="section"><div class="section-title">Field Environment & Atmospheric Sentry</div><div class="section-meta">LIVE TELEMETRY READINGS FROM SENTINEL EDGE NODE</div></div>', unsafe_allow_html=True)
         rc1, rc2, rc3, rc4 = st.columns(4)
         with rc1:
-            metric("Ambient Temp", f"{safe_num(telemetry.get('temperature')):.1f}", "°C", "thermal sensor", accent="amber", icon="🌡️")
+            metric("Ambient Temp", f"{safe_num(telemetry.get('temperature')):.1f}", "°C", "DHT11 Thermal Sensor", accent="amber", icon="🌡️")
         with rc2:
-            metric("Humidity", f"{safe_num(telemetry.get('humidity')):.1f}", "%", "RH level", accent="cyan", icon="💧")
+            metric("Relative Humidity", f"{safe_num(telemetry.get('humidity')):.1f}", "%", "DHT11 RH Moisture", accent="cyan", icon="💧")
         with rc3:
-            metric("Battery SOC", f"{safe_num(telemetry.get('battery_percent')):.1f}", "%", "MAX17048", accent="emerald", icon="⚡")
+            metric("Battery SOC", f"{safe_num(telemetry.get('battery_percent')):.1f}", "%", f"{safe_num(telemetry.get('battery_voltage')):.2f}V MAX17048", accent="emerald", icon="⚡")
         with rc4:
-            metric("Gas Atmosphere", str((telemetry.get("device_status") or {}).get("gas_assessment", {}).get("overall_status") or "NOMINAL").upper(), "", "MQ-2/MQ-135", accent="purple", icon="🧪")
+            dev_status = telemetry.get("device_status") if isinstance(telemetry.get("device_status"), dict) else {}
+            gas_info = dev_status.get("gas_assessment") or telemetry.get("gas_assessment") or {}
+            gas_status = str(gas_info.get("overall_status") or "NOMINAL").upper()
+            metric("Gas Atmosphere", gas_status, f"Risk {safe_num(gas_info.get('gas_risk_score', 0.0)):.2f}", "Atmospheric Air Index", accent="purple" if gas_status == "NOMINAL" else "coral", icon="🧪")
+
+        st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+        st.markdown('<div class="section"><div class="section-title">Live Electrochemical Gas & Smoke Sensors (MQ Series)</div><div class="section-meta">ESP32-S3 12-BIT HIGH-PRECISION ADC BUS READINGS (GPIO 1 / GPIO 2)</div></div>', unsafe_allow_html=True)
+
+        dev_status = telemetry.get("device_status") if isinstance(telemetry.get("device_status"), dict) else {}
+        mq2_val = safe_num(telemetry.get("mq2_raw", dev_status.get("mq2_raw", 0)))
+        mq2_v = safe_num(telemetry.get("mq2_adc_voltage", dev_status.get("mq2_adc_voltage", dev_status.get("mq2_voltage", 0.0))))
+        mq135_val = safe_num(telemetry.get("mq135_raw", dev_status.get("mq135_raw", 0)))
+        mq135_v = safe_num(telemetry.get("mq135_adc_voltage", dev_status.get("mq135_adc_voltage", dev_status.get("mq135_voltage", 0.0))))
+
+        g_col1, g_col2 = st.columns(2)
+        with g_col1:
+            mq2_pct = min(100.0, (mq2_val / 4095.0) * 100.0) if mq2_val > 0 else 0.0
+            mq2_status = "SMOKE / FIRE ANOMALY" if mq2_v > 1.8 else ("ELEVATED TRACE" if mq2_v > 1.0 else "CLEAR / NOMINAL")
+            mq2_color = "#ff7070" if mq2_v > 1.8 else ("#f2c66d" if mq2_v > 1.0 else "#7cf0b2")
+            st.markdown(
+                f"""
+                <div class="panel" style="padding: 16px; border: 1.5px solid {mq2_color}; border-radius: 12px; background: rgba(16, 28, 32, 0.9);">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:{mq2_color};">🔥 MQ-2 SMOKE & COMBUSTIBLE GAS</span>
+                        <span style="font-family:'JetBrains Mono',monospace; font-size:10px; background:rgba(255,255,255,0.08); padding:2px 8px; border-radius:4px; color:#fff;">GPIO 1 (ADC1)</span>
+                    </div>
+                    <div style="font-size: 24px; font-weight: 800; color: #fff; margin-top: 8px;">
+                        {int(mq2_val)} <span style="font-size: 13px; color: var(--muted); font-weight: 500;">ADC RAW ({mq2_v:.3f} V)</span>
+                    </div>
+                    <div style="font-size: 11px; color: {mq2_color}; font-weight: 700; margin-top: 4px;">
+                        STATUS: {mq2_status}
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <div style="display:flex; justify-content:space-between; font-size:10px; color:#829a97; margin-bottom:4px;">
+                            <span>ADC Load (0 - 4095)</span>
+                            <span>{mq2_pct:.1f}%</span>
+                        </div>
+                        <div class="bar"><div style="width:{max(2, min(100, mq2_pct))}%; background:{mq2_color}; box-shadow:0 0 10px {mq2_color};"></div></div>
+                    </div>
+                    <div style="font-size: 10px; color: #829a97; margin-top: 8px;">
+                        Monitors: LPG, Propane, Methane, Hydrogen, Alcohol, Smoke, and Fire Combustibles.
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        with g_col2:
+            mq135_pct = min(100.0, (mq135_val / 4095.0) * 100.0) if mq135_val > 0 else 0.0
+            mq135_status = "POLLUTION / VOC SPIKE" if mq135_v > 1.8 else ("SLIGHT VOC TRACE" if mq135_v > 1.0 else "CLEAN FOREST AIR")
+            mq135_color = "#ff7070" if mq135_v > 1.8 else ("#f2c66d" if mq135_v > 1.0 else "#73d9e8")
+            st.markdown(
+                f"""
+                <div class="panel" style="padding: 16px; border: 1.5px solid {mq135_color}; border-radius: 12px; background: rgba(16, 28, 32, 0.9);">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:{mq135_color};">🍃 MQ-135 AIR QUALITY & TOXIC GAS</span>
+                        <span style="font-family:'JetBrains Mono',monospace; font-size:10px; background:rgba(255,255,255,0.08); padding:2px 8px; border-radius:4px; color:#fff;">GPIO 2 (ADC1)</span>
+                    </div>
+                    <div style="font-size: 24px; font-weight: 800; color: #fff; margin-top: 8px;">
+                        {int(mq135_val)} <span style="font-size: 13px; color: var(--muted); font-weight: 500;">ADC RAW ({mq135_v:.3f} V)</span>
+                    </div>
+                    <div style="font-size: 11px; color: {mq135_color}; font-weight: 700; margin-top: 4px;">
+                        STATUS: {mq135_status}
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <div style="display:flex; justify-content:space-between; font-size:10px; color:#829a97; margin-bottom:4px;">
+                            <span>ADC Load (0 - 4095)</span>
+                            <span>{mq135_pct:.1f}%</span>
+                        </div>
+                        <div class="bar"><div style="width:{max(2, min(100, mq135_pct))}%; background:{mq135_color}; box-shadow:0 0 10px {mq135_color};"></div></div>
+                    </div>
+                    <div style="font-size: 10px; color: #829a97; margin-top: 8px;">
+                        Monitors: NH3, NOx, Alcohol, Benzene, Smoke, CO2, and Toxic Industrial Emissions.
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
     elif active_page == "📊 Acoustic Frequency Monitor":
         render_spectrum_section(label, mic_level=safe_num(telemetry.get("microphone_level", 500.0)))

@@ -113,29 +113,15 @@ class EmergencyAlertDispatcher:
             "insects", "insect", "cricket", "cicada", "bee",
             "water", "river", "stream", "ocean", "waves", "waterfall",
             "wind", "breeze", "rain", "thunderstorm", "thunder",
-            "ambient", "silence", "unknown", "background", "none"
+            "ambient", "silence", "unknown", "background", "none",
+            "vehicle", "truck", "car", "engine", "motorcycle", "human", "footsteps", "speech", "walking"
         }
-        if label in benign_classes or any(b in label for b in ["bird", "insect", "water", "wind", "rain", "ambient", "silence"]):
+        if label in benign_classes or any(b in label for b in ["bird", "insect", "water", "wind", "rain", "ambient", "silence", "vehicle", "human", "footstep"]):
             return False
 
-        # 1. Fire, Logging & Poaching/Gunshot (Critical / Highest Priority)
-        high_threat_keywords = ["fire", "wildfire", "chainsaw", "drill", "jackhammer", "gunshot", "explosion", "poaching", "logging"]
-        if any(t in label for t in high_threat_keywords) and confidence >= 0.70:
-            return True
-
-        # 2. Heavy Vehicles & Human Intrusion (Moderate Priority - requires corroboration)
-        moderate_threat_keywords = ["vehicle", "truck", "car", "engine", "motorcycle", "human", "footsteps", "intrusion"]
-        if any(t in label for t in moderate_threat_keywords):
-            if confidence >= 0.78 and (risk in {"CRITICAL", "HIGH"} or requires_attention):
-                return True
-
-        # 3. Emergency Vehicles (Siren detection) - triggers only if high confidence and CADIE validated
-        if "emergencyvehicle" in label or "siren" in label:
-            if confidence >= 0.82 and risk in {"CRITICAL", "HIGH"}:
-                return True
-
-        # 4. CADIE Critical Risk override (Only for unmapped critical threats with >= 0.85 confidence)
-        if risk == "CRITICAL" and confidence >= 0.85 and not any(b in label for b in benign_classes):
+        # 1. Fire, Logging (Chainsaw/Drill/Jackhammer) & Poaching/Gunshot (Critical Sentry Sirens ONLY)
+        siren_threat_keywords = ["fire", "wildfire", "chainsaw", "drill", "jackhammer", "gunshot", "explosion", "poaching", "logging"]
+        if any(t in label for t in siren_threat_keywords) and confidence >= 0.70:
             return True
 
         return False
