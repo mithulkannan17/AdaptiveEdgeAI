@@ -150,6 +150,13 @@ class AudioInferenceService:
             predictor=self.predictor
         )
 
+        # Pre-warm JIT kernels and model so the first edge request is sub-second
+        try:
+            dummy_pcm = b"\x00" * 32000
+            self.infer_pcm16(dummy_pcm)
+        except Exception:
+            pass
+
     # ======================================================
     # WAV DETECTION
     # ======================================================
