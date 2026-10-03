@@ -166,7 +166,7 @@ const double FALLBACK_ACCURACY = 0.0;
 
 #define AUDIO_SAMPLE_RATE 16000
 
-#define AUDIO_DURATION_SECONDS 5
+#define AUDIO_DURATION_SECONDS 2
 
 #define AUDIO_SAMPLE_COUNT \
     (AUDIO_SAMPLE_RATE * AUDIO_DURATION_SECONDS)
@@ -2707,6 +2707,22 @@ void setup()
 
     microphoneOK =
         initMicrophone();
+
+    // Pre-allocate audio buffer upfront
+    if (psramFound())
+    {
+        audioBuffer = (int16_t *)ps_malloc(AUDIO_BUFFER_BYTES);
+    }
+    if (audioBuffer == nullptr)
+    {
+        audioBuffer = (int16_t *)malloc(AUDIO_BUFFER_BYTES);
+    }
+    if (audioBuffer != nullptr)
+    {
+        Serial.print("Audio buffer allocated successfully: ");
+        Serial.print(AUDIO_BUFFER_BYTES / 1024);
+        Serial.println(" KB");
+    }
 
     // ----------------------------------------------------------
     // MICROSD
