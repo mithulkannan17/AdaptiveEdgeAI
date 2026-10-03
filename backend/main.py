@@ -16,12 +16,13 @@ import json
 import struct
 import uuid
 
-from fastapi import Body, Header
+from fastapi import Body, Header, Request
 from fastapi import FastAPI
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict
 from pathlib import Path
 from fastapi.responses import FileResponse
+import anyio
 
 from backend.audio_service import AudioInferenceService
 from backend.database import RuntimeDatabase
@@ -1421,24 +1422,15 @@ def receive_edge_event(
 @app.post(
     "/api/v1/edge/audio"
 )
-def receive_edge_audio(
-
+async def receive_edge_audio(
+    request: Request,
     device_id: str,
-
     timestamp: float,
-
     sample_rate: int = 16000,
-
-    audio: bytes = Body(
-        ...,
-        media_type="application/octet-stream",
-    ),
-
     x_device_token: str | None = Header(None),
-
     x_api_key: str | None = Header(None),
-
 ):
+    audio: bytes = await request.body()
 
     # ------------------------------------------------------
     # 1. Edge Device Authentication
@@ -1555,24 +1547,17 @@ def receive_edge_audio(
         ) from exc
 
     # ------------------------------------------------------
-    # Run complete inference pipeline
+    # Run complete inference pipeline in worker threadpool
     # ------------------------------------------------------
 
     try:
-
-        inference_result = (
-            audio_service.infer_pcm16(
-
+        inference_result = await anyio.to_thread.run_sync(
+            lambda: audio_service.infer_pcm16(
                 audio_bytes=audio,
-
                 sample_rate=sample_rate,
-
                 top_k=5,
-
                 device_status=device_status,
-
                 audio_path=str(audio_evidence_path),
-
             )
         )
 
