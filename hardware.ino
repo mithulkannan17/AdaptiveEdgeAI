@@ -70,8 +70,8 @@ const char *WIFI_PASSWORD = "kannan17";
 // ============================================================
 
 // Set USE_CLOUD_BACKEND to 1 to post directly to your deployed Cloud backend (Render/Koyeb)
-// Set to 0 to post to your local PC IP
-#define USE_CLOUD_BACKEND 1
+// Set to 0 to post to your local PC IP (sub-second local network response)
+#define USE_CLOUD_BACKEND 0
 
 // Local Station PC IP & Port
 const char *LOCAL_SERVER_IP = "192.168.29.244";
@@ -166,7 +166,7 @@ const double FALLBACK_ACCURACY = 0.0;
 
 #define AUDIO_SAMPLE_RATE 16000
 
-#define AUDIO_DURATION_SECONDS 2
+#define AUDIO_DURATION_SECONDS 5
 
 #define AUDIO_SAMPLE_COUNT \
     (AUDIO_SAMPLE_RATE * AUDIO_DURATION_SECONDS)
@@ -2614,8 +2614,30 @@ void setup()
     Serial.println(
         " ESP32-S3 EDGE NODE");
 
-    Serial.println(
-        "================================================");
+    // Pre-allocate 5-second 160 KB audio buffer immediately before heap fragments
+    if (psramFound())
+    {
+        audioBuffer = (int16_t *)ps_malloc(AUDIO_BUFFER_BYTES);
+    }
+    if (audioBuffer == nullptr)
+    {
+        audioBuffer = (int16_t *)heap_caps_malloc(AUDIO_BUFFER_BYTES, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+    }
+    if (audioBuffer == nullptr)
+    {
+        audioBuffer = (int16_t *)malloc(AUDIO_BUFFER_BYTES);
+    }
+
+    if (audioBuffer != nullptr)
+    {
+        Serial.print("Audio buffer allocated successfully: ");
+        Serial.print(AUDIO_BUFFER_BYTES / 1024);
+        Serial.println(" KB (5-second 16kHz PCM)");
+    }
+    else
+    {
+        Serial.println("WARNING: Audio buffer heap allocation deferred.");
+    }
 
     // ----------------------------------------------------------
     // GPIO / ADC
@@ -2708,21 +2730,7 @@ void setup()
     microphoneOK =
         initMicrophone();
 
-    // Pre-allocate audio buffer upfront
-    if (psramFound())
-    {
-        audioBuffer = (int16_t *)ps_malloc(AUDIO_BUFFER_BYTES);
-    }
-    if (audioBuffer == nullptr)
-    {
-        audioBuffer = (int16_t *)malloc(AUDIO_BUFFER_BYTES);
-    }
-    if (audioBuffer != nullptr)
-    {
-        Serial.print("Audio buffer allocated successfully: ");
-        Serial.print(AUDIO_BUFFER_BYTES / 1024);
-        Serial.println(" KB");
-    }
+    // (audioBuffer already allocated at boot)
 
     // ----------------------------------------------------------
     // MICROSD

@@ -11,12 +11,14 @@ context to the adaptive audio-intelligence pipeline.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 import json
 import struct
 import uuid
 
-from fastapi import Body, Header, Request
+import httpx
+from fastapi import BackgroundTasks, Body, Header, Request
 from fastapi import FastAPI
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict
@@ -879,6 +881,80 @@ def health():
 
 
 # ==========================================================
+# UPSTREAM CLOUD RELAY (LOCAL STATION -> DEPLOYED CLOUD SYNC)
+# ==========================================================
+UPSTREAM_CLOUD_URL = os.getenv("UPSTREAM_CLOUD_URL", "https://auraforest-backend.onrender.com").rstrip("/")
+ENABLE_CLOUD_RELAY = os.getenv("ENABLE_CLOUD_RELAY", "1").lower() in ("1", "true", "yes")
+
+def is_cloud_relay_active() -> bool:
+    if not ENABLE_CLOUD_RELAY or not UPSTREAM_CLOUD_URL:
+        return False
+    # If running directly inside Render or cloud host, do not relay to self
+    if os.getenv("RENDER") or os.getenv("IS_CLOUD_DEPLOYED"):
+        return False
+    if "localhost" in UPSTREAM_CLOUD_URL or "127.0.0.1" in UPSTREAM_CLOUD_URL:
+        return False
+    return True
+
+async def sync_telemetry_to_cloud(telemetry_dict: dict, auth_token: str | None = None) -> None:
+    if not is_cloud_relay_active():
+        return
+    try:
+        headers = {
+            "Content-Type": "application/json",
+            "x-device-token": auth_token or "aura_sentry_sec_key_99",
+        }
+        async with httpx.AsyncClient(timeout=4.0) as client:
+            await client.post(
+                f"{UPSTREAM_CLOUD_URL}/api/v1/edge/telemetry",
+                json=telemetry_dict,
+                headers=headers,
+            )
+    except Exception:
+        pass
+
+async def sync_event_to_cloud(runtime_message: dict) -> None:
+    if not is_cloud_relay_active():
+        return
+    try:
+        headers = {"Content-Type": "application/json"}
+        async with httpx.AsyncClient(timeout=4.0) as client:
+            await client.post(
+                f"{UPSTREAM_CLOUD_URL}/api/v1/edge/events",
+                json=runtime_message,
+                headers=headers,
+            )
+    except Exception:
+        pass
+
+async def sync_alert_to_cloud(alert_payload: dict) -> None:
+    if not is_cloud_relay_active():
+        return
+    try:
+        loc = alert_payload.get("location") or {}
+        dec = alert_payload.get("decision") or {}
+        alert_body = {
+            "device_id": alert_payload.get("device_id", "edge_node_telemetry_001"),
+            "threat_type": alert_payload.get("threat_type", "Threat"),
+            "confidence": float(alert_payload.get("confidence", 0.9)),
+            "risk_level": str(alert_payload.get("risk_level", "CRITICAL")),
+            "latitude": float(loc.get("latitude", 12.2958)),
+            "longitude": float(loc.get("longitude", 76.6394)),
+            "action": str(dec.get("recommended_action") or dec.get("action") or "DISPATCH_RANGERS"),
+            "contributing_factors": dec.get("contributing_factors") or [],
+        }
+        headers = {"Content-Type": "application/json"}
+        async with httpx.AsyncClient(timeout=4.0) as client:
+            await client.post(
+                f"{UPSTREAM_CLOUD_URL}/api/v1/edge/alerts/dispatch",
+                json=alert_body,
+                headers=headers,
+            )
+    except Exception:
+        pass
+
+
+# ==========================================================
 # ESP32 HARDWARE TELEMETRY
 # ==========================================================
 
@@ -887,6 +963,7 @@ def health():
 )
 def receive_telemetry(
     telemetry: TelemetryRequest,
+    background_tasks: BackgroundTasks,
     x_device_token: str | None = Header(None),
     x_api_key: str | None = Header(None),
 ):
@@ -1047,6 +1124,15 @@ def receive_telemetry(
                 f"{exc}"
             ),
         ) from exc
+
+    # ------------------------------------------------------
+    # Upstream Cloud Relay (Non-blocking background sync)
+    # ------------------------------------------------------
+    background_tasks.add_task(
+        sync_telemetry_to_cloud,
+        telemetry.model_dump(),
+        auth_token,
+    )
 
     # ------------------------------------------------------
     # Response
@@ -1432,6 +1518,7 @@ async def receive_edge_audio(
     request: Request,
     device_id: str,
     timestamp: float,
+    background_tasks: BackgroundTasks,
     sample_rate: int = 16000,
     x_device_token: str | None = Header(None),
     x_api_key: str | None = Header(None),
@@ -1794,6 +1881,19 @@ async def receive_edge_audio(
             contributing_factors=decision.get("contributing_factors", []),
         )
         alert_info = alert_dispatcher.dispatch_alert(alert_payload)
+
+    # ------------------------------------------------------
+    # Upstream Cloud Relay (Non-blocking background sync)
+    # ------------------------------------------------------
+    background_tasks.add_task(
+        sync_event_to_cloud,
+        runtime_message,
+    )
+    if alert_info and "alert_payload" in locals():
+        background_tasks.add_task(
+            sync_alert_to_cloud,
+            alert_payload,
+        )
 
     return {
         "success":

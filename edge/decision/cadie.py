@@ -596,30 +596,45 @@ class CADIE:
             if any(k in lbl_lower for k in ["fire", "chainsaw", "drill", "jackhammer"]):
                 score = min(score, 0.50)
 
-        # Undetected events should never become a high-risk
-        # decision simply because of contextual factors.
+        # Physical Smoke / Gas Anomaly evaluation
+        has_smoke = mq2_val >= 400 or mq2_v >= 0.50 or (gas_factor >= 0.35)
+        has_heat = temp_val >= 38.0 or (humidity_val <= 30.0 and temp_val >= 34.0)
+
+        # Undetected events should not become high-risk UNLESS physical smoke/fire is detected
         if not event.detected:
-            score *= 0.35
+            if has_smoke:
+                # Elevate risk directly due to physical sensor corroboration of combustion smoke
+                smoke_ratio = min(1.0, max(0.55, mq2_v / 1.8 if mq2_v > 0 else mq2_val / 1200.0))
+                score = max(score, min(0.96, 0.72 + 0.24 * smoke_ratio))
+            else:
+                score *= 0.35
 
         score = self._clamp(score)
         risk_level = self._risk_level(score)
-        action = self._recommended_action(
-            risk_level,
-            event,
-            battery_percent,
-        )
+
+        if has_smoke:
+            risk_level = "CRITICAL" if (mq2_v >= 1.2 or mq2_val >= 1000 or has_heat) else "HIGH"
+            action = "DISPATCH_RANGERS_SMOKE_ALERT"
+            requires_attention = True
+        else:
+            action = self._recommended_action(
+                risk_level,
+                event,
+                battery_percent,
+            )
 
         # --------------------------------------------------
         # Attention
         # --------------------------------------------------
 
-        requires_attention = (
-            event.detected
-            and (
-                risk_level in {"HIGH", "CRITICAL"}
-                or (confidence >= 0.80 and priority >= self.high_priority)
+        if not has_smoke:
+            requires_attention = (
+                event.detected
+                and (
+                    risk_level in {"HIGH", "CRITICAL"}
+                    or (confidence >= 0.80 and priority >= self.high_priority)
+                )
             )
-        )
 
         # --------------------------------------------------
         # Explainable factors
@@ -650,6 +665,8 @@ class CADIE:
                 "Environmental context increases event significance."
             )
 
+        if has_smoke:
+            factors.append(f"🔥 PHYSICAL SENSOR ALERT: MQ-2 sensor detected active smoke/combustible gas ({int(mq2_val)} ADC / {mq2_v:.3f}V).")
         if fire_multimodal_confirmed:
             factors.append(f"[FIRE] Multimodal Corroboration: Fire crackle acoustics verified with DHT11 ({temp_val:.1f}C, {humidity_val:.1f}% RH) & MQ-2/MQ-135 Gas/Smoke ({mq2_v:.2f}V).")
         elif is_gas_active and gas_summary:
@@ -674,7 +691,7 @@ class CADIE:
                     "Battery level is reduced."
                 )
 
-        if not event.detected:
+        if not event.detected and not has_smoke:
 
             factors.append(
                 "Event did not pass the adaptive "
@@ -685,7 +702,13 @@ class CADIE:
         # Reason
         # --------------------------------------------------
 
-        if not event.detected:
+        if has_smoke:
+
+            reason = (
+                f"Active smoke / combustible gas anomaly confirmed by MQ-2 sensor ({int(mq2_val)} ADC, {mq2_v:.2f}V). Immediate field inspection recommended."
+            )
+
+        elif not event.detected:
 
             reason = (
                 "The event was not considered "
