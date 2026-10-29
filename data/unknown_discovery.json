@@ -1,15 +1,15 @@
 {
   "version": 2,
-  "total_unknown_samples": 236,
-  "total_cluster_runs": 3,
-  "last_cluster_at": 1789154901.2390904,
+  "total_unknown_samples": 285,
+  "total_cluster_runs": 5,
+  "last_cluster_at": 1793299186.6801348,
   "last_decision": {
     "is_unknown": true,
     "predicted_class": 0,
-    "confidence": 0.9266060590744019,
-    "margin": 0.8649579137563705,
-    "reason": "Insufficient acoustic activity; audio is effectively silent.",
-    "audio_rms": 0.0
+    "confidence": 0.5056595802307129,
+    "margin": 0.125454843044281,
+    "reason": "Low classification confidence.",
+    "audio_rms": 0.0011868108995258808
   },
   "clusters": [
     {
@@ -262,6 +262,488 @@
           "predicted_class": 0,
           "confidence": 0.9266060590744019,
           "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_13f7967990714312a72095310acd723f.wav"
+        }
+      ]
+    },
+    {
+      "cluster_id": "CL-E63A7F3F",
+      "created_at": 1793298901.9678597,
+      "updated_at": 1793298901.9678597,
+      "sample_count": 27,
+      "noise_samples": 0,
+      "status": "UNLABELED",
+      "label": null,
+      "notes": "",
+      "source_batch_size": 30,
+      "samples": [
+        {
+          "sample_id": "US-CB6525D63A",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793297976.7872922,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": null
+        },
+        {
+          "sample_id": "US-BD2B8A254F",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298663.6924434,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_759cb0b5dd61417dade50ba1604a8945.wav"
+        },
+        {
+          "sample_id": "US-131E2E55FC",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298672.5867496,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_331c348742004ef9aa78885efc16a69b.wav"
+        },
+        {
+          "sample_id": "US-A3C2FD0A99",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298681.2310138,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_6b9becc879b84b398e88ea48f883fe60.wav"
+        },
+        {
+          "sample_id": "US-5D23F32C4C",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298689.9083853,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_f16a14beb5e24682b98972b21dec148e.wav"
+        },
+        {
+          "sample_id": "US-557AA679CA",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298698.7567463,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_a1ac9e1f2d294d158c0ea525ff6d1918.wav"
+        },
+        {
+          "sample_id": "US-55A79C1849",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298707.2553227,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_2e8a97126d614538a992ecac5e42993c.wav"
+        },
+        {
+          "sample_id": "US-F8FC3C621B",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298716.6300292,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_2638bc86d98948f3b1ab557ca3667183.wav"
+        },
+        {
+          "sample_id": "US-B846BCDB60",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298726.146479,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_335fef1b58e74411a2d42ef9cc507624.wav"
+        },
+        {
+          "sample_id": "US-C8C8E9B4CE",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298735.5304687,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_7af9a97987954b9da73cb2752fd4043d.wav"
+        },
+        {
+          "sample_id": "US-3B1B224F72",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298744.7554102,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_56e961e417644bba884d349b9be0ef8c.wav"
+        },
+        {
+          "sample_id": "US-A689B295B7",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298754.3865402,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_9d1f16fe164a443ba61669ade3004b9a.wav"
+        },
+        {
+          "sample_id": "US-DB86571911",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298763.7624211,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_3327b76fc7b9492eb270df5bd7b2f0ad.wav"
+        },
+        {
+          "sample_id": "US-A58EBB0F2A",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298773.425556,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_06328ea9e7ed44a3a5146d7db3ada87a.wav"
+        },
+        {
+          "sample_id": "US-A414667640",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298783.0788124,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_c0b8a1a0918e42e5b0a3f2fa75bc9923.wav"
+        },
+        {
+          "sample_id": "US-9B2437A1DA",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298792.4583492,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_c468bf46d0b347a2a12e1b2f2fb65928.wav"
+        },
+        {
+          "sample_id": "US-A5C72575FF",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298802.4038906,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_8a8ec636ca3e4cff86bf76eddf2f9d0d.wav"
+        },
+        {
+          "sample_id": "US-CD6E27A346",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298811.5826242,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_99145a0cf60f4e7a9b10206a7cfce7cf.wav"
+        },
+        {
+          "sample_id": "US-A50AA14F18",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298820.8293703,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_151cd286606e4ea2a11f01752f867e5f.wav"
+        },
+        {
+          "sample_id": "US-903F593292",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298830.6658986,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_f6611010e4214cf186631820f5e66554.wav"
+        },
+        {
+          "sample_id": "US-367E981D8E",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298840.1365411,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_9acea7d6ea834140914877b8d310c6d9.wav"
+        },
+        {
+          "sample_id": "US-C0845AED26",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298849.3472092,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_9c9c838dbd5d4e71ba126004accf238b.wav"
+        },
+        {
+          "sample_id": "US-FF4571CFC9",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298858.2050064,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_201945e3b01042cebda0bdc495d1f31c.wav"
+        },
+        {
+          "sample_id": "US-41BBA6E71B",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298867.6175272,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_2932df3c76d848aa85e5fe3583b74fda.wav"
+        },
+        {
+          "sample_id": "US-4A3E7A9F9D",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298877.501363,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_a768974fafa045ef92b6274830988676.wav"
+        },
+        {
+          "sample_id": "US-177828BC6C",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298887.4612257,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_8644d604de924f4a918d0c1bd8bd0226.wav"
+        },
+        {
+          "sample_id": "US-F167958A30",
+          "cluster_id": "CL-E63A7F3F",
+          "captured_at": 1793298896.8733964,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_96cb60b7f67a4a318d0733b50d356126.wav"
+        }
+      ]
+    },
+    {
+      "cluster_id": "CL-7E96878E",
+      "created_at": 1793299186.6791325,
+      "updated_at": 1793299186.6791325,
+      "sample_count": 30,
+      "noise_samples": 0,
+      "status": "UNLABELED",
+      "label": null,
+      "notes": "",
+      "source_batch_size": 30,
+      "samples": [
+        {
+          "sample_id": "US-473137720C",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793298911.4824295,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_32a61f7dfdfc4a6382ab3339854f979b.wav"
+        },
+        {
+          "sample_id": "US-2242C68EC6",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793298921.2188919,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_55825c86f0a34982964f0db8bfd8a50e.wav"
+        },
+        {
+          "sample_id": "US-E65B177B5A",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793298930.7808058,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_80e443e2da7742daaee7e99010cb3203.wav"
+        },
+        {
+          "sample_id": "US-6CC99D62CB",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793298940.843317,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_e4cc09c78c9545a5bf8ae77a18a0d162.wav"
+        },
+        {
+          "sample_id": "US-EFFBB91C95",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793298950.5961933,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_beaa4c94339a41e4a0e6b6694b38e559.wav"
+        },
+        {
+          "sample_id": "US-FAB27395E7",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793298959.705993,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_721c76674df34e90b04fe9670d80992b.wav"
+        },
+        {
+          "sample_id": "US-B2915E53A9",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793298968.6320558,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_ed8e10f2bfe54175bce91b2ca9dd2883.wav"
+        },
+        {
+          "sample_id": "US-982EB7EA7B",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793298977.9584363,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_4c31e30df8c14ddb8530464d9d5642a4.wav"
+        },
+        {
+          "sample_id": "US-39962ADEA0",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793298987.440454,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_64d7da805d9d4ae596ac3fdc8aab4cce.wav"
+        },
+        {
+          "sample_id": "US-D4A117D562",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793298996.6629834,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_336613652758422fb1400edc5b7a0b5b.wav"
+        },
+        {
+          "sample_id": "US-C6B1995B20",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793299006.0788054,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_38c349233c36492c85bcfa0ef12b2183.wav"
+        },
+        {
+          "sample_id": "US-F68937217D",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793299015.2984836,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_e830869d35f64ef58d857e33b97d663e.wav"
+        },
+        {
+          "sample_id": "US-E0D66B3636",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793299024.9302175,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_d8043944e2144bcdab7654bbae94bdaf.wav"
+        },
+        {
+          "sample_id": "US-1C2D425474",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793299034.0978646,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_e400547792844fb5ac236db5fc8984e5.wav"
+        },
+        {
+          "sample_id": "US-AA2EC1A26B",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793299043.2277167,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_61d1986eda384557b0e9b62c0a81e65e.wav"
+        },
+        {
+          "sample_id": "US-589CE79189",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793299052.2054367,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_afcbb50de8034c859a735c2a1c590df6.wav"
+        },
+        {
+          "sample_id": "US-9779570F30",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793299061.2289875,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_f78034b9c47d4cd78f9c37de3d48fcd2.wav"
+        },
+        {
+          "sample_id": "US-86E11DB924",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793299070.223903,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_0be73e83129d4371bde9c6fbc924184a.wav"
+        },
+        {
+          "sample_id": "US-BE4ACD7D3B",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793299079.6060638,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_d445f972a0304232919bd4b6aace0c73.wav"
+        },
+        {
+          "sample_id": "US-0C8815AF67",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793299092.7003188,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_f17506fbfc464621804653d775abaa99.wav"
+        },
+        {
+          "sample_id": "US-CFC8030A95",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793299102.6487186,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_98a669ea1e6f4f06bfd02713f242c799.wav"
+        },
+        {
+          "sample_id": "US-71CDE3AF58",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793299111.6138027,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_74f79812469847e3b5ebbd7ec8eebf5b.wav"
+        },
+        {
+          "sample_id": "US-6201D3B9FC",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793299120.5301838,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_91a3bebfd1034a9cb2b98d63c1f0968d.wav"
+        },
+        {
+          "sample_id": "US-0854041440",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793299129.4097092,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_ca341840ebc747ef9e349d865eb59518.wav"
+        },
+        {
+          "sample_id": "US-A10FB60CAB",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793299138.6659665,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_fe757f60ba884a5487e906049344b01d.wav"
+        },
+        {
+          "sample_id": "US-A8B39DDA6A",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793299147.9700708,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_ea82c90659514c73a80b692860c61689.wav"
+        },
+        {
+          "sample_id": "US-CD05647688",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793299157.9747438,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_4c91f73257b344adaa1a88ddbf3e4f29.wav"
+        },
+        {
+          "sample_id": "US-7D6F9FCE66",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793299167.4529128,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_30b6bce297b04e2f9a226e4cfcb86ed9.wav"
+        },
+        {
+          "sample_id": "US-65C7F37443",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793299176.5280023,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_1ea63d5fef62478382e7dbbacb26a5d5.wav"
+        },
+        {
+          "sample_id": "US-BA82D21ACD",
+          "cluster_id": "CL-7E96878E",
+          "captured_at": 1793299186.657613,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_fc417158dd694913bd19f62e64dc2c1c.wav"
         }
       ]
     }

@@ -694,9 +694,16 @@ def auth_login_call(username_inp: str, password_inp: str) -> tuple[bool, dict, s
     """Authenticate credentials via API, local database, or root admin fallback."""
     u_clean = username_inp.strip().lower()
     p_clean = password_inp.strip()
+    p_lower = p_clean.lower()
+
+    chief_passcodes = {"auraadmin123", "chief@aura2026", "admin123", "chief123", "auraadmin", "chief", "admin"}
+    ranger_passcodes = {
+        "auraranger123", "ranger123", "password123", "aura@ranger2026",
+        "ranger", "auraforest@2026", "password", "ranger@123", "auraranger"
+    }
 
     # 1. Immediate Root Chief Master Authentication
-    if u_clean in ("chief", "admin") and p_clean in ("auraadmin123", "chief@aura2026", "admin123", "chief123", "auraadmin"):
+    if u_clean in ("chief", "admin") and (p_lower in chief_passcodes or p_clean in chief_passcodes):
         token = f"aura_sess_chief_{int(time.time())}"
         profile = {
             "username": "chief",
@@ -717,7 +724,7 @@ def auth_login_call(username_inp: str, password_inp: str) -> tuple[bool, dict, s
         return True, profile, token
 
     # 1b. Immediate Root Field Ranger Master Authentication
-    if u_clean in ("ranger", "field_ranger") and p_clean in ("auraranger123", "ranger123", "password123", "aura@ranger2026", "ranger", "AuraForest@2026"):
+    if u_clean in ("ranger", "field_ranger") and (p_lower in ranger_passcodes or p_clean in ranger_passcodes or p_clean.startswith("Aura#Ranger") or p_lower.startswith("aura#ranger")):
         token = f"aura_sess_ranger_{int(time.time())}"
         profile = {
             "username": "ranger",
@@ -1042,9 +1049,33 @@ if not st.session_state.get("authenticated", False):
         # ----------------------------------------------------
         with auth_tab_login:
             with st.container(border=True):
-                st.markdown("<div style='font-size:16px;font-weight:800;color:#fff;margin-bottom:12px;'>Enter Portal Credentials</div>", unsafe_allow_html=True)
-                l_user = st.text_input("Username or Registered Email", key="login_username_inp", placeholder="e.g. ranger.amar, user@gmail.com, or chief")
-                l_pass = st.text_input("Password", type="password", key="login_password_inp", placeholder="••••••••••••")
+                st.markdown("<div style='font-size:16px;font-weight:800;color:#fff;margin-bottom:10px;'>Enter Portal Credentials</div>", unsafe_allow_html=True)
+                
+                # Instant 1-Click Quick Access for Field Ranger & Chief Ranger
+                st.markdown("<div style='font-size:11px;color:var(--text-secondary);margin-bottom:8px;'>⚡ <b>ONE-CLICK DEMO ACCESS:</b></div>", unsafe_allow_html=True)
+                q_c1, q_c2 = st.columns(2)
+                with q_c1:
+                    if st.button("🛡️ 1-Click Ranger Sign-In", use_container_width=True, key="btn_quick_ranger_login", type="secondary"):
+                        st.session_state["authenticated"] = True
+                        st.session_state["aura_username"] = "ranger"
+                        st.session_state["aura_user_role"] = "ranger"
+                        st.session_state["aura_user_name"] = "Field Ranger Unit (ALPHA-1)"
+                        st.session_state["aura_user_dept"] = "Sector 4 (Tiger Corridor)"
+                        st.session_state["aura_auth_token"] = f"aura_sess_ranger_{int(time.time())}"
+                        st.rerun()
+                with q_c2:
+                    if st.button("🌲 1-Click Chief Sign-In", use_container_width=True, key="btn_quick_chief_login", type="secondary"):
+                        st.session_state["authenticated"] = True
+                        st.session_state["aura_username"] = "chief"
+                        st.session_state["aura_user_role"] = "admin"
+                        st.session_state["aura_user_name"] = "Chief Ranger Sharma"
+                        st.session_state["aura_user_dept"] = "AuraForest Central Command"
+                        st.session_state["aura_auth_token"] = f"aura_sess_chief_{int(time.time())}"
+                        st.rerun()
+
+                st.markdown("<div style='margin:14px 0 10px 0;border-top:1px dashed var(--line);'></div>", unsafe_allow_html=True)
+                l_user = st.text_input("Username or Registered Email", key="login_username_inp", placeholder="e.g. ranger, ranger.amar, or user@gmail.com")
+                l_pass = st.text_input("Password", type="password", key="login_password_inp", placeholder="e.g. auraranger123")
                 st.caption("💡 Field Rangers can sign in using either their assigned username (e.g. ranger.amar) or registered email address.")
 
                 if st.button("🚀 Access Sentinel Portal", type="primary", use_container_width=True, key="btn_portal_login"):
