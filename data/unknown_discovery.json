@@ -1,15 +1,15 @@
 {
   "version": 2,
-  "total_unknown_samples": 205,
+  "total_unknown_samples": 236,
   "total_cluster_runs": 3,
   "last_cluster_at": 1789154901.2390904,
   "last_decision": {
     "is_unknown": true,
-    "predicted_class": 10,
-    "confidence": 0.5131911635398865,
-    "margin": 0.026454925537109375,
-    "reason": "Low classification confidence.",
-    "audio_rms": 0.003432548139244318
+    "predicted_class": 0,
+    "confidence": 0.9266060590744019,
+    "margin": 0.8649579137563705,
+    "reason": "Insufficient acoustic activity; audio is effectively silent.",
+    "audio_rms": 0.0
   },
   "clusters": [
     {

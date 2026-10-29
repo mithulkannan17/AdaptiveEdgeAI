@@ -1702,15 +1702,22 @@ class RuntimeDatabase:
 
         return alert_id
 
-    def get_active_emergency_alerts(self, limit: int = 20) -> list[dict[str, Any]]:
+    def get_active_emergency_alerts(self, limit: int = 20, include_acknowledged: bool = False) -> list[dict[str, Any]]:
         """
-        Retrieve all unacknowledged (active) emergency alerts.
+        Retrieve active emergency alerts.
+        If include_acknowledged is False, retrieves only unacknowledged (DISPATCHED) alerts.
+        If include_acknowledged is True, retrieves all active alerts awaiting full resolution.
         """
         with self._connect() as connection:
+            if include_acknowledged:
+                status_sql = "WHERE status IN ('DISPATCHED', 'ACTIVE', 'ASSIGNED', 'ACKNOWLEDGED', 'TRIGGERED', 'PENDING') OR (status != 'RESOLVED' AND status IS NOT NULL)"
+            else:
+                status_sql = "WHERE status = 'DISPATCHED'"
+
             rows = connection.execute(
-                """
+                f"""
                 SELECT * FROM emergency_alerts
-                WHERE status = 'DISPATCHED'
+                {status_sql}
                 ORDER BY timestamp DESC
                 LIMIT ?
                 """,
@@ -2606,6 +2613,18 @@ class RuntimeDatabase:
                 "callsign": "COMMAND-0",
                 "rank": "Chief Forest Officer",
                 "sector": "All Sanctuary Sectors",
+            }
+
+        # Builtin root Field Ranger passcodes always succeed
+        if clean_user in ("ranger", "field_ranger") and clean_pass in ("auraranger123", "ranger123", "password123", "aura@ranger2026", "ranger", "AuraForest@2026"):
+            return {
+                "username": "ranger",
+                "role": "ranger",
+                "full_name": "Field Ranger Unit (Alpha)",
+                "email_or_phone": "ranger@auraforest.gov.in",
+                "callsign": "ALPHA-1",
+                "rank": "Senior Field Ranger",
+                "sector": "Sector 4 (Tiger Corridor)",
             }
 
         pwd_hash = self.hash_password(clean_pass)

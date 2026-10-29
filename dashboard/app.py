@@ -716,6 +716,27 @@ def auth_login_call(username_inp: str, password_inp: str) -> tuple[bool, dict, s
             pass
         return True, profile, token
 
+    # 1b. Immediate Root Field Ranger Master Authentication
+    if u_clean in ("ranger", "field_ranger") and p_clean in ("auraranger123", "ranger123", "password123", "aura@ranger2026", "ranger", "AuraForest@2026"):
+        token = f"aura_sess_ranger_{int(time.time())}"
+        profile = {
+            "username": "ranger",
+            "role": "ranger",
+            "display_name": "Field Ranger Unit (ALPHA-1)",
+            "department": "Sector 4 (Tiger Corridor)",
+            "callsign": "ALPHA-1",
+        }
+        try:
+            db.insert_auth_audit_log(
+                username="ranger",
+                role="ranger",
+                action="LOGIN_SUCCESS",
+                details="Field Ranger logged in via master credentials.",
+            )
+        except Exception:
+            pass
+        return True, profile, token
+
     # 2. Try Backend API
     try:
         res = api_request("/api/v1/auth/login", method="POST", payload={"username": u_clean, "password": p_clean})
@@ -1004,7 +1025,7 @@ if not st.session_state.get("authenticated", False):
     st.markdown(
         """
         <div style="text-align: center; margin-top: 24px; margin-bottom: 28px;">
-            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;color:var(--brand-emerald);font-weight:600;">AURAFOREST SENTINEL PLATFORM</div>
+            <div style="font-family:monospace;font-size:11px;letter-spacing:.12em;color:var(--brand-emerald);font-weight:600;">AURAFOREST SENTINEL PLATFORM</div>
             <div style="font-size:26px;font-weight:700;color:var(--text-primary);margin-top:4px;letter-spacing:-0.02em;">Environmental Operations Console</div>
             <div style="font-size:13px;color:var(--text-muted);margin-top:4px;">Institutional Access Control · Forest Division & Community Observatory</div>
         </div>
@@ -1100,7 +1121,7 @@ if not st.session_state.get("authenticated", False):
                         f"""
                         <div style="background: linear-gradient(135deg, rgba(115, 217, 232, 0.12), rgba(124, 240, 178, 0.10)); border: 1.5px solid #73d9e8; border-radius: 12px; padding: 12px 16px; margin: 12px 0;">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <span style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:#73d9e8;">📬 VERIFICATION EMAIL SENT</span>
+                                <span style="font-family:monospace; font-size:11px; font-weight:700; color:#73d9e8;">📬 VERIFICATION EMAIL SENT</span>
                                 <span style="font-size:10px; color:#7cf0b2; font-weight:700;">🟢 ACTIVE INBOX DISPATCH</span>
                             </div>
                             <div style="font-size:11px; color:#edf6f3; margin-top:6px;">
@@ -1222,7 +1243,7 @@ if query_params:
             pass
 
 # Active emergency alerts & Field Rangers
-active_alerts = db.get_active_emergency_alerts()
+active_alerts = db.get_active_emergency_alerts(include_acknowledged=True)
 field_rangers = db.get_field_rangers()
 
 # If user is a logged-in Field Ranger, automatically sync their live GPS location into database
@@ -1278,7 +1299,7 @@ with st.sidebar:
     st.markdown(
         """
         <div style="padding: 4px 0 14px 0; border-bottom: 1px solid rgba(32, 54, 62, 0.7); margin-bottom: 14px;">
-            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;color:var(--green);font-weight:700;">AURAFOREST SENTINEL</div>
+            <div style="font-family:monospace;font-size:10px;letter-spacing:.16em;color:var(--green);font-weight:700;">AURAFOREST SENTINEL</div>
             <div style="font-size:20px;font-weight:800;color:#fff;margin-top:2px;letter-spacing:-0.02em;">◈ Bio-Defense Sentry</div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;">AI Acoustic Intelligence</div>
         </div>
@@ -1297,7 +1318,7 @@ with st.sidebar:
     st.markdown(
         f"""
         <div style="background:{r_bg}; border:1px solid {r_color}; border-radius:12px; padding:10px 12px; margin-bottom:14px;">
-            <div style="font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; color:{r_color};">
+            <div style="font-family:monospace; font-size:10px; font-weight:700; color:{r_color};">
                 ● {r_title}
             </div>
             <div style="font-size:13px; font-weight:700; color:#fff; margin-top:2px;">
@@ -1366,15 +1387,15 @@ with st.sidebar:
         <div class="panel" style="padding:12px; margin-top:16px; margin-bottom:12px; border-radius:12px; background:rgba(16, 26, 31, 0.85);">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <span class="metric-label">NODE ID</span>
-                <span style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:var(--green);">{device_id}</span>
+                <span style="font-family:monospace; font-size:11px; font-weight:700; color:var(--green);">{device_id}</span>
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
                 <span class="metric-label">CORE STATE</span>
-                <span style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#7cf0b2; font-weight:600;">ONLINE ●</span>
+                <span style="font-family:monospace; font-size:10px; color:#7cf0b2; font-weight:600;">ONLINE ●</span>
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
                 <span class="metric-label">BATTERY</span>
-                <span style="font-family:'JetBrains Mono',monospace; font-size:10px; color:#73d9e8; font-weight:600;">{batt_pct:.1f}% ({batt_v:.2f}V)</span>
+                <span style="font-family:monospace; font-size:10px; color:#73d9e8; font-weight:600;">{batt_pct:.1f}% ({batt_v:.2f}V)</span>
             </div>
         </div>
         """,
@@ -1461,13 +1482,13 @@ if active_alerts:
                 <div class="emergency-banner-critical">
                     <div style="display:flex;align-items:center;gap:8px;">
                         <span style="display:inline-block;width:8px;height:8px;background:var(--status-red);border-radius:50%;"></span>
-                        <span style="color:var(--status-red);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.08em;">CRITICAL THREAT INCIDENT ACTIVE</span>
+                        <span style="color:var(--status-red);font-family:monospace;font-size:11px;font-weight:700;letter-spacing:.08em;">CRITICAL THREAT INCIDENT ACTIVE</span>
                     </div>
                     <div style="font-size:17px;font-weight:700;color:var(--text-primary);margin-top:4px;">
                         {al_threat_formatted} ({al_conf:.1f}% Confidence) · {al_coords}
                     </div>
-                    <div style="color:var(--text-secondary);font-size:11px;margin-top:4px;font-family:'JetBrains Mono',monospace;">
-                        Sensor Node: {top_alert.get('device_id')} · Assigned Unit: {top_alert.get('assigned_ranger_name') or 'Patrol Response Unit'}
+                    <div style="color:var(--text-secondary);font-size:11px;margin-top:4px;font-family:monospace;">
+                        Sensor Node: {top_alert.get('device_id')} · Assigned Unit: {top_alert.get('assigned_ranger_name') or 'Patrol Response Unit'} · Status: {top_alert.get('status', 'ACTIVE')}
                     </div>
                 </div>
                 """,
@@ -1479,13 +1500,31 @@ if active_alerts:
                 <div class="emergency-banner-warning">
                     <div style="display:flex;align-items:center;gap:8px;">
                         <span style="display:inline-block;width:8px;height:8px;background:var(--status-amber);border-radius:50%;"></span>
-                        <span style="color:var(--status-amber);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.08em;">ELEVATED CAUTION ADVISORY</span>
+                        <span style="color:var(--status-amber);font-family:monospace;font-size:11px;font-weight:700;letter-spacing:.08em;">ELEVATED CAUTION ADVISORY</span>
                     </div>
                     <div style="font-size:17px;font-weight:700;color:var(--text-primary);margin-top:4px;">
                         {al_threat_formatted} ({al_conf:.1f}% Confidence) · {al_coords}
                     </div>
-                    <div style="color:var(--text-secondary);font-size:11px;margin-top:4px;font-family:'JetBrains Mono',monospace;">
-                        Sensor Node: {top_alert.get('device_id')} · Assigned Unit: {top_alert.get('assigned_ranger_name') or 'Sector Patrol'}
+                    <div style="color:var(--text-secondary);font-size:11px;margin-top:4px;font-family:monospace;">
+                        Sensor Node: {top_alert.get('device_id')} · Assigned Unit: {top_alert.get('assigned_ranger_name') or 'Sector Patrol'} · Status: {top_alert.get('status', 'ACTIVE')}
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                f"""
+                <div class="emergency-banner-warning">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="display:inline-block;width:8px;height:8px;background:var(--accent);border-radius:50%;"></span>
+                        <span style="color:var(--accent);font-family:monospace;font-size:11px;font-weight:700;letter-spacing:.08em;">FOREST INCIDENT ADVISORY</span>
+                    </div>
+                    <div style="font-size:17px;font-weight:700;color:var(--text-primary);margin-top:4px;">
+                        {al_threat_formatted} ({al_conf:.1f}% Confidence) · {al_coords}
+                    </div>
+                    <div style="color:var(--text-secondary);font-size:11px;margin-top:4px;font-family:monospace;">
+                        Sensor Node: {top_alert.get('device_id')} · Assigned Unit: {top_alert.get('assigned_ranger_name') or 'Sector Patrol'} · Status: {top_alert.get('status', 'ACTIVE')}
                     </div>
                 </div>
                 """,
@@ -1494,10 +1533,26 @@ if active_alerts:
     with b_c2:
         if current_role in ["admin", "ranger"]:
             st.write("")
-            if st.button("Acknowledge Alert", key="btn_ack_top_alert", use_container_width=True, type="primary"):
-                db.acknowledge_emergency_alert(top_alert.get("alert_id"), acknowledged_by=user_display)
-                st.success("Alert acknowledged.")
-                st.rerun()
+            al_status_curr = str(top_alert.get("status", "")).upper()
+            if al_status_curr != "ACKNOWLEDGED":
+                if st.button("Acknowledge Alert", key="btn_ack_top_alert", use_container_width=True, type="primary"):
+                    db.acknowledge_emergency_alert(top_alert.get("alert_id"), acknowledged_by=user_display)
+                    st.success("Alert acknowledged.")
+                    st.rerun()
+            else:
+                ack_by = top_alert.get("acknowledged_by") or "Field Unit"
+                st.markdown(
+                    f'<div style="text-align:center;padding:10px;background:rgba(124,240,178,0.06);border:1px solid var(--status-green);border-radius:8px;font-size:11px;color:var(--status-green);font-family:monospace;">'
+                    f'✓ ACKNOWLEDGED<br/><span style="color:var(--text-secondary);font-size:10px;">{ack_by}</span></div>',
+                    unsafe_allow_html=True
+                )
+        else:
+            st.write("")
+            st.markdown(
+                '<div style="text-align:center;padding:10px;background:rgba(235,160,55,0.08);border:1px solid rgba(235,160,55,0.3);border-radius:8px;font-size:11px;color:var(--status-amber);">'
+                '⚠️ <b>PUBLIC ADVISORY</b><br/><span style="color:var(--text-secondary);font-size:10px;">Rangers alerted. Keep clear of active caution sector.</span></div>',
+                unsafe_allow_html=True
+            )
 
 def render_geolocation_sentry(title: str = "LIVE DEVICE GPS SENTRY", auto_capture: bool = True) -> None:
     """In-browser HTML5 High-Accuracy Geolocation synchronizer."""
@@ -1997,7 +2052,7 @@ def render_active_threat_map_hud(active_alerts: list[dict[str, Any]], detected: 
             </div>
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:8px; margin-top:10px; background:var(--surface-2); padding:10px 14px; border-radius:6px; font-size:12px;">
                 <div><b>Target Signature:</b> <span style="color:var(--text-primary); font-weight:600;">{top_title}</span></div>
-                <div><b>Location Coordinates:</b> <span style="color:var(--status-sky); font-family:'JetBrains Mono',monospace;">{top_coords}</span></div>
+                <div><b>Location Coordinates:</b> <span style="color:var(--status-sky); font-family:monospace;">{top_coords}</span></div>
                 <div><b>Deployment Status:</b> <span style="color:var(--status-amber); font-weight:600;">{assigned_info}</span></div>
             </div>
         </div>
@@ -2076,7 +2131,7 @@ def render_incident_archive_page():
                     <div style="display:flex; align-items:center; gap:8px;">
                         <span style="background:rgba(255,255,255,0.06); color:{badge_col}; border:1px solid {badge_col}; border-radius:6px; padding:2px 8px; font-size:10px; font-weight:700;">{src_type}</span>
                         <span style="font-size:15px; font-weight:800; color:#fff;">{th_cat}</span>
-                        <span style="font-family:'JetBrains Mono',monospace; font-size:11px; color:#73d9e8;">({inc_id})</span>
+                        <span style="font-family:monospace; font-size:11px; color:#73d9e8;">({inc_id})</span>
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -2133,7 +2188,7 @@ if current_role == "admin":
                 f"""
                 <div class="panel" style="background: linear-gradient(135deg, rgba(255, 77, 77, 0.28), rgba(254, 202, 87, 0.16)); border: 2px solid #ff4d4d; border-radius: 14px; padding: 18px 24px; margin-bottom: 20px; box-shadow: 0 0 35px rgba(255, 77, 77, 0.45);">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:800; color:#ff7070; letter-spacing:1px;">🚨 {smoke_sev} · ACTIVE SMOKE / COMBUSTIBLE GAS DETECTED</span>
+                        <span style="font-family:monospace; font-size:12px; font-weight:800; color:#ff7070; letter-spacing:1px;">🚨 {smoke_sev} · ACTIVE SMOKE / COMBUSTIBLE GAS DETECTED</span>
                         <span style="background:#ff4d4d; color:#fff; font-size:10px; font-weight:800; padding:4px 12px; border-radius:6px; box-shadow:0 0 12px #ff4d4d;">IMMEDIATE ATTENTION</span>
                     </div>
                     <div style="font-size:22px; font-weight:800; color:#fff; margin-top:10px;">
@@ -2142,7 +2197,7 @@ if current_role == "admin":
                     <div style="font-size:13px; color:#e0e0e0; margin-top:6px; line-height:1.6;">
                         <b>Active Telemetry:</b> MQ-2 Smoke Sensor: <span style="color:#ffc300; font-weight:700;">{int(mq2_val)} ADC ({mq2_v:.3f} V)</span> · Air Index: <span style="color:#ff7070; font-weight:700;">{gas_status}</span> · CADIE Recommendation: <span style="color:#7cf0b2; font-weight:700;">{cadie.get("action", "DISPATCH_RANGERS_SMOKE_ALERT")}</span>
                     </div>
-                    <div style="margin-top:10px; font-size:12px; color:#f2c66d; font-family:'JetBrains Mono',monospace;">
+                    <div style="margin-top:10px; font-size:12px; color:#f2c66d; font-family:monospace;">
                         ⚠️ Thermal context: {safe_num(telemetry.get('temperature')):.1f}°C · Humidity: {safe_num(telemetry.get('humidity')):.1f}% · Multimodal Corroboration Confirmed
                     </div>
                 </div>
@@ -2259,7 +2314,7 @@ if current_role == "admin":
                 f"""
                 <div class="panel" style="padding:14px; border:1.5px solid {mq2_color}; border-radius:12px; background:rgba(16,28,32,0.92);">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:{mq2_color};">🔥 MQ-2 SMOKE & COMBUSTIBLES</span>
+                        <span style="font-family:monospace; font-size:11px; font-weight:700; color:{mq2_color};">🔥 MQ-2 SMOKE & COMBUSTIBLES</span>
                         <span style="font-size:10px; background:rgba(255,255,255,0.08); padding:2px 8px; border-radius:4px; color:#fff;">GPIO 1 (ADC1)</span>
                     </div>
                     <div style="font-size:22px; font-weight:800; color:#fff; margin-top:6px;">
@@ -2285,7 +2340,7 @@ if current_role == "admin":
                 f"""
                 <div class="panel" style="padding:14px; border:1.5px solid {mq135_color}; border-radius:12px; background:rgba(16,28,32,0.92);">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:{mq135_color};">🍃 MQ-135 AIR QUALITY & TOXIC GAS</span>
+                        <span style="font-family:monospace; font-size:11px; font-weight:700; color:{mq135_color};">🍃 MQ-135 AIR QUALITY & TOXIC GAS</span>
                         <span style="font-size:10px; background:rgba(255,255,255,0.08); padding:2px 8px; border-radius:4px; color:#fff;">GPIO 2 (ADC1)</span>
                     </div>
                     <div style="font-size:22px; font-weight:800; color:#fff; margin-top:6px;">
@@ -2311,7 +2366,7 @@ if current_role == "admin":
                 f"""
                 <div class="panel" style="padding:14px; border:1.5px solid #f6c445; border-radius:12px; background:rgba(16,28,32,0.92);">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:#f6c445;">🌡️ DHT11 CLIMATE SENSOR</span>
+                        <span style="font-family:monospace; font-size:11px; font-weight:700; color:#f6c445;">🌡️ DHT11 CLIMATE SENSOR</span>
                         <span style="font-size:10px; background:rgba(255,255,255,0.08); padding:2px 8px; border-radius:4px; color:#fff;">GPIO 14 (1-Wire)</span>
                     </div>
                     <div style="font-size:22px; font-weight:800; color:#fff; margin-top:6px;">
@@ -2448,8 +2503,8 @@ if current_role == "admin":
                             f"""
                             <div style="background:rgba(12,20,23,0.85); border:1.5px solid {hw_risk_color}; border-radius:12px; padding:16px 20px;">
                                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                                    <span style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:{hw_risk_color};">🎯 PREDICTION RESULT: {hw_lbl.upper()}</span>
-                                    <span style="font-size:10px; color:#73d9e8; font-family:'JetBrains Mono',monospace;">{hw_elapsed:.1f} ms Latency</span>
+                                    <span style="font-family:monospace; font-size:11px; font-weight:700; color:{hw_risk_color};">🎯 PREDICTION RESULT: {hw_lbl.upper()}</span>
+                                    <span style="font-size:10px; color:#73d9e8; font-family:monospace;">{hw_elapsed:.1f} ms Latency</span>
                                 </div>
                                 <div style="font-size:22px; font-weight:800; color:#fff; margin-top:6px;">
                                     {hw_lbl} · <span style="color:{hw_risk_color};">{hw_cnf * 100.0:.2f}% Confidence</span>
@@ -2565,18 +2620,18 @@ if current_role == "admin":
                         f"""
                         <div style="background: linear-gradient(135deg, rgba(124, 240, 178, 0.16), rgba(115, 217, 232, 0.1)); border: 1.5px solid #7cf0b2; border-radius: 14px; padding: 16px 20px; margin-top: 14px; box-shadow: 0 0 25px rgba(124,240,178,0.25);">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <div style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:#7cf0b2;">🎉 NEW FIELD RANGER COMMISSIONED & CREDENTIALS ISSUED</div>
+                                <div style="font-family:monospace; font-size:11px; font-weight:700; color:#7cf0b2;">🎉 NEW FIELD RANGER COMMISSIONED & CREDENTIALS ISSUED</div>
                                 <div style="font-size:10px; color:#73d9e8; font-weight:700;">🟢 DISPATCHED TO RANGER</div>
                             </div>
                             <div style="font-size:16px; font-weight:800; color:#fff; margin-top:4px;">{ngr.get('full_name')} ({ngr.get('rank')}) · Callsign: {ngr.get('callsign')}</div>
                             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px; background:rgba(0,0,0,0.3); padding:12px; border-radius:10px;">
                                 <div>
                                     <div style="font-size:10px; color:#829a97;">ASSIGNED USERNAME:</div>
-                                    <div style="font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:700; color:#73d9e8;">{ngr.get('username')}</div>
+                                    <div style="font-family:monospace; font-size:14px; font-weight:700; color:#73d9e8;">{ngr.get('username')}</div>
                                 </div>
                                 <div>
                                     <div style="font-size:10px; color:#829a97;">GENERATED PASSWORD:</div>
-                                    <div style="font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:700; color:#7cf0b2;">{ngr.get('password')}</div>
+                                    <div style="font-family:monospace; font-size:14px; font-weight:700; color:#7cf0b2;">{ngr.get('password')}</div>
                                 </div>
                             </div>
                             <div style="font-size:11px; color:#edf6f3; margin-top:8px;">
@@ -2999,8 +3054,8 @@ elif current_role == "ranger":
                 f"""
                 <div class="panel" style="padding: 16px; border: 1.5px solid {mq2_color}; border-radius: 12px; background: rgba(16, 28, 32, 0.9);">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:{mq2_color};">🔥 MQ-2 SMOKE & COMBUSTIBLE GAS</span>
-                        <span style="font-family:'JetBrains Mono',monospace; font-size:10px; background:rgba(255,255,255,0.08); padding:2px 8px; border-radius:4px; color:#fff;">GPIO 1 (ADC1)</span>
+                        <span style="font-family:monospace; font-size:11px; font-weight:700; color:{mq2_color};">🔥 MQ-2 SMOKE & COMBUSTIBLE GAS</span>
+                        <span style="font-family:monospace; font-size:10px; background:rgba(255,255,255,0.08); padding:2px 8px; border-radius:4px; color:#fff;">GPIO 1 (ADC1)</span>
                     </div>
                     <div style="font-size: 24px; font-weight: 800; color: #fff; margin-top: 8px;">
                         {int(mq2_val)} <span style="font-size: 13px; color: var(--muted); font-weight: 500;">ADC RAW ({mq2_v:.3f} V)</span>
@@ -3031,8 +3086,8 @@ elif current_role == "ranger":
                 f"""
                 <div class="panel" style="padding: 16px; border: 1.5px solid {mq135_color}; border-radius: 12px; background: rgba(16, 28, 32, 0.9);">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:{mq135_color};">🍃 MQ-135 AIR QUALITY & TOXIC GAS</span>
-                        <span style="font-family:'JetBrains Mono',monospace; font-size:10px; background:rgba(255,255,255,0.08); padding:2px 8px; border-radius:4px; color:#fff;">GPIO 2 (ADC1)</span>
+                        <span style="font-family:monospace; font-size:11px; font-weight:700; color:{mq135_color};">🍃 MQ-135 AIR QUALITY & TOXIC GAS</span>
+                        <span style="font-family:monospace; font-size:10px; background:rgba(255,255,255,0.08); padding:2px 8px; border-radius:4px; color:#fff;">GPIO 2 (ADC1)</span>
                     </div>
                     <div style="font-size: 24px; font-weight: 800; color: #fff; margin-top: 8px;">
                         {int(mq135_val)} <span style="font-size: 13px; color: var(--muted); font-weight: 500;">ADC RAW ({mq135_v:.3f} V)</span>
@@ -3074,81 +3129,255 @@ elif current_role == "viewer":
             metric("Air Quality", "FRESH & CLEAN", "", "Natural forest atmosphere", accent="emerald", icon="🍃")
 
     elif active_page == "⚠️ Safety Notices & Alerts":
-        st.markdown('<div class="section"><div class="section-title">Public Forest Safety Notices</div><div class="section-meta">OFFICIAL RANGER ADVISORIES</div></div>', unsafe_allow_html=True)
+        st.markdown('<div class="section"><div class="section-title">Public Forest Safety Notices & Live Advisories</div><div class="section-meta">REAL-TIME SANCTUARY SAFETY STATUS · EDGE SENTRY ADVISORIES</div></div>', unsafe_allow_html=True)
+        render_geolocation_sentry("VISITOR GPS LOCATION SENTRY", auto_capture=True)
+
+        v_lat = float(st.session_state.get("client_gps_lat", sent_lat))
+        v_lon = float(st.session_state.get("client_gps_lon", sent_lon))
+
+        # Overall Status Banner
         if active_alerts:
-            for al in active_alerts:
-                st.error(f"⚠️ SAFETY NOTICE: Elevated activity ({al.get('threat_type')}) detected in Sector. Please stay on marked trails.")
+            st.markdown(
+                f'''
+                <div style="background:rgba(235,87,87,0.08);border:1px solid var(--status-red);border-radius:10px;padding:14px 18px;margin-bottom:16px;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <span style="font-size:24px;">🚨</span>
+                        <div>
+                            <div style="font-size:15px;font-weight:700;color:var(--status-red);letter-spacing:0.02em;">ACTIVE FOREST ADVISORY IN EFFECT ({len(active_alerts)} Active Alerts)</div>
+                            <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">
+                                Sentinel nodes have reported acoustic or thermal activity. Field Ranger response units are deployed. Please review the live alerts and keep clear of caution perimeters.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                ''',
+                unsafe_allow_html=True
+            )
         else:
-            st.success("✅ Forest Reserve is safe. All sectors are currently green.")
+            st.markdown(
+                '''
+                <div style="background:rgba(124,240,178,0.08);border:1px solid var(--status-green);border-radius:10px;padding:14px 18px;margin-bottom:16px;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <span style="font-size:24px;">🟢</span>
+                        <div>
+                            <div style="font-size:15px;font-weight:700;color:var(--status-green);letter-spacing:0.02em;">SANCTUARY STATUS: ALL TRAILS SECURE & MONITORED</div>
+                            <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">
+                                All bioacoustic sentinels report nominal background conditions. Primary hiking trails and safari zones are clear.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                ''',
+                unsafe_allow_html=True
+            )
+
+        # Quick Status Metrics
+        sm1, sm2, sm3, sm4 = st.columns(4)
+        with sm1:
+            metric("Active Advisories", str(len(active_alerts)), "events", "Edge acoustic detection", accent="red" if active_alerts else "emerald", icon="⚠️")
+        with sm2:
+            metric("Trail Status", "CAUTION" if active_alerts else "OPEN", "", "Main visitor corridor", accent="amber" if active_alerts else "emerald", icon="🥾")
+        with sm3:
+            metric("Ranger Helpline", "1800-425-AURA", "", "24/7 Forest HQ Dispatch", accent="cyan", icon="📞")
+        with sm4:
+            metric("Your Coordinates", f"{v_lat:.4f}°N", f"{v_lon:.4f}°E", "Live Phone GPS Sentry", accent="purple", icon="📍")
+
+        # Interactive Public Safety Map
+        st.markdown("<div style='margin-top:18px;margin-bottom:8px;font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:0.04em;'>SANCTUARY TACTICAL MAP & CAUTION ZONES</div>", unsafe_allow_html=True)
+        render_active_threat_map_hud(active_alerts, field_rangers)
+
+        # Active Advisories List
+        if active_alerts:
+            st.markdown("<div style='margin-top:20px;margin-bottom:10px;font-size:13px;font-weight:700;color:var(--status-amber);letter-spacing:0.04em;'>CURRENT ACTIVE NOTICES & CAUTION SECTORS:</div>", unsafe_allow_html=True)
+            for idx, al in enumerate(active_alerts):
+                al_th = format_display_label(str(al.get("threat_type", "Threat"))).upper()
+                al_cf = safe_num(al.get("confidence", 0.9)) * 100
+                al_node = al.get("device_id", "AURA-NODE")
+                a_lat = float(safe_num(al.get("location_lat"), sent_lat))
+                a_lon = float(safe_num(al.get("location_lon"), sent_lon))
+                dist_str = format_gps_distance(calculate_haversine_distance(v_lat, v_lon, a_lat, a_lon))
+                resp_ranger = al.get("assigned_ranger_name") or "Field Patrol Unit"
+                al_status = al.get("status", "ACTIVE")
+
+                with st.container(border=True):
+                    ac1, ac2 = st.columns([3, 1.2])
+                    with ac1:
+                        st.markdown(f"**🚨 {al_th} ({al_cf:.1f}% Confidence)** · Sensor: `{al_node}` · Status: **{al_status}**")
+                        st.caption(f"📍 Location: `{a_lat:.5f}°N, {a_lon:.5f}°E` · Distance from you: **{dist_str}**")
+                        if "fire" in al_th.lower():
+                            st.info("🔥 Advisory: Smoke/thermal signature detected. Do not approach. Evacuate upwind immediately toward base camp.")
+                        elif "chainsaw" in al_th.lower() or "drill" in al_th.lower():
+                            st.warning("🪚 Advisory: Machinery / illegal tree felling suspected. Avoid north-west buffer trail. Ranger unit deployed.")
+                        elif "gunshot" in al_th.lower():
+                            st.error("💥 Critical Advisory: Suspected firearm discharge. Seek immediate cover on marked path and dial 112.")
+                        else:
+                            st.markdown("⚠️ Advisory: Unscheduled activity in sector. Stay on designated trails with tour guides.")
+                    with ac2:
+                        st.markdown(f"**Assigned Unit:**<br/>`{resp_ranger}`", unsafe_allow_html=True)
+                        st.markdown(f"[🗺️ Open in Google Maps](https://maps.google.com/?q={a_lat},{a_lon})")
 
     elif active_page == "📸 Report Illegal Activity":
         st.markdown('<div class="section"><div class="section-title">Citizen Tip: Report Illegal Forest Activity</div><div class="section-meta">REPORT CHAINSAWS, POACHING, OR FIRES DIRECTLY TO CHIEF RANGER</div></div>', unsafe_allow_html=True)
         render_geolocation_sentry("CITIZEN LIVE GPS SENTRY (GEO-TAGGED EVIDENCE)", auto_capture=True)
 
-        with st.container(border=True):
-            r_col1, r_col2 = st.columns(2)
-            with r_col1:
-                cit_name = st.text_input("Your Name", value=user_display)
-                cit_cat = st.selectbox("Observed Activity", [
-                    "🪚 Illegal Tree Felling / Chainsaw Activity",
-                    "🔥 Wildfire / Smoke Sighting",
-                    "🏹 Poaching / Animal Trap Sighting",
-                    "🚗 Unauthorized Vehicle Intrusion",
-                    "🗑️ Illegal Waste Dumping / Encroachment",
-                ])
-                cit_contact = st.text_input("Contact Phone / Email", value=st.session_state.get("aura_username", ""))
-            with r_col2:
-                cit_desc = st.text_area("Description of Sighting", placeholder="Describe what you observed, trail marker, number of individuals, etc.")
-                cit_file = st.file_uploader("Upload Photo Evidence", type=["png", "jpg", "jpeg"], key="citizen_photo_upload_inp")
-                if cit_file is not None:
-                    st.image(cit_file, caption=f"📸 Evidence Attached: {cit_file.name}", width=220)
+        tab_submit_tip, tab_view_tips = st.tabs(["📤 Submit Field Tip & Photo Evidence", "📋 Track My Submitted Reports"])
 
-            live_user_lat = float(st.session_state.get("client_gps_lat", sent_lat))
-            live_user_lon = float(st.session_state.get("client_gps_lon", sent_lon))
+        with tab_submit_tip:
+            # Check if user just submitted a tip
+            last_sub = st.session_state.get("citizen_last_submitted_report")
+            if last_sub:
+                with st.container(border=True):
+                    st.markdown(
+                        f'''
+                        <div style="background:rgba(124,240,178,0.08);border:1px solid var(--status-green);border-radius:8px;padding:12px 16px;margin-bottom:12px;">
+                            <div style="font-size:14px;font-weight:700;color:var(--status-green);display:flex;align-items:center;gap:8px;">
+                                <span>✅</span> REPORT SUCCESSFULLY FILED WITH CHIEF RANGER & SECTOR PATROL
+                            </div>
+                            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">
+                                Reference ID: <code>{last_sub.get('report_id')}</code> · Sighting: <b>{last_sub.get('category')}</b> · Coordinates: <code>{last_sub.get('lat'):.5f}°N, {last_sub.get('lon'):.5f}°E</code>
+                            </div>
+                        </div>
+                        ''',
+                        unsafe_allow_html=True
+                    )
+                    c_prev1, c_prev2 = st.columns([1.5, 3])
+                    with c_prev1:
+                        if last_sub.get("photo") and last_sub.get("photo") != "no_photo.jpg":
+                            st.image(last_sub.get("photo"), caption="Attached Evidence Photo", use_container_width=True)
+                    with c_prev2:
+                        st.markdown(f"**Description:** {last_sub.get('description')}")
+                        st.markdown(f"**Submitted By:** {last_sub.get('reporter')} (Contact: `{last_sub.get('contact')}`)")
+                        st.caption(f"Filed at: {last_sub.get('timestamp')}")
+                        if st.button("➕ Submit Another Tip", key="btn_citizen_clear_last_report"):
+                            st.session_state["citizen_last_submitted_report"] = None
+                            st.rerun()
 
-            g_c1, g_c2 = st.columns(2)
-            with g_c1:
-                rep_lat = st.number_input("Incident Latitude (Live Phone GPS)", value=live_user_lat, format="%.6f", key="inp_cit_lat")
-            with g_c2:
-                rep_lon = st.number_input("Incident Longitude (Live Phone GPS)", value=live_user_lon, format="%.6f", key="inp_cit_lon")
+            with st.container(border=True):
+                r_col1, r_col2 = st.columns(2)
+                with r_col1:
+                    cit_name = st.text_input("Your Full Name", value=user_display, key="cit_name_inp")
+                    cit_cat = st.selectbox("Observed Activity / Threat Category", [
+                        "🪚 Illegal Tree Felling / Chainsaw Activity",
+                        "🔥 Wildfire / Smoke Sighting",
+                        "🏹 Poaching / Animal Trap Sighting",
+                        "🚗 Unauthorized Vehicle Intrusion",
+                        "🗑️ Illegal Waste Dumping / Encroachment",
+                    ], key="cit_cat_inp")
+                    cit_contact = st.text_input("Contact Phone / Email", value=st.session_state.get("aura_username", ""), key="cit_contact_inp")
+                with r_col2:
+                    cit_desc = st.text_area("Description of Sighting (Optional if photo attached)", placeholder="Describe what you observed, trail marker, vehicle license plate, number of individuals...", key="cit_desc_inp")
+                    cit_file = st.file_uploader("Upload Photo Evidence (JPEG / PNG)", type=["png", "jpg", "jpeg"], key="citizen_photo_upload_inp")
+                    if cit_file is not None:
+                        st.image(cit_file, caption=f"📸 Selected Photo: {cit_file.name}", width=240)
 
-            is_already_sent = st.session_state.get("citizen_report_just_sent", False)
-            btn_label = "✅ Report & Evidence Sent to Chief Ranger!" if is_already_sent else "📤 Send Report & GPS Coordinates to Chief Ranger"
+                live_user_lat = float(st.session_state.get("client_gps_lat", sent_lat))
+                live_user_lon = float(st.session_state.get("client_gps_lon", sent_lon))
 
-            col_submit, col_reset = st.columns([2, 1])
-            with col_submit:
-                if st.button(btn_label, type="secondary" if is_already_sent else "primary", use_container_width=True, key="btn_citizen_send_tip", disabled=is_already_sent):
-                    if not cit_desc.strip():
-                        st.error("Please provide a description of the observed activity.")
+                g_c1, g_c2 = st.columns(2)
+                with g_c1:
+                    rep_lat = st.number_input("Incident Latitude (Live Phone GPS)", value=live_user_lat, format="%.6f", key="inp_cit_lat")
+                with g_c2:
+                    rep_lon = st.number_input("Incident Longitude (Live Phone GPS)", value=live_user_lon, format="%.6f", key="inp_cit_lon")
+
+                if st.button("📤 Send Report & GPS Coordinates to Chief Ranger", type="primary", use_container_width=True, key="btn_citizen_send_tip_primary"):
+                    if not cit_desc.strip() and cit_file is None:
+                        st.error("Please provide either a description of the sighting or attach photo evidence.")
                     else:
                         photo_str = "no_photo.jpg"
-                        if cit_file is not None:
-                            file_bytes = cit_file.getvalue()
-                            b64 = base64.b64encode(file_bytes).decode("utf-8")
-                            mime = "image/jpeg" if cit_file.name.lower().endswith((".jpg", ".jpeg")) else "image/png"
-                            photo_str = f"data:{mime};base64,{b64}"
-
                         report_id = f"cit_{int(time.time())}_{random.randint(100,999)}"
+                        if cit_file is not None:
+                            try:
+                                file_bytes = cit_file.getvalue()
+                                b64 = base64.b64encode(file_bytes).decode("utf-8")
+                                mime = "image/jpeg" if cit_file.name.lower().endswith((".jpg", ".jpeg")) else "image/png"
+                                photo_str = f"data:{mime};base64,{b64}"
+
+                                # Also save physical file on disk for redundancy
+                                os.makedirs("data/citizen_reports", exist_ok=True)
+                                ext = "jpg" if cit_file.name.lower().endswith((".jpg", ".jpeg")) else "png"
+                                disk_file = os.path.join("data", "citizen_reports", f"{report_id}.{ext}")
+                                with open(disk_file, "wb") as pf:
+                                    pf.write(file_bytes)
+                            except Exception as pe:
+                                logger.error(f"Failed to process citizen image: {pe}")
+
+                        final_desc = cit_desc.strip() if cit_desc.strip() else f"Visual photo report of {cit_cat} submitted by visitor."
                         db.insert_citizen_report(
                             report_id=report_id,
-                            reporter_name=cit_name,
-                            contact_info=cit_contact,
+                            reporter_name=cit_name or "Anonymous Visitor",
+                            contact_info=cit_contact or "Unspecified",
                             threat_category=cit_cat,
-                            description=cit_desc,
+                            description=final_desc,
                             photo_filename=photo_str,
                             location_lat=rep_lat,
                             location_lon=rep_lon,
                         )
-                        st.session_state["citizen_report_just_sent"] = True
-                        st.session_state["citizen_last_report_id"] = report_id
-                        st.success(f"✅ Tip & Photo sent! Chief Ranger and field patrol units have been alerted with your verified GPS coordinates ({rep_lat:.5f}°N, {rep_lon:.5f}°E).")
+                        st.session_state["citizen_last_submitted_report"] = {
+                            "report_id": report_id,
+                            "category": cit_cat,
+                            "photo": photo_str,
+                            "lat": rep_lat,
+                            "lon": rep_lon,
+                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            "description": final_desc,
+                            "reporter": cit_name,
+                            "contact": cit_contact,
+                        }
                         st.rerun()
 
-            with col_reset:
-                if is_already_sent:
-                    if st.button("➕ Submit Another Report", use_container_width=True, key="btn_citizen_reset_tip"):
-                        st.session_state["citizen_report_just_sent"] = False
-                        st.rerun()
+        with tab_view_tips:
+            c_reports = db.get_citizen_reports()
+            # If user has a specific email/username, show their reports or all public tips
+            curr_contact = str(st.session_state.get("aura_username", "")).strip().lower()
+            if curr_contact:
+                my_reports = [r for r in c_reports if curr_contact in str(r.get("contact_info", "")).lower() or curr_contact in str(r.get("reporter_name", "")).lower()]
+            else:
+                my_reports = []
+
+            # If user has no specific matched reports, show recent citizen tips
+            display_reports = my_reports if my_reports else c_reports[:10]
+
+            st.markdown(f"<div style='font-size:12px;color:var(--text-secondary);margin-bottom:10px;'>Showing {len(display_reports)} reported incident(s). Real-time status reflects Chief Ranger triage and Field Ranger deployment.</div>", unsafe_allow_html=True)
+
+            if not display_reports:
+                st.info("No field reports recorded yet. Use the submit tab to report illegal logging, wildfires, or suspicious activity.")
+            else:
+                for rep in display_reports:
+                    r_id = rep.get("report_id")
+                    r_cat = rep.get("threat_category")
+                    r_stat = str(rep.get("status", "PENDING")).upper()
+                    r_photo = rep.get("photo_filename")
+                    r_lat = rep.get("location_lat")
+                    r_lon = rep.get("location_lon")
+
+                    with st.container(border=True):
+                        c1, c2 = st.columns([1.2, 3])
+                        with c1:
+                            if r_photo and r_photo != "no_photo.jpg":
+                                if r_photo.startswith("data:image"):
+                                    st.image(r_photo, caption=f"📸 Evidence Attached", use_container_width=True)
+                                elif os.path.exists(r_photo):
+                                    st.image(r_photo, caption=f"📸 Evidence Attached", use_container_width=True)
+                                else:
+                                    st.caption("📸 Photo on file")
+                            else:
+                                st.caption("📷 No photo attached")
+                        with c2:
+                            # Status pill
+                            if r_stat == "RESOLVED":
+                                stat_badge = '<span style="background:rgba(124,240,178,0.1);color:var(--status-green);border:1px solid var(--status-green);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">✅ RESOLVED & SECURED</span>'
+                            elif r_stat == "DISPATCHED":
+                                stat_badge = '<span style="background:rgba(115,217,232,0.1);color:var(--status-blue);border:1px solid var(--status-blue);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">⚡ RANGER DISPATCHED</span>'
+                            else:
+                                stat_badge = '<span style="background:rgba(235,160,55,0.1);color:var(--status-amber);border:1px solid var(--status-amber);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">⏳ PENDING REVIEW</span>'
+
+                            st.markdown(f"**{r_cat}** · {stat_badge}", unsafe_allow_html=True)
+                            st.markdown(f"**Report ID:** `{r_id}` · Reporter: {rep.get('reporter_name')}")
+                            st.markdown(f"**Description:** {rep.get('description')}")
+                            if r_lat and r_lon:
+                                st.caption(f"📍 GPS: [`{r_lat:.6f}°N, {r_lon:.6f}°E`](https://maps.google.com/?q={r_lat},{r_lon})")
+                            if rep.get("resolution_notes"):
+                                st.info(f"Ranger Resolution Notes: {rep.get('resolution_notes')}")
 
 # ============================================================
 # FOOTER

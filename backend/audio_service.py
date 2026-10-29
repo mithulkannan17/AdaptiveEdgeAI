@@ -1369,10 +1369,14 @@ class AudioInferenceService:
         current_label_lower = current_label_clean.lower()
         threat_classes = {
             "emergencyvehicle", "siren", "chainsaw", "gunshot",
-            "fire", "drill", "jackhammer", "explosion", "poaching"
+            "fire", "drill", "jackhammer", "explosion", "poaching",
+            "vehicle", "truck", "car", "engine", "motorcycle",
+            "human", "speech", "voice", "footsteps", "conversation"
         }
 
-        if audio_rms < 0.0040 and any(t in current_label_lower for t in threat_classes):
+        # Any low-energy background audio (RMS < 0.012) is ambient forest silence / room noise,
+        # preventing false positive threat alerts when no actual sound is around.
+        if audio_rms < 0.012 and any(t in current_label_lower for t in threat_classes):
             prediction = PredictionResult(
                 label="Ambient",
                 class_id=0,
@@ -1380,12 +1384,12 @@ class AudioInferenceService:
                 top_k=[("Ambient", 0.96), (current_label_clean, 0.04)],
                 inference_time_ms=getattr(prediction, "inference_time_ms", 0.0),
             )
-        elif audio_rms < 0.010 and ("emergencyvehicle" in current_label_lower or "siren" in current_label_lower):
+        elif audio_rms < 0.018 and ("emergencyvehicle" in current_label_lower or "siren" in current_label_lower or "vehicle" in current_label_lower):
             prediction = PredictionResult(
                 label="Ambient",
                 class_id=0,
                 confidence=0.92,
-                top_k=[("Ambient", 0.92), ("EmergencyVehicle", 0.08)],
+                top_k=[("Ambient", 0.92), (current_label_clean, 0.08)],
                 inference_time_ms=getattr(prediction, "inference_time_ms", 0.0),
             )
 
