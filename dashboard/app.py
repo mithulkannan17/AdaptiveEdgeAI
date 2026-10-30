@@ -152,7 +152,7 @@ def format_display_label(raw_label: str) -> str:
 
 # Real-time auto-refresh across all portals (Chief, Ranger, and Citizens)
 if st_autorefresh is not None:
-    st_autorefresh(interval=2500, key="aura_live_refresh")
+    st_autorefresh(interval=1000, key="aura_live_refresh")
 
 # ============================================================
 # DESIGN SYSTEM & MOBILE RESPONSIVE CSS
@@ -1361,8 +1361,9 @@ with st.sidebar:
         v_siren_nav = db.get_active_public_siren()
         if v_siren_nav:
             safe_nav_label = "🚨 Safety Notices & Siren (ACTIVE)"
-        elif active_alerts:
-            safe_nav_label = f"⚠️ Safety Notices & Alerts ({len(active_alerts)} Active)"
+        elif [a for a in active_alerts if is_citizen_danger_threat(a.get("threat_type", ""))]:
+            cit_d_count = len([a for a in active_alerts if is_citizen_danger_threat(a.get("threat_type", ""))])
+            safe_nav_label = f"⚠️ Safety Notices & Alerts ({cit_d_count} Active)"
         else:
             safe_nav_label = "⚠️ Safety Notices & Alerts"
 
@@ -1565,9 +1566,32 @@ if active_siren:
                 st.success("Public siren deactivated and silenced.")
                 st.rerun()
 
+def is_citizen_danger_threat(threat_type: str) -> bool:
+    """
+    Returns True ONLY if threat causes direct physical danger to citizens/visitors:
+    - Fire, Wildfire, Smoke, Combustion
+    - Dangerous Animals/Predators (Tiger, Leopard, Elephant, Bear, Predator, Animal Intrusion, Venomous)
+    - Sanctuary-wide Public Emergency Siren
+    Excludes law-enforcement/internal forest concerns (chainsaws, drills, logging, poaching gear, vehicles, etc.)
+    """
+    th = str(threat_type).lower()
+    if any(k in th for k in ["fire", "wildfire", "smoke", "combustion", "flame", "thermal"]):
+        return True
+    if any(k in th for k in ["animal", "predator", "tiger", "leopard", "elephant", "bear", "carnivore", "wildlife danger", "lion"]):
+        return True
+    if any(k in th for k in ["siren", "evacuate", "evacuation", "public emergency"]):
+        return True
+    return False
+
+# For public visitors/citizens, only alert for direct danger (Fire & Dangerous Animals & Siren)
+if current_role == "viewer":
+    display_alerts = [a for a in active_alerts if is_citizen_danger_threat(a.get("threat_type", ""))]
+else:
+    display_alerts = active_alerts
+
 # Active alert notification banner
-if active_alerts:
-    top_alert = active_alerts[0]
+if display_alerts:
+    top_alert = display_alerts[0]
     al_threat_raw = str(top_alert.get("threat_type", "Threat")).strip()
     al_threat_lower = al_threat_raw.lower()
     al_threat_formatted = format_display_label(al_threat_raw).upper()
@@ -3690,13 +3714,14 @@ elif current_role == "ranger":
 elif current_role == "viewer":
     if "Forest Climate" in active_page:
         st.markdown('<div class="section"><div class="section-title">Live Forest Environmental Readings</div><div class="section-meta">PUBLIC REAL-TIME CLIMATE AND AIR QUALITY</div></div>', unsafe_allow_html=True)
-        if active_alerts:
+        cit_clim_danger = [a for a in active_alerts if is_citizen_danger_threat(a.get("threat_type", ""))]
+        if cit_clim_danger:
             st.markdown(
                 f'''
                 <div style="background:rgba(235,87,87,0.12);border:1.5px solid var(--status-red);border-radius:10px;padding:12px 16px;margin-bottom:14px;">
-                    <div style="font-size:14px;font-weight:700;color:var(--status-red);">⚠️ ACTIVE FOREST ADVISORY IN EFFECT ({len(active_alerts)} Active Alerts)</div>
+                    <div style="font-size:14px;font-weight:700;color:var(--status-red);">⚠️ ACTIVE LIFE-SAFETY ADVISORY ({len(cit_clim_danger)} Active Danger Events)</div>
                     <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">
-                        Field patrol response units are deployed in the sanctuary. Switch to the <b>Safety Notices & Alerts</b> tab for live coordinates, caution perimeters, and safety advisories.
+                        Active Fire or Dangerous Animal sighting reported in sanctuary. Switch to the <b>Safety Notices & Alerts</b> tab for live coordinates, caution perimeters, and safety advisories.
                     </div>
                 </div>
                 ''',
@@ -3742,8 +3767,11 @@ elif current_role == "viewer":
             )
             render_siren_audio_synthesizer(is_active=True, threat_label="PUBLIC SIREN")
 
+        # Filter danger alerts for status banner
+        cit_danger_alerts = [a for a in active_alerts if is_citizen_danger_threat(a.get("threat_type", ""))]
+
         # Overall Status Banner
-        if active_alerts:
+        if cit_danger_alerts:
             st.markdown(
                 f'''
                 <div style="background:rgba(235,87,87,0.08);border:1px solid var(--status-red);border-radius:10px;padding:14px 18px;margin-bottom:16px;">
@@ -3793,10 +3821,13 @@ elif current_role == "viewer":
         st.markdown("<div style='margin-top:18px;margin-bottom:8px;font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:0.04em;'>SANCTUARY TACTICAL MAP & CAUTION ZONES</div>", unsafe_allow_html=True)
         render_active_threat_map_hud(active_alerts, detected=False, cadie={}, label='Public Caution Zone', sent_lat=v_lat, sent_lon=v_lon, conf_val=0.95)
 
+        # Filter alerts for citizen life-safety: Fire, Dangerous Animals, and Siren ONLY
+        cit_danger_alerts = [a for a in active_alerts if is_citizen_danger_threat(a.get("threat_type", ""))]
+
         # Active Advisories List
-        if active_alerts:
-            st.markdown("<div style='margin-top:20px;margin-bottom:10px;font-size:13px;font-weight:700;color:var(--status-amber);letter-spacing:0.04em;'>CURRENT ACTIVE NOTICES & CAUTION SECTORS:</div>", unsafe_allow_html=True)
-            for idx, al in enumerate(active_alerts):
+        if cit_danger_alerts:
+            st.markdown("<div style='margin-top:20px;margin-bottom:10px;font-size:13px;font-weight:700;color:var(--status-red);letter-spacing:0.04em;'>🚨 ACTIVE LIFE-SAFETY NOTICES (FIRE & DANGEROUS ANIMALS):</div>", unsafe_allow_html=True)
+            for idx, al in enumerate(cit_danger_alerts):
                 al_th = format_display_label(str(al.get("threat_type", "Threat"))).upper()
                 al_cf = safe_num(al.get("confidence", 0.9)) * 100
                 al_node = al.get("device_id", "AURA-NODE")
@@ -3828,14 +3859,12 @@ elif current_role == "viewer":
                         st.markdown(f"**🚨 {al_th} ({al_cf:.1f}% Confidence)** · Sensor: `{al_node}` · Status: **{al_status}**")
                         st.markdown(f"⏱️ **Incident Time:** `{al_time_s}` · <span style='background:rgba(242,198,109,0.2);color:#f2c66d;font-size:11px;padding:2px 6px;border-radius:4px;font-weight:700;'>{al_rel_s}</span>", unsafe_allow_html=True)
                         st.caption(f"📍 Location: `{a_lat:.5f}°N, {a_lon:.5f}°E` · Distance from you: **{dist_str}**")
-                        if "fire" in al_th.lower():
-                            st.info("🔥 Advisory: Smoke/thermal signature detected. Do not approach. Evacuate upwind immediately toward base camp.")
-                        elif "chainsaw" in al_th.lower() or "drill" in al_th.lower():
-                            st.warning("🪚 Advisory: Machinery / illegal tree felling suspected. Avoid north-west buffer trail. Ranger unit deployed.")
-                        elif "gunshot" in al_th.lower():
-                            st.error("💥 Critical Advisory: Suspected firearm discharge. Seek immediate cover on marked path and dial 112.")
+                        if "fire" in al_th.lower() or "smoke" in al_th.lower():
+                            st.error("🔥 CRITICAL FIRE HAZARD: Active smoke/flame signature detected. Do not approach. Evacuate upwind immediately toward designated muster point.")
+                        elif any(k in al_th.lower() for k in ["animal", "predator", "tiger", "leopard", "elephant", "bear", "carnivore"]):
+                            st.warning("🐅 WILDLIFE DANGER ADVISORY: Dangerous animal / predator movement detected in sector. Move calmly to nearest watchtower or ranger post. Do not hike alone.")
                         else:
-                            st.markdown("⚠️ Advisory: Unscheduled activity in sector. Stay on designated trails with tour guides.")
+                            st.error("🚨 EMERGENCY ADVISORY: Sanctuary warning in effect. Follow sector patrol rangers toward designated safe muster points.")
                     with ac2:
                         st.markdown(f"**Assigned Unit:**<br/>`{resp_ranger}`", unsafe_allow_html=True)
                         st.markdown(f"[🗺️ Open in Google Maps](https://maps.google.com/?q={a_lat},{a_lon})")
