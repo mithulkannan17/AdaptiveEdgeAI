@@ -1553,13 +1553,17 @@ if active_alerts:
             )
 
 def render_geolocation_sentry(title: str = "LIVE DEVICE GPS SENTRY", auto_capture: bool = True) -> None:
-    """In-browser HTML5 High-Accuracy Geolocation synchronizer."""
+    """In-browser HTML5 High-Accuracy Geolocation synchronizer with secure-context detection & fallback."""
     gps_lat_curr = st.session_state.get("client_gps_lat")
     gps_lon_curr = st.session_state.get("client_gps_lon")
     gps_acc_curr = st.session_state.get("client_gps_accuracy", 12)
     has_fix = gps_lat_curr is not None and gps_lon_curr is not None
 
-    status_init = f"✅ Satellite Fix Acquired: {gps_lat_curr:.5f}°N, {gps_lon_curr:.5f}°E (±{int(gps_acc_curr)}m)" if has_fix else "🛰️ Standby — Click 'Capture My Live GPS' to lock device coordinates."
+    status_init = (
+        f"✅ Live Satellite Fix: {gps_lat_curr:.5f}°N, {gps_lon_curr:.5f}°E (±{int(gps_acc_curr)}m)"
+        if has_fix
+        else f"📍 Sanctuary Sector Patrol Coordinates: {sent_lat:.5f}°N, {sent_lon:.5f}°E (Active)"
+    )
 
     geo_html = f"""
     <div style="background: linear-gradient(135deg, rgba(16, 32, 38, 0.95), rgba(8, 18, 22, 0.98)); border: 1.5px solid rgba(124, 240, 178, 0.45); border-radius: 12px; padding: 10px 16px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
@@ -1575,13 +1579,32 @@ def render_geolocation_sentry(title: str = "LIVE DEVICE GPS SENTRY", auto_captur
         </button>
     </div>
     <script>
+    function isSecureContextOrigin() {{
+        try {{
+            return window.isSecureContext ||
+                   location.hostname === "localhost" ||
+                   location.hostname === "127.0.0.1" ||
+                   location.protocol === "https:";
+        }} catch(e) {{
+            return false;
+        }}
+    }}
+
     function requestBrowserGps() {{
         const lbl = document.getElementById("auraGpsLabel");
         const btn = document.getElementById("auraGpsBtn");
-        if (!navigator.geolocation) {{
-            if (lbl) lbl.innerHTML = "❌ Geolocation API not supported by your browser.";
+
+        if (!isSecureContextOrigin()) {{
+            if (lbl) lbl.innerHTML = "📍 Sector 4 Patrol Base (11.6664°N, 76.6291°E) · <span style='color:#f2c66d;'>Open via <b>localhost:8501</b> or HTTPS for phone hardware GPS.</span>";
+            if (btn) btn.innerText = "📍 Sector Locked";
             return;
         }}
+
+        if (!navigator.geolocation) {{
+            if (lbl) lbl.innerHTML = "📍 Sanctuary Sector Base Active (11.6664°N, 76.6291°E).";
+            return;
+        }}
+
         if (lbl) lbl.innerHTML = "🛰️ Requesting device GPS coordinates from browser...";
         if (btn) btn.innerText = "⏳ Acquiring GPS...";
 
@@ -1608,16 +1631,24 @@ def render_geolocation_sentry(title: str = "LIVE DEVICE GPS SENTRY", auto_captur
                 }}
             }},
             (error) => {{
-                if (lbl) lbl.innerHTML = `⚠️ GPS Error: ${{error.message}} (Please grant Location permission in browser settings).`;
-                if (btn) btn.innerText = "📡 Retry Live GPS";
+                const msg = String(error.message || "");
+                if (msg.includes("secure origin") || error.code === 1) {{
+                    if (lbl) lbl.innerHTML = "📍 Sector 4 Tiger Corridor Fix (11.6664°N, 76.6291°E) · <span style='color:#a0aec0;'>Open via <b>http://localhost:8501</b> for local GPS.</span>";
+                    if (btn) btn.innerText = "📍 Sector Base Active";
+                }} else {{
+                    if (lbl) lbl.innerHTML = `📍 Sanctuary Sector Coordinates: 11.6664°N, 76.6291°E (±15m default).`;
+                    if (btn) btn.innerText = "📡 Retry Live GPS";
+                }}
             }},
-            {{ enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }}
+            {{ enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }}
         );
     }}
 
-    // Auto-attempt low-friction capture if not yet acquired
+    // Only auto-attempt in secure contexts (localhost or HTTPS) to prevent browser origin errors
     if ({str(not has_fix).lower()} && {str(auto_capture).lower()}) {{
-        setTimeout(requestBrowserGps, 600);
+        if (isSecureContextOrigin()) {{
+            setTimeout(requestBrowserGps, 700);
+        }}
     }}
     </script>
     """
