@@ -1539,9 +1539,10 @@ if active_alerts:
                     f'✓ ACKNOWLEDGED<br/><span style="color:var(--text-secondary);font-size:10px;">{ack_by}</span></div>',
                     unsafe_allow_html=True
                 )
-                if current_role == "ranger":
-                    if st.button("✅ Mark Solved", key="btn_top_mark_solved_ranger", use_container_width=True, type="primary"):
-                        db.resolve_emergency_alert(top_alert.get("alert_id"), resolved_by=user_display, resolution_notes="Threat investigated on-site and perimeter secured by Field Ranger.")
+                if current_role in ["admin", "ranger"]:
+                    btn_label = "✅ Mark Threat as Solved" if current_role == "ranger" else "✅ Chief Resolution: Mark Threat Solved"
+                    if st.button(btn_label, key=f"btn_top_mark_solved_{current_role}", use_container_width=True, type="primary"):
+                        db.resolve_emergency_alert(top_alert.get("alert_id"), resolved_by=user_display, resolution_notes=f"Threat investigated and perimeter secured by {user_display}.")
                         st.success("Threat resolved and logged to Incident Archive!")
                         st.rerun()
         else:
@@ -2913,11 +2914,14 @@ SMTP_SSL=false
 
     elif "Citizen Reports Inbox" in active_page:
         st.markdown('<div class="section"><div class="section-title">Public Citizen Reports & Tips Inbox</div><div class="section-meta">CITIZEN TIPS · PHOTO EVIDENCE · TRIAGE & DISPATCH CONTROLS</div></div>', unsafe_allow_html=True)
-        c_reports = db.get_citizen_reports()
-        if not c_reports:
-            st.info("No citizen reports pending review.")
+        all_c_reports = db.get_citizen_reports()
+        pending_c_reports = [r for r in all_c_reports if str(r.get("status", "")).upper() != "RESOLVED"]
+        resolved_c_reports = [r for r in all_c_reports if str(r.get("status", "")).upper() == "RESOLVED"]
+
+        if not pending_c_reports:
+            st.success("🟢 No pending citizen tips. All public sightings have been addressed and resolved.")
         else:
-            for rep in c_reports:
+            for rep in pending_c_reports:
                 r_id = rep.get("report_id")
                 r_cat = rep.get("threat_category")
                 r_stat = str(rep.get("status", "PENDING")).upper()
@@ -2959,6 +2963,19 @@ SMTP_SSL=false
                                 st.rerun()
                         else:
                             st.caption(f"✅ Resolved by {rep.get('resolved_by') or 'Ranger Unit'}")
+
+        if resolved_c_reports:
+            with st.expander(f"📁 Archived & Resolved Citizen Reports ({len(resolved_c_reports)})", expanded=False):
+                r_rows = []
+                for rr in resolved_c_reports:
+                    r_rows.append({
+                        "REPORT ID": rr.get("report_id"),
+                        "THREAT CATEGORY": rr.get("threat_category"),
+                        "REPORTER": rr.get("reporter_name"),
+                        "RESOLVED BY": rr.get("resolved_by") or "Field Unit",
+                        "RESOLUTION NOTES": rr.get("resolution_notes") or "Verified clear",
+                    })
+                st.dataframe(r_rows, use_container_width=True, hide_index=True)
 
     elif active_page == "📜 Incident Archive & Resolution Logs":
         render_incident_archive_page()

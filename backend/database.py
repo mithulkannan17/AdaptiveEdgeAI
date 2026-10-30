@@ -2521,12 +2521,13 @@ class RuntimeDatabase:
             connection.commit()
 
     def _seed_default_alerts(self) -> None:
-        """Seed initial active emergency alerts if none active."""
+        """Seed initial active emergency alerts only once on completely blank database."""
         now_ts = time.time()
         now_iso = datetime.now(timezone.utc).isoformat()
         with self._connect() as connection:
+            # Check if ANY alerts already exist in table (even if RESOLVED)
             row = connection.execute(
-                "SELECT COUNT(*) as c FROM emergency_alerts WHERE status IN ('DISPATCHED', 'ACTIVE', 'ASSIGNED', 'ACKNOWLEDGED', 'TRIGGERED', 'PENDING')"
+                "SELECT COUNT(*) as c FROM emergency_alerts"
             ).fetchone()
             if row and row["c"] > 0:
                 return
@@ -2570,7 +2571,7 @@ class RuntimeDatabase:
             for a in default_alerts:
                 connection.execute(
                     """
-                    INSERT OR REPLACE INTO emergency_alerts (
+                    INSERT OR IGNORE INTO emergency_alerts (
                         alert_id, device_id, timestamp, threat_type, risk_level,
                         confidence, location_lat, location_lon, message,
                         channels_json, decision_json, status, created_at,
@@ -2583,12 +2584,13 @@ class RuntimeDatabase:
             connection.commit()
 
     def _seed_default_citizen_reports(self) -> None:
-        """Seed initial public citizen field reports if none pending."""
+        """Seed initial public citizen field reports only once on completely blank database."""
         now_ts = time.time()
         now_iso = datetime.now(timezone.utc).isoformat()
         with self._connect() as connection:
+            # Check if ANY citizen reports already exist in table (even if RESOLVED)
             row = connection.execute(
-                "SELECT COUNT(*) as c FROM citizen_reports WHERE status = 'PENDING'"
+                "SELECT COUNT(*) as c FROM citizen_reports"
             ).fetchone()
             if row and row["c"] > 0:
                 return
@@ -2628,7 +2630,7 @@ class RuntimeDatabase:
             for r in default_reports:
                 connection.execute(
                     """
-                    INSERT OR REPLACE INTO citizen_reports (
+                    INSERT OR IGNORE INTO citizen_reports (
                         report_id, timestamp, reporter_name, contact_info,
                         threat_category, description, photo_filename,
                         location_lat, location_lon, status, status_notes,
