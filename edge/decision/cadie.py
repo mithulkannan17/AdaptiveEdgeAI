@@ -547,9 +547,17 @@ class CADIE:
                 fire_multimodal_confirmed = True
 
         # Chainsaw / Logging Cross-Corroboration:
-        if any(k in lbl_lower for k in ["chainsaw", "drill", "jackhammer", "logging", "saw"]):
+        # Logging MUST be detected through voice / acoustics first.
+        # If vibration is detected while voice of logging/drilling is detected -> CONFIRM logging.
+        # Only vibration alone can mean earthquakes, tremors, wind sway, or ground movement -> do NOT confirm logging.
+        is_logging_voice = any(k in lbl_lower for k in ["chainsaw", "drill", "jackhammer", "logging", "saw", "tree felling", "felling"])
+        vibration_only_earthquake = False
+
+        if is_logging_voice:
             if vibration_latched:
                 chainsaw_multimodal_confirmed = True
+        elif vibration_latched:
+            vibration_only_earthquake = True
 
         # Base decision score with confidence primacy (>= 50% weight)
         if is_gas_active:
@@ -574,9 +582,12 @@ class CADIE:
         if fire_multimodal_confirmed:
             score = min(1.0, score + 0.18)
         elif chainsaw_multimodal_confirmed:
-            score = min(1.0, score + 0.15)
-        elif vibration_latched and priority >= self.high_priority:
-            score = min(1.0, score + 0.08)
+            # Confirmed illegal logging: voice acoustics + mechanical vibration
+            score = max(0.92, min(1.0, score + 0.22))
+        elif vibration_only_earthquake:
+            # Vibration alone does NOT confirm logging (indicative of earthquake tremor or wind).
+            # Keep score steady without elevating threat to logging alert.
+            pass
 
         # --------------------------------------------------
         # Confidence-First Guarantee:
@@ -673,9 +684,11 @@ class CADIE:
             factors.append(f"Hardware corroboration: {gas_summary}")
 
         if chainsaw_multimodal_confirmed:
-            factors.append("[LOGGING] Multimodal Corroboration: Chainsaw/Drill acoustic signature corroborated by SW-420 mechanical vibration.")
-        elif vibration_latched:
-            factors.append("Hardware corroboration: Vibration sensor triggered.")
+            factors.append("[CONFIRMED LOGGING] Multimodal Corroboration: Chainsaw/Drill acoustic voice confirmed with simultaneous SW-420 ground vibration.")
+        elif is_logging_voice:
+            factors.append("Acoustic Detection: Logging/Chainsaw voice detected without ground vibration (possible distant or airborne machinery).")
+        elif vibration_only_earthquake:
+            factors.append("ℹ️ Seismic / Environmental Ground Vibration: Mechanical vibration detected without logging acoustic voice (possible earthquake tremor, wind sway, or animal movement; logging not confirmed).")
 
         if battery_percent is not None:
 

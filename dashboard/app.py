@@ -2634,10 +2634,25 @@ if current_role == "admin":
                 unsafe_allow_html=True,
             )
             if has_unack and top_unack and current_role in ["admin", "ranger"]:
-                if st.button("⚡ Acknowledge Threat Alert", key="btn_cadie_ack_direct", use_container_width=True, type="primary"):
-                    db.acknowledge_emergency_alert(top_unack.get("alert_id"), acknowledged_by=user_display)
-                    st.success(f"CADIE Threat Alert acknowledged by {user_display}!")
-                    st.rerun()
+                c_btn1, c_btn2 = st.columns([1.5, 1.5])
+                with c_btn1:
+                    if st.button("⚡ Acknowledge Alert", key="btn_cadie_ack_direct", use_container_width=True, type="primary"):
+                        db.acknowledge_emergency_alert(top_unack.get("alert_id"), acknowledged_by=user_display)
+                        st.success(f"CADIE Threat Alert acknowledged by {user_display}!")
+                        st.rerun()
+                with c_btn2:
+                    is_s_on = bool(db.get_active_public_siren())
+                    if not is_s_on:
+                        if st.button("🚨 Broadcast Siren", key="btn_cadie_siren_start_chief", use_container_width=True, type="secondary"):
+                            db.activate_public_siren(activated_by=user_display, reason=f"CADIE Critical Threat: {top_unack.get('threat_type')}")
+                            st.success("Sanctuary emergency siren broadcast activated!")
+                            st.rerun()
+                    else:
+                        if st.button("🔕 Silence Siren", key="btn_cadie_siren_stop_chief", use_container_width=True):
+                            db.deactivate_public_siren(deactivated_by=user_display)
+                            st.session_state.pop("citizen_siren_muted", None)
+                            st.success("Public siren silenced.")
+                            st.rerun()
         with right:
             inference_ms = safe_num(prediction.get("inference_time_ms", event.get("inference_time_ms", 55.0)))
             env_type = environment.get("environment_type", "Temperate Forest Canopy")
@@ -3495,33 +3510,99 @@ SMTP_SSL=false
 
 elif current_role == "ranger":
     if active_page == "🚨 Incident & Citizen Response":
-        st.markdown('<div class="section"><div class="section-title">Active Threats & Citizen Incidents Response</div><div class="section-meta">LIVE SENTRY RADAR · FIELD PATROL DISPATCH · INCIDENT RESOLUTION</div></div>', unsafe_allow_html=True)
+        st.markdown('<div class="section"><div class="section-title">Active Threats & Citizen Incidents Response</div><div class="section-meta">CADIE MULTIMODAL RADAR · SIREN BROADCAST CONTROLS · FIELD PATROL DISPATCH</div></div>', unsafe_allow_html=True)
         render_geolocation_sentry("FIELD RANGER LIVE GPS TELEMETRY", auto_capture=True)
+
+        # ----------------------------------------------------
+        # 🚨 FIELD SIREN CONTROLS & CADIE MULTIMODAL RADAR HUD
+        # ----------------------------------------------------
+        r_sir_c1, r_sir_c2 = st.columns([2.8, 1.2])
+        with r_sir_c1:
+            st.markdown(
+                """
+                <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;">
+                    <span style="font-size:22px;">🚨</span>
+                    <div>
+                        <div style="font-size:13px;font-weight:700;color:#ff7070;">FIELD RANGER SIREN BROADCAST:</div>
+                        <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">
+                            Authorized for Field Rangers during direct hazards (wildfire, confirmed illegal logging, predator encounters) to warn and evacuate public visitors.
+                        </div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with r_sir_c2:
+            st.write("")
+            is_r_siren = bool(db.get_active_public_siren())
+            if not is_r_siren:
+                if st.button("🚨 Broadcast Siren to Public", key="btn_rng_start_siren_main", use_container_width=True, type="primary"):
+                    db.activate_public_siren(activated_by=f"Ranger {user_display}", reason=f"Field Emergency broadcast by Ranger {user_display}.")
+                    st.success("Sanctuary public emergency siren broadcast activated!")
+                    st.rerun()
+            else:
+                if st.button("🔕 Silence & Deactivate Siren", key="btn_rng_stop_siren_main", use_container_width=True):
+                    db.deactivate_public_siren(deactivated_by=f"Ranger {user_display}")
+                    st.session_state.pop("citizen_siren_muted", None)
+                    st.success("Public siren silenced and deactivated.")
+                    st.rerun()
+
+        # Render CADIE Multimodal Decision HUD for Rangers
+        render_active_threat_map_hud(active_alerts, detected, cadie, label, sent_lat, sent_lon, conf)
+
+        rcad_1, rcad_2 = st.columns([2.2, 1.8])
+        with rcad_1:
+            rg_risk = str(cadie.get("risk_level") or ("HIGH" if is_smoke_detected else "LOW")).upper()
+            rg_action = cadie.get("action") or ("DISPATCH_RANGERS_SMOKE_ALERT" if is_smoke_detected else "MONITOR")
+            rg_score = safe_num(cadie.get("score", 0.85 if is_smoke_detected else 0.20))
+            
+            # Logging & Vibration Cross-Corroboration
+            rg_vib = bool(telemetry.get("vibration_detected", False) or telemetry.get("vibration", False))
+            rg_is_logging = any(k in str(label).lower() for k in ["chainsaw", "drill", "jackhammer", "logging", "saw", "felling"])
+            if rg_is_logging and rg_vib:
+                rg_log_status = "🚨 CONFIRMED LOGGING (Voice + Vibration)"
+            elif rg_is_logging:
+                rg_log_status = "⚠️ ACOUSTIC VOICE DETECTED (No Vibration)"
+            elif rg_vib:
+                rg_log_status = "🌍 SEISMIC / TREMOR VIBRATION (No Logging Voice)"
+            else:
+                rg_log_status = "🟢 NOMINAL / CLEAR"
+
+            st.markdown(
+                f"""
+                <div class="panel" style="margin-top:10px; margin-bottom:12px;">
+                    <div class="panel-title">CADIE Triage Intelligence (Field Ranger Radar)</div>
+                    <div class="decision-box">
+                        <div class="kicker">CONTEXT-AWARE RISK LEVEL</div>
+                        <div class="decision-risk {status_class('FAILED' if rg_risk in ['HIGH','CRITICAL'] else ('WORKING' if rg_risk in ['LOW','MINIMAL'] else 'WARN'))}">{rg_risk}</div>
+                        <div class="decision-action" style="color:var(--green)">ACTION: {rg_action}</div>
+                    </div>
+                    {display_status("CADIE Context Score", f"{rg_score:.3f}")}
+                    {display_status("Logging / Seismic Triage", rg_log_status)}
+                    {display_status("Smoke / Fire Sensor", "🚨 ACTIVE SMOKE DETECTED" if is_smoke_detected else "🟢 NOMINAL / CLEAR")}
+                    {display_status("Primary Acoustic Voice", label)}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with rcad_2:
+            st.markdown(
+                f"""
+                <div class="panel" style="margin-top:10px; margin-bottom:12px;">
+                    <div class="panel-title">Field Sector Guidelines & Protocols</div>
+                    {display_status("Responding Ranger Callsign", f"{user_display}")}
+                    {display_status("GPS Patrol Fix", f"{sent_lat:.5f}°N, {sent_lon:.5f}°E")}
+                    {display_status("Earthquake / Tremor Protocol", "Vibration alone logged as seismic tremor; do not dispatch logging.")}
+                    {display_status("Illegal Logging Protocol", "Requires acoustic voice signature + simultaneous ground vibration.")}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
         # ----------------------------------------------------
         # 1. LIVE SENTINEL EDGE AI THREAT ALERTS
         # ----------------------------------------------------
-        st.markdown("<div style='font-size:14px;font-weight:700;color:#ff7070;margin-top:4px;margin-bottom:8px;'>📡 Active Sentinel Edge AI Threat Alerts:</div>", unsafe_allow_html=True)
-        
-        # Test alert trigger button for field rangers to verify system anytime
-        rg_sim_c1, rg_sim_c2 = st.columns([3, 1.2])
-        with rg_sim_c2:
-            if st.button("🧪 Trigger Test Sentry Alert", use_container_width=True, type="secondary", key="btn_ranger_sim_alert"):
-                sim_threat = random.choice(["Chainsaw", "Fire", "Gunshot", "Vehicle Intrusion"])
-                now_sim_ts = time.time()
-                db.insert_emergency_alert({
-                    "alert_id": f"alert_field_test_{int(now_sim_ts)}",
-                    "device_id": "AURA_SENTRY_NODE_01",
-                    "threat_type": sim_threat,
-                    "risk_level": "CRITICAL" if sim_threat in ["Chainsaw", "Fire", "Gunshot"] else "HIGH",
-                    "confidence": 0.94,
-                    "location_lat": sent_lat + 0.0015,
-                    "location_lon": sent_lon + 0.0018,
-                    "message": f"🚨 Field verification alert: {sim_threat} simulated by Ranger {user_display}.",
-                    "status": "DISPATCHED",
-                })
-                st.success(f"Dispatched test alert: {sim_threat}!")
-                st.rerun()
+        st.markdown("<div style='font-size:14px;font-weight:700;color:#ff7070;margin-top:10px;margin-bottom:8px;'>📡 Active Sentinel Edge AI Threat Alerts:</div>", unsafe_allow_html=True)
 
         if not active_alerts:
             st.success("🟢 No unacknowledged Sentinel edge alerts in your sector.")

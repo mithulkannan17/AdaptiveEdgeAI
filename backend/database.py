@@ -591,7 +591,7 @@ class RuntimeDatabase:
 
             try:
                 connection.execute(
-                    "DELETE FROM emergency_alerts WHERE device_id = 'CITIZEN_MOBILE_SENTRY' OR threat_type LIKE 'CITIZEN TIP%'"
+                    "DELETE FROM emergency_alerts WHERE device_id = 'CITIZEN_MOBILE_SENTRY' OR threat_type LIKE 'CITIZEN TIP%' OR alert_id LIKE 'alert_field_test_%'"
                 )
             except Exception:
                 pass
