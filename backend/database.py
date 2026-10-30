@@ -578,17 +578,23 @@ class RuntimeDatabase:
                 """
             )
 
-            connection.execute(
-                """
-                CREATE INDEX IF NOT EXISTS
-                idx_citizen_reports_status
-                ON citizen_reports(status)
-                """
-            )
+            try:
+                connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS
+                    idx_citizen_reports_status
+                    ON citizen_reports(status)
+                    """
+                )
+            except Exception:
+                pass
 
-            connection.execute(
-                "DELETE FROM emergency_alerts WHERE device_id = 'CITIZEN_MOBILE_SENTRY' OR threat_type LIKE 'CITIZEN TIP%'"
-            )
+            try:
+                connection.execute(
+                    "DELETE FROM emergency_alerts WHERE device_id = 'CITIZEN_MOBILE_SENTRY' OR threat_type LIKE 'CITIZEN TIP%'"
+                )
+            except Exception:
+                pass
 
             connection.execute(
                 """
