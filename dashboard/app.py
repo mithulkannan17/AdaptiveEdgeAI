@@ -1444,8 +1444,39 @@ st.markdown(
 )
 
 def render_siren_audio_synthesizer(is_active: bool = True, threat_label: str = "Threat") -> None:
-    """Audible alert indicator placeholder (browser audio oscillator removed for professional compliance)."""
-    pass
+    """Audible sanctuary alert synthesizer (plays emergency alert chime in browser)."""
+    if not is_active:
+        return
+    siren_html = f"""
+    <div style="display:none;" id="auraSirenContainer"></div>
+    <script>
+    (function() {{
+        try {{
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            const ctx = new AudioCtx();
+            function playBeep(freq, startTime, duration) {{
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(freq, startTime);
+                gain.gain.setValueAtTime(0.08, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(startTime);
+                osc.stop(startTime + duration);
+            }}
+            const now = ctx.currentTime;
+            playBeep(880, now, 0.25);
+            playBeep(660, now + 0.3, 0.35);
+        }} catch(e) {{
+            // Autoplay policy graceful handling
+        }}
+    }})();
+    </script>
+    """
+    components.html(siren_html, height=0)
 
 # Active alert notification banner
 if active_alerts:
@@ -1467,15 +1498,36 @@ if active_alerts:
     if is_siren_threat:
         render_siren_audio_synthesizer(is_active=True, threat_label=al_threat_formatted)
 
+    al_ts_raw = top_alert.get("timestamp") or time.time()
+    if isinstance(al_ts_raw, (int, float)):
+        al_time_str = datetime.fromtimestamp(al_ts_raw).strftime("%Y-%m-%d %H:%M:%S")
+        elapsed_sec = max(0, int(time.time() - al_ts_raw))
+        if elapsed_sec < 60:
+            al_ago = f"{elapsed_sec}s ago (JUST NOW)"
+        elif elapsed_sec < 3600:
+            al_ago = f"{elapsed_sec // 60}m ago"
+        elif elapsed_sec < 86400:
+            al_ago = f"{elapsed_sec // 3600}h ago"
+        else:
+            al_ago = f"{elapsed_sec // 86400}d ago"
+    else:
+        al_time_str = str(al_ts_raw)[:19].replace("T", " ")
+        al_ago = "Recent"
+
     b_c1, b_c2 = st.columns([3.5, 1.2])
     with b_c1:
         if is_siren_threat:
             st.markdown(
                 f"""
                 <div class="emergency-banner-critical">
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <span style="display:inline-block;width:8px;height:8px;background:var(--status-red);border-radius:50%;"></span>
-                        <span style="color:var(--status-red);font-family:monospace;font-size:11px;font-weight:700;letter-spacing:.08em;">CRITICAL THREAT INCIDENT ACTIVE</span>
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="display:inline-block;width:8px;height:8px;background:var(--status-red);border-radius:50%;"></span>
+                            <span style="color:var(--status-red);font-family:monospace;font-size:11px;font-weight:700;letter-spacing:.08em;">CRITICAL THREAT INCIDENT ACTIVE</span>
+                        </div>
+                        <div style="font-size:11px;font-weight:700;color:#f2c66d;font-family:monospace;">
+                            ⏱️ INCIDENT TIME: <b>{al_time_str}</b> ({al_ago})
+                        </div>
                     </div>
                     <div style="font-size:17px;font-weight:700;color:var(--text-primary);margin-top:4px;">
                         {al_threat_formatted} ({al_conf:.1f}% Confidence) · {al_coords}
@@ -1491,9 +1543,14 @@ if active_alerts:
             st.markdown(
                 f"""
                 <div class="emergency-banner-warning">
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <span style="display:inline-block;width:8px;height:8px;background:var(--status-amber);border-radius:50%;"></span>
-                        <span style="color:var(--status-amber);font-family:monospace;font-size:11px;font-weight:700;letter-spacing:.08em;">ELEVATED CAUTION ADVISORY</span>
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="display:inline-block;width:8px;height:8px;background:var(--status-amber);border-radius:50%;"></span>
+                            <span style="color:var(--status-amber);font-family:monospace;font-size:11px;font-weight:700;letter-spacing:.08em;">ELEVATED CAUTION ADVISORY</span>
+                        </div>
+                        <div style="font-size:11px;font-weight:700;color:#f2c66d;font-family:monospace;">
+                            ⏱️ INCIDENT TIME: <b>{al_time_str}</b> ({al_ago})
+                        </div>
                     </div>
                     <div style="font-size:17px;font-weight:700;color:var(--text-primary);margin-top:4px;">
                         {al_threat_formatted} ({al_conf:.1f}% Confidence) · {al_coords}
@@ -1509,9 +1566,14 @@ if active_alerts:
             st.markdown(
                 f"""
                 <div class="emergency-banner-warning">
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <span style="display:inline-block;width:8px;height:8px;background:var(--accent);border-radius:50%;"></span>
-                        <span style="color:var(--accent);font-family:monospace;font-size:11px;font-weight:700;letter-spacing:.08em;">FOREST INCIDENT ADVISORY</span>
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="display:inline-block;width:8px;height:8px;background:var(--accent);border-radius:50%;"></span>
+                            <span style="color:var(--accent);font-family:monospace;font-size:11px;font-weight:700;letter-spacing:.08em;">FOREST INCIDENT ADVISORY</span>
+                        </div>
+                        <div style="font-size:11px;font-weight:700;color:#f2c66d;font-family:monospace;">
+                            ⏱️ INCIDENT TIME: <b>{al_time_str}</b> ({al_ago})
+                        </div>
                     </div>
                     <div style="font-size:17px;font-weight:700;color:var(--text-primary);margin-top:4px;">
                         {al_threat_formatted} ({al_conf:.1f}% Confidence) · {al_coords}
@@ -2312,7 +2374,59 @@ if current_role == "admin":
         with c6:
             metric("Atmosphere / Gas", gas_status, gas_sub, "MQ-2 / MQ-135 Gas Sensors", accent="emerald" if gas_status == "NOMINAL" else "coral", icon="🧪")
 
+        # 🚨 Public Warning Siren & CADIE Live Status Banner
+        active_siren = db.get_active_public_siren()
+        if active_siren:
+            s_ts_raw = active_siren.get("timestamp") or time.time()
+            s_time_str = datetime.fromtimestamp(s_ts_raw).strftime("%H:%M:%S") if isinstance(s_ts_raw, (int, float)) else str(active_siren.get("created_at"))[:19].replace("T", " ")
+            st.markdown(
+                f'''
+                <div style="background:linear-gradient(135deg, rgba(239,68,68,0.22), rgba(185,28,28,0.32));border:2px solid #ef4444;border-radius:12px;padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+                    <div style="display:flex;align-items:center;gap:14px;">
+                        <span style="font-size:32px;">🚨</span>
+                        <div>
+                            <div style="font-size:15px;font-weight:800;color:#ef4444;letter-spacing:0.04em;">PUBLIC EMERGENCY SIREN BROADCASTING ACROSS ALL SECTORS</div>
+                            <div style="font-size:13px;font-weight:700;color:#ffffff;margin-top:2px;">REASON: {active_siren.get("reason")}</div>
+                            <div style="font-size:11px;color:#fca5a5;margin-top:2px;">Triggered at: {s_time_str} · All visitors and rangers alerted</div>
+                        </div>
+                    </div>
+                </div>
+                ''',
+                unsafe_allow_html=True
+            )
+            if current_role in ["admin", "ranger"]:
+                if st.button("🔕 Silence & Deactivate Public Emergency Siren", key="btn_silence_siren_cadie", use_container_width=True, type="primary"):
+                    db.deactivate_public_siren(deactivated_by=user_display)
+                    st.success("Public siren deactivated and silenced.")
+                    st.rerun()
+
         st.markdown('<div class="section"><div class="section-title">Acoustic Perception & CADIE Decision Engine</div><div class="section-meta">MODEL INFERENCE → CADIE MULTIMODAL FUSION → CONTEXT BEHAVIOR & CONFIDENCE</div></div>', unsafe_allow_html=True)
+        
+        # Public Siren Trigger Button for Chief Ranger near CADIE
+        if current_role == "admin" and not active_siren:
+            with st.expander("🚨 Trigger Public Warning Siren (Alert All Visitors & Rangers)", expanded=False):
+                st.caption("Broadcast an immediate sanctuary-wide evacuation siren and audio alert to all public visitors and rangers.")
+                siren_reason_choice = st.selectbox(
+                    "Emergency Warning Reason",
+                    [
+                        "🔥 WILDFIRE ADVANCING: Evacuate trail Sector 4 & River Ridge immediately",
+                        "🪚 ILLEGAL LOGGING & HEAVY MACHINERY: Clear northern perimeter",
+                        "🐅 DANGEROUS PREDATOR / ANIMAL SPOTTED: Move to nearest watchtower",
+                        "⚡ SEVERE WEATHER & FLASH FLOOD: Return to main gate muster point",
+                        "Custom Warning...",
+                    ],
+                    key="siren_reason_sel_cadie"
+                )
+                custom_s_msg = ""
+                if "Custom" in siren_reason_choice:
+                    custom_s_msg = st.text_input("Enter Warning Reason Details", placeholder="Explain emergency reason...", key="siren_custom_inp_cadie")
+                final_s_reason = custom_s_msg.strip() if custom_s_msg.strip() else siren_reason_choice
+
+                if st.button("🚨 BROADCAST EMERGENCY SIREN TO ALL SECTORS", type="primary", use_container_width=True, key="btn_broadcast_siren_now"):
+                    db.activate_public_siren(reason=final_s_reason, activated_by=user_display, location_lat=sent_lat, location_lon=sent_lon)
+                    st.success("🚨 Public Emergency Warning Siren broadcasted!")
+                    st.rerun()
+
         left, mid, right = st.columns([1.35, 1.15, 1])
         with left:
             st.markdown(
@@ -2333,9 +2447,28 @@ if current_role == "admin":
                 unsafe_allow_html=True,
             )
         with mid:
-            risk = str(cadie.get("risk_level") or ("HIGH" if is_smoke_detected else "LOW")).upper()
-            cadie_score = safe_num(cadie.get('score', 0.85 if is_smoke_detected else 0.20))
-            cadie_action = cadie.get("action") or ("DISPATCH_RANGERS_SMOKE_ALERT" if is_smoke_detected else "MONITOR")
+            # Check for unacknowledged alerts to maintain CADIE attention until officer acknowledges
+            unack_threats = [a for a in active_alerts if str(a.get("status", "")).upper() != "ACKNOWLEDGED"]
+            has_unack = len(unack_threats) > 0
+            top_unack = unack_threats[0] if has_unack else None
+
+            if has_unack and top_unack:
+                risk = str(top_unack.get("risk_level") or "CRITICAL").upper()
+                cadie_action = f"DISPATCH_INTERCEPT ({top_unack.get('threat_type')})"
+                cadie_score = safe_num(top_unack.get("confidence", 0.95))
+                prim_trigger = top_unack.get("threat_type") or label
+                ranger_att_text = f"🚨 REQUIRED (UNACKNOWLEDGED: {top_unack.get('threat_type')})"
+            else:
+                risk = str(cadie.get("risk_level") or ("HIGH" if is_smoke_detected else "LOW")).upper()
+                cadie_score = safe_num(cadie.get('score', 0.85 if is_smoke_detected else 0.20))
+                cadie_action = cadie.get("action") or ("DISPATCH_RANGERS_SMOKE_ALERT" if is_smoke_detected else "MONITOR")
+                prim_trigger = cadie.get("signal", label)
+                if active_alerts:
+                    ack_officer = active_alerts[0].get("acknowledged_by") or "Officer"
+                    ranger_att_text = f"✓ ACKNOWLEDGED by {ack_officer} (Monitoring)"
+                else:
+                    ranger_att_text = "NO (STEADY MONITORING)"
+
             st.markdown(
                 f"""
                 <div class="panel">
@@ -2346,13 +2479,18 @@ if current_role == "admin":
                         <div class="decision-action" style="color:var(--green)">ACTION: {cadie_action}</div>
                     </div>
                     {display_status("CADIE Context Score", f"{cadie_score:.3f}")}
-                    {display_status("Ranger Attention", "YES (ALERT)" if (cadie.get("requires_attention") or is_smoke_detected) else "NO (MONITOR)")}
+                    {display_status("Ranger Attention", ranger_att_text)}
                     {display_status("Smoke Corroboration", "🚨 ACTIVE SMOKE DETECTED" if is_smoke_detected else "🟢 NOMINAL / CLEAR")}
-                    {display_status("Primary Trigger", cadie.get("signal", label))}
+                    {display_status("Primary Trigger", prim_trigger)}
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
+            if has_unack and top_unack and current_role in ["admin", "ranger"]:
+                if st.button("⚡ Acknowledge Threat Alert", key="btn_cadie_ack_direct", use_container_width=True, type="primary"):
+                    db.acknowledge_emergency_alert(top_unack.get("alert_id"), acknowledged_by=user_display)
+                    st.success(f"CADIE Threat Alert acknowledged by {user_display}!")
+                    st.rerun()
         with right:
             inference_ms = safe_num(prediction.get("inference_time_ms", event.get("inference_time_ms", 55.0)))
             env_type = environment.get("environment_type", "Temperate Forest Canopy")
@@ -3164,11 +3302,28 @@ elif current_role == "ranger":
                 border_color = "#ef4444" if al_stat != "ACKNOWLEDGED" else "#7cf0b2"
                 stat_badge = f"<span style='background:rgba(239,68,68,0.2);color:#ef4444;border:1px solid #ef4444;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;'>🚨 {al_stat}</span>" if al_stat != "ACKNOWLEDGED" else f"<span style='background:rgba(124,240,178,0.2);color:#7cf0b2;border:1px solid #7cf0b2;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;'>✓ ACKNOWLEDGED</span>"
 
+                al_t_raw = al.get("timestamp") or time.time()
+                if isinstance(al_t_raw, (int, float)):
+                    al_time_s = datetime.fromtimestamp(al_t_raw).strftime("%Y-%m-%d %H:%M:%S")
+                    el_s = max(0, int(time.time() - al_t_raw))
+                    if el_s < 60:
+                        al_rel_s = f"{el_s}s ago (JUST NOW)"
+                    elif el_s < 3600:
+                        al_rel_s = f"{el_s // 60}m ago"
+                    elif el_s < 86400:
+                        al_rel_s = f"{el_s // 3600}h ago"
+                    else:
+                        al_rel_s = f"{el_s // 86400}d ago"
+                else:
+                    al_time_s = str(al_t_raw)[:19].replace("T", " ")
+                    al_rel_s = "Recent"
+
                 with st.container(border=True):
                     t_c1, t_c2 = st.columns([3, 1.2])
                     with t_c1:
                         st.markdown(f"<div style='font-size:16px;font-weight:800;color:#fff;'>🚨 THREAT: <span style='color:#ef4444;'>{al_threat}</span> ({al_conf:.1f}% Confidence) · {stat_badge}</div>", unsafe_allow_html=True)
-                        st.markdown(f"📍 Coordinates: [`{al_lat:.5f}°N, {al_lon:.5f}°E`](https://maps.google.com/?q={al_lat},{al_lon}) · Proximity from you: **{d_str}** · Node: `[{al_node}]`")
+                        st.markdown(f"⏱️ **Incident Time:** `{al_time_s}` · <span style='background:rgba(242,198,109,0.2);color:#f2c66d;font-size:11px;padding:2px 6px;border-radius:4px;font-weight:700;'>{al_rel_s}</span> · Node: `[{al_node}]`", unsafe_allow_html=True)
+                        st.markdown(f"📍 Coordinates: [`{al_lat:.5f}°N, {al_lon:.5f}°E`](https://maps.google.com/?q={al_lat},{al_lon}) · Proximity from you: **{d_str}**")
                         st.caption(f"Details: {al_msg}")
                     with t_c2:
                         if al_stat != "ACKNOWLEDGED":
@@ -3410,6 +3565,31 @@ elif current_role == "viewer":
         v_lat = float(st.session_state.get("client_gps_lat", sent_lat))
         v_lon = float(st.session_state.get("client_gps_lon", sent_lon))
 
+        # 🚨 Public Warning Siren Announcement (If Activated by Chief)
+        v_siren = db.get_active_public_siren()
+        if v_siren:
+            v_s_ts = v_siren.get("timestamp") or time.time()
+            v_s_time = datetime.fromtimestamp(v_s_ts).strftime("%H:%M:%S") if isinstance(v_s_ts, (int, float)) else str(v_siren.get("created_at"))[:19].replace("T", " ")
+            st.markdown(
+                f'''
+                <div style="background:linear-gradient(135deg, rgba(239,68,68,0.28), rgba(185,28,28,0.38));border:2.5px solid #ef4444;border-radius:14px;padding:18px 22px;margin-bottom:18px;box-shadow:0 0 25px rgba(239,68,68,0.45);">
+                    <div style="display:flex;align-items:center;gap:14px;">
+                        <span style="font-size:36px;">🚨</span>
+                        <div>
+                            <div style="font-size:18px;font-weight:800;color:#ef4444;letter-spacing:0.04em;">EMERGENCY PUBLIC WARNING SIREN IN EFFECT</div>
+                            <div style="font-size:14px;font-weight:700;color:#ffffff;margin-top:4px;">REASON: {v_siren.get("reason")}</div>
+                            <div style="font-size:11px;color:#fca5a5;margin-top:2px;">ACTIVATED BY: Chief Ranger Headquarters · Broadcast at {v_s_time}</div>
+                            <div style="font-size:12px;color:#e2e8f0;margin-top:8px;background:rgba(0,0,0,0.35);padding:8px 12px;border-radius:8px;">
+                                ⚠️ <b>INSTRUCTION:</b> Evacuate trails immediately. Follow sector patrol rangers toward designated safe muster points.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                ''',
+                unsafe_allow_html=True
+            )
+            render_siren_audio_synthesizer(is_active=True, threat_label="PUBLIC SIREN")
+
         # Overall Status Banner
         if active_alerts:
             st.markdown(
@@ -3474,10 +3654,27 @@ elif current_role == "viewer":
                 resp_ranger = al.get("assigned_ranger_name") or "Field Patrol Unit"
                 al_status = al.get("status", "ACTIVE")
 
+                al_ts_raw = al.get("timestamp") or time.time()
+                if isinstance(al_ts_raw, (int, float)):
+                    al_time_s = datetime.fromtimestamp(al_ts_raw).strftime("%Y-%m-%d %H:%M:%S")
+                    el_s = max(0, int(time.time() - al_ts_raw))
+                    if el_s < 60:
+                        al_rel_s = f"{el_s}s ago (JUST NOW)"
+                    elif el_s < 3600:
+                        al_rel_s = f"{el_s // 60}m ago"
+                    elif el_s < 86400:
+                        al_rel_s = f"{el_s // 3600}h ago"
+                    else:
+                        al_rel_s = f"{el_s // 86400}d ago"
+                else:
+                    al_time_s = str(al_ts_raw)[:19].replace("T", " ")
+                    al_rel_s = "Recent"
+
                 with st.container(border=True):
                     ac1, ac2 = st.columns([3, 1.2])
                     with ac1:
                         st.markdown(f"**🚨 {al_th} ({al_cf:.1f}% Confidence)** · Sensor: `{al_node}` · Status: **{al_status}**")
+                        st.markdown(f"⏱️ **Incident Time:** `{al_time_s}` · <span style='background:rgba(242,198,109,0.2);color:#f2c66d;font-size:11px;padding:2px 6px;border-radius:4px;font-weight:700;'>{al_rel_s}</span>", unsafe_allow_html=True)
                         st.caption(f"📍 Location: `{a_lat:.5f}°N, {a_lon:.5f}°E` · Distance from you: **{dist_str}**")
                         if "fire" in al_th.lower():
                             st.info("🔥 Advisory: Smoke/thermal signature detected. Do not approach. Evacuate upwind immediately toward base camp.")

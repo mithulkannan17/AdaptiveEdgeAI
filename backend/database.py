@@ -1954,6 +1954,97 @@ class RuntimeDatabase:
         return cursor.rowcount > 0
 
     # ==========================================================
+    # 🚨 PUBLIC EMERGENCY WARNING SIREN DISPATCH
+    # ==========================================================
+
+    def activate_public_siren(
+        self,
+        reason: str,
+        activated_by: str = "Chief Ranger Sharma",
+        location_lat: float = 12.2965,
+        location_lon: float = 76.6405,
+    ) -> str:
+        """
+        Activate emergency public warning siren across all park sentinels and user portals.
+        """
+        import time as _t
+        now_ts = _t.time()
+        now_iso = datetime.now(timezone.utc).isoformat()
+        clean_reason = reason.strip() or "General Emergency Alert: Evacuate Active Trails"
+        alert_id = "alert_public_emergency_siren"
+
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT OR REPLACE INTO emergency_alerts (
+                    alert_id, device_id, timestamp, threat_type, risk_level,
+                    confidence, location_lat, location_lon, message,
+                    channels_json, decision_json, status, created_at,
+                    acknowledged_at, acknowledged_by, resolved_at, resolved_by, resolution_notes
+                )
+                VALUES (?, 'AURA_CENTRAL_HQ', ?, 'PUBLIC EMERGENCY SIREN', 'CRITICAL', 1.0, ?, ?, ?, ?, ?, 'DISPATCHED', ?, NULL, NULL, NULL, NULL, NULL)
+                """,
+                (
+                    alert_id,
+                    now_ts,
+                    location_lat,
+                    location_lon,
+                    clean_reason,
+                    json.dumps(["PUBLIC_SIREN_SYSTEM", "AUDIO_BROADCAST", "DASHBOARD_LIVE_CONSOLE", "CITIZEN_EVACUATION_NOTICE"]),
+                    json.dumps({"action": "EVACUATE_PUBLIC_SIREN", "risk_level": "CRITICAL", "activated_by": activated_by}),
+                    now_iso,
+                ),
+            )
+            connection.commit()
+
+        self.insert_auth_audit_log(
+            username=activated_by.strip(),
+            role="admin",
+            action="PUBLIC_SIREN_ACTIVATED",
+            details=f"🚨 PUBLIC EMERGENCY SIREN ACTIVATED by {activated_by.strip()}. Reason: {clean_reason}",
+        )
+        return alert_id
+
+    def deactivate_public_siren(
+        self,
+        deactivated_by: str = "Chief Ranger Sharma",
+        resolution_notes: str = "Emergency stood down. Public warning siren silenced and perimeter secured.",
+    ) -> bool:
+        """
+        Silence and deactivate the public emergency siren.
+        """
+        return self.resolve_emergency_alert(
+            alert_id="alert_public_emergency_siren",
+            resolved_by=deactivated_by,
+            resolution_notes=resolution_notes,
+        )
+
+    def get_active_public_siren(self) -> dict[str, Any] | None:
+        """
+        Return the active public siren alert if currently triggered and unresolved.
+        """
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM emergency_alerts
+                WHERE alert_id = 'alert_public_emergency_siren'
+                  AND status != 'RESOLVED'
+                LIMIT 1
+                """
+            ).fetchone()
+            if not row:
+                return None
+            return {
+                "alert_id": row["alert_id"],
+                "reason": row["message"],
+                "created_at": row["created_at"],
+                "timestamp": row["timestamp"],
+                "status": row["status"],
+                "acknowledged_at": row["acknowledged_at"],
+                "acknowledged_by": row["acknowledged_by"],
+            }
+
+    # ==========================================================
     # PUBLIC CITIZEN REPORTS
     # ==========================================================
 
