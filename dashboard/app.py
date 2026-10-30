@@ -1482,67 +1482,51 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-import io, math, struct
-
-@st.cache_data
-def get_emergency_siren_wav(duration_s: float = 2.0, sample_rate: int = 22050) -> bytes:
-    """Generate high-intensity emergency warble siren WAV audio bytes."""
-    num_samples = int(duration_s * sample_rate)
-    buf = io.BytesIO()
-    buf.write(b"RIFF")
-    buf.write(struct.pack("<I", 36 + num_samples * 2))
-    buf.write(b"WAVEfmt ")
-    buf.write(struct.pack("<I", 16))
-    buf.write(struct.pack("<H", 1))
-    buf.write(struct.pack("<H", 1))
-    buf.write(struct.pack("<I", sample_rate))
-    buf.write(struct.pack("<I", sample_rate * 2))
-    buf.write(struct.pack("<H", 2))
-    buf.write(struct.pack("<H", 16))
-    buf.write(b"data")
-    buf.write(struct.pack("<I", num_samples * 2))
-
-    phase = 0.0
-    for i in range(num_samples):
-        t = i / sample_rate
-        freq = 720.0 + 260.0 * math.sin(2.0 * math.pi * 2.5 * t)
-        phase += 2.0 * math.pi * freq / sample_rate
-        sample_val = int(14000 * math.sin(phase))
-        buf.write(struct.pack("<h", max(-32767, min(32767, sample_val))))
-
-    return buf.getvalue()
-
 def render_siren_audio_synthesizer(is_active: bool = True, threat_label: str = "Threat") -> None:
-    """Audible sanctuary alert synthesizer (plays emergency alert chime in browser)."""
+    """Audible sanctuary alert synthesizer (continuous emergency warble siren chime in browser, no play bar)."""
     if not is_active:
         return
-    siren_html = f"""
+    siren_html = """
     <div style="display:none;" id="auraSirenContainer"></div>
     <script>
-    (function() {{
-        try {{
+    (function() {
+        try {
             const AudioCtx = window.AudioContext || window.webkitAudioContext;
             if (!AudioCtx) return;
             const ctx = new AudioCtx();
-            function playBeep(freq, startTime, duration) {{
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(freq, startTime);
-                gain.gain.setValueAtTime(0.08, startTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start(startTime);
-                osc.stop(startTime + duration);
-            }}
-            const now = ctx.currentTime;
-            playBeep(880, now, 0.25);
-            playBeep(660, now + 0.3, 0.35);
-        }} catch(e) {{
-            // Autoplay policy graceful handling
-        }}
-    }})();
+            if (ctx.state === 'suspended') {
+                ctx.resume();
+            }
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sawtooth';
+            
+            const lfo = ctx.createOscillator();
+            lfo.frequency.value = 2.2;
+            const lfoGain = ctx.createGain();
+            lfoGain.gain.value = 250;
+            lfo.connect(lfoGain);
+            lfoGain.connect(osc.frequency);
+            osc.frequency.setValueAtTime(750, ctx.currentTime);
+
+            gain.gain.setValueAtTime(0.06, ctx.currentTime);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            
+            lfo.start();
+            osc.start();
+            
+            // Continuous siren audio
+            setTimeout(function() {
+                try {
+                    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.5);
+                    setTimeout(() => { osc.stop(); lfo.stop(); ctx.close(); }, 1600);
+                } catch(e) {}
+            }, 8000);
+        } catch(e) {
+            // Autoplay graceful fallback
+        }
+    })();
     </script>
     """
     components.html(siren_html, height=0)
@@ -1572,14 +1556,26 @@ if active_siren:
         ''',
         unsafe_allow_html=True
     )
-    # Play real audible siren audio natively in browser
-    s_col1, s_col2 = st.columns([2.5, 1.2])
-    with s_col1:
-        st.audio(get_emergency_siren_wav(), format="audio/wav", autoplay=True, loop=True)
+    # Audio playback and mute controls
+    is_cit_muted = st.session_state.get("citizen_siren_muted", False)
+    if not is_cit_muted:
+        render_siren_audio_synthesizer(is_active=True, threat_label="PUBLIC SIREN")
+
+    s_col1, s_col2 = st.columns([2.8, 1.2])
     with s_col2:
-        if current_role in ["admin", "ranger"]:
+        if current_role == "viewer":
+            if not is_cit_muted:
+                if st.button("🔇 Mute Siren Audio", key="btn_mute_cit_siren", use_container_width=True):
+                    st.session_state["citizen_siren_muted"] = True
+                    st.rerun()
+            else:
+                if st.button("🔊 Unmute Siren Audio", key="btn_unmute_cit_siren", use_container_width=True):
+                    st.session_state["citizen_siren_muted"] = False
+                    st.rerun()
+        else:
             if st.button("🔕 Silence & Deactivate Siren", key="btn_silence_siren_top_global", use_container_width=True, type="primary"):
                 db.deactivate_public_siren(deactivated_by=user_display)
+                st.session_state.pop("citizen_siren_muted", None)
                 st.success("Public siren deactivated and silenced.")
                 st.rerun()
 
@@ -2403,18 +2399,18 @@ def render_incident_archive_page():
 
 if current_role == "admin":
     if active_page == "📡 Live Sentinel Overview":
-        # Immediate Display & Dispatch for pending citizen tips
+        # Reminder notification for pending citizen tips (Details in Citizen Reports Inbox)
         pending_cits_list = [c for c in db.get_citizen_reports() if str(c.get("status", "")).upper() != "RESOLVED"]
         if pending_cits_list:
             st.markdown(
                 f'''
-                <div style="background:rgba(242,198,109,0.14);border:1.5px solid #f2c66d;border-radius:12px;padding:14px 18px;margin-bottom:14px;">
+                <div style="background:rgba(242,198,109,0.12);border:1.5px solid #f2c66d;border-radius:12px;padding:12px 18px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
                     <div style="display:flex;align-items:center;gap:12px;">
-                        <span style="font-size:26px;">📸</span>
+                        <span style="font-size:24px;">📸</span>
                         <div>
-                            <div style="font-size:15px;font-weight:800;color:#f2c66d;letter-spacing:0.02em;">ACTION REQUIRED: {len(pending_cits_list)} PENDING CITIZEN FIELD REPORT(S)</div>
+                            <div style="font-size:14px;font-weight:700;color:#f2c66d;letter-spacing:0.02em;">REMINDER: {len(pending_cits_list)} PENDING CITIZEN FIELD REPORT(S)</div>
                             <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">
-                                Public visitors have submitted live field sighting(s). Transmitted to Chief console and Sector Patrol radar:
+                                New citizen field reports submitted. Review full details, photos, and dispatch patrol units in the <b>Citizen Reports Inbox</b> tab.
                             </div>
                         </div>
                     </div>
@@ -2422,47 +2418,6 @@ if current_role == "admin":
                 ''',
                 unsafe_allow_html=True
             )
-            for c_rep in pending_cits_list[:3]:
-                cr_id = c_rep.get("report_id")
-                cr_cat = c_rep.get("threat_category", "Sighting")
-                cr_name = c_rep.get("reporter_name", "Anonymous")
-                cr_contact = c_rep.get("contact_info", "Unspecified")
-                cr_desc = c_rep.get("description", "")
-                cr_lat = float(safe_num(c_rep.get("location_lat"), sent_lat))
-                cr_lon = float(safe_num(c_rep.get("location_lon"), sent_lon))
-                cr_photo = c_rep.get("photo_filename")
-                cr_ts = c_rep.get("timestamp", time.time())
-                cr_time_str = datetime.fromtimestamp(cr_ts).strftime("%Y-%m-%d %H:%M:%S") if isinstance(cr_ts, (int, float)) else str(c_rep.get("created_at"))[:19].replace("T", " ")
-
-                with st.container(border=True):
-                    pc_c1, pc_c2 = st.columns([1, 3])
-                    with pc_c1:
-                        if cr_photo and cr_photo != "no_photo.jpg":
-                            if cr_photo.startswith("data:image"):
-                                st.image(cr_photo, caption="📸 Evidence Photo", use_container_width=True)
-                            elif os.path.exists(cr_photo):
-                                st.image(cr_photo, caption="📸 Evidence Photo", use_container_width=True)
-                            else:
-                                st.markdown("<div style='padding:12px;background:rgba(255,255,255,0.04);border:1px dashed var(--line);border-radius:6px;text-align:center;'>📸 Photo Attached</div>", unsafe_allow_html=True)
-                        else:
-                            st.caption("📷 No photo attached")
-                    with pc_c2:
-                        st.markdown(f"**📸 Sighting: {cr_cat}** · Reported at `{cr_time_str}`")
-                        st.markdown(f"Reporter: **{cr_name}** (📞 `{cr_contact}`) · 📍 [`{cr_lat:.5f}°N, {cr_lon:.5f}°E`](https://maps.google.com/?q={cr_lat},{cr_lon})")
-                        st.caption(f"Details: {cr_desc}")
-                        
-                        disp_c1, disp_c2 = st.columns([2, 1.2])
-                        with disp_c1:
-                            r_choices = [f"{r.get('name')} ({r.get('ranger_id')})" for r in field_rangers]
-                            sel_r = st.selectbox("Assign Patrol Unit", r_choices, key=f"sel_r_chief_quick_{cr_id}")
-                        with disp_c2:
-                            st.write("")
-                            if st.button("🚨 Dispatch Patrol", key=f"btn_disp_chief_quick_{cr_id}", use_container_width=True, type="primary"):
-                                sel_r_name = sel_r.split(" (")[0] if " (" in sel_r else sel_r
-                                sel_r_id = sel_r.split(" (")[1].replace(")", "") if " (" in sel_r else ""
-                                db.dispatch_citizen_report(cr_id, ranger_id=sel_r_id, ranger_name=sel_r_name, dispatched_by=user_display)
-                                st.success(f"Dispatched {sel_r_name} to citizen coordinates!")
-                                st.rerun()
 
         dev_status = telemetry.get("device_status") if isinstance(telemetry.get("device_status"), dict) else {}
         gas_info = dev_status.get("gas_assessment") or telemetry.get("gas_assessment") or {}
@@ -2829,89 +2784,90 @@ if current_role == "admin":
         st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
         # ------------------------------------------------------
-        # 🎙️ 5-SECOND HARDWARE VOICE & AUDIO PREDICTION STUDIO
+        # 🧪 HARDWARE PCM AUDIO TEST BENCH & PREDICTION STUDIO (COLLAPSED TEST SECTION)
         # ------------------------------------------------------
-        st.markdown('<div class="section"><div class="section-title">🎙️ 5-Second Hardware Voice & Acoustic Prediction Studio</div><div class="section-meta">LOAD LOCAL HARDWARE RECORDING (/test_audio.pcm) OR UPLOAD 5S PCM/WAV AUDIO</div></div>', unsafe_allow_html=True)
+        with st.expander("🧪 Hardware Audio Diagnostic & Test Bench (5-Second Voice/PCM Studio)", expanded=False):
+            st.markdown('<div class="section"><div class="section-title">🎙️ 5-Second Hardware Voice & Acoustic Prediction Studio</div><div class="section-meta">LOAD LOCAL HARDWARE RECORDING (/test_audio.pcm) OR UPLOAD 5S PCM/WAV AUDIO</div></div>', unsafe_allow_html=True)
 
-        with st.container(border=True):
-            p_c1, p_c2 = st.columns([1.2, 1.8])
-            with p_c1:
-                st.markdown("<b>Hardware PCM Audio Source:</b>", unsafe_allow_html=True)
-                pcm_local_exists = os.path.exists("test_audio.pcm")
-                pcm_size = os.path.getsize("test_audio.pcm") if pcm_local_exists else 0
-
-                st.caption(f"📁 Local Node File: `test_audio.pcm` ({pcm_size:,} bytes · 5 seconds at 16kHz)" if pcm_local_exists else "📁 Local Node File: `test_audio.pcm` (Awaiting Hardware Capture)")
-
-                btn_predict_hw = st.button("⚡ Predict Latest Hardware Voice (`test_audio.pcm`)", type="primary", use_container_width=True, key="btn_pred_hw_audio")
-
-                uploaded_pcm = st.file_uploader("Or Upload Custom Hardware Recording (.pcm / .wav)", type=["pcm", "wav", "mp3"], key="upl_pcm_test")
-
-            with p_c2:
-                predict_target_bytes = None
-                predict_source_name = ""
-
-                if btn_predict_hw and pcm_local_exists:
-                    predict_target_bytes = open("test_audio.pcm", "rb").read()
-                    predict_source_name = "Hardware Node Capture (test_audio.pcm)"
-                elif uploaded_pcm is not None:
-                    predict_target_bytes = uploaded_pcm.read()
-                    predict_source_name = f"Uploaded Audio ({uploaded_pcm.name})"
-
-                if predict_target_bytes:
-                    try:
-                        from backend.audio_service import AudioInferenceService
-                        t_start = time.time()
-                        hw_service = AudioInferenceService()
-                        hw_res = hw_service.infer_pcm16(
-                            audio_bytes=predict_target_bytes,
-                            sample_rate=16000,
-                            top_k=5,
-                            device_status=dev_status,
-                        )
-                        hw_elapsed = (time.time() - t_start) * 1000
-
-                        hw_pred = hw_res.get("prediction", {})
-                        hw_lbl = hw_pred.get("label", "Unknown")
-                        hw_cnf = float(hw_pred.get("confidence", 0.0))
-                        hw_cadie = hw_res.get("decision") or (hw_res.get("edge_runtime") or {}).get("decision") or {}
-                        hw_risk = str(hw_cadie.get("risk_level", "LOW")).upper()
-                        hw_action = hw_cadie.get("recommended_action", "MONITOR")
-                        hw_score = float(hw_cadie.get("decision_score", 0.0))
-
-                        hw_risk_color = "#ff7070" if hw_risk in ["HIGH", "CRITICAL"] else ("#f2c66d" if hw_risk in ["ELEVATED", "MEDIUM"] else "#7cf0b2")
-
-                        st.markdown(
-                            f"""
-                            <div style="background:rgba(12,20,23,0.85); border:1.5px solid {hw_risk_color}; border-radius:12px; padding:16px 20px;">
-                                <div style="display:flex; justify-content:space-between; align-items:center;">
-                                    <span style="font-family:monospace; font-size:11px; font-weight:700; color:{hw_risk_color};">🎯 PREDICTION RESULT: {hw_lbl.upper()}</span>
-                                    <span style="font-size:10px; color:#73d9e8; font-family:monospace;">{hw_elapsed:.1f} ms Latency</span>
-                                </div>
-                                <div style="font-size:22px; font-weight:800; color:#fff; margin-top:6px;">
-                                    {hw_lbl} · <span style="color:{hw_risk_color};">{hw_cnf * 100.0:.2f}% Confidence</span>
-                                </div>
-                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; background:rgba(0,0,0,0.3); padding:10px 14px; border-radius:8px;">
-                                    <div>
-                                        <span style="font-size:10px; color:#829a97;">CADIE RISK LEVEL:</span>
-                                        <div style="font-size:14px; font-weight:800; color:{hw_risk_color};">{hw_risk} (Score {hw_score:.3f})</div>
+            with st.container(border=True):
+                p_c1, p_c2 = st.columns([1.2, 1.8])
+                with p_c1:
+                    st.markdown("<b>Hardware PCM Audio Source:</b>", unsafe_allow_html=True)
+                    pcm_local_exists = os.path.exists("test_audio.pcm")
+                    pcm_size = os.path.getsize("test_audio.pcm") if pcm_local_exists else 0
+    
+                    st.caption(f"📁 Local Node File: `test_audio.pcm` ({pcm_size:,} bytes · 5 seconds at 16kHz)" if pcm_local_exists else "📁 Local Node File: `test_audio.pcm` (Awaiting Hardware Capture)")
+    
+                    btn_predict_hw = st.button("⚡ Predict Latest Hardware Voice (`test_audio.pcm`)", type="primary", use_container_width=True, key="btn_pred_hw_audio")
+    
+                    uploaded_pcm = st.file_uploader("Or Upload Custom Hardware Recording (.pcm / .wav)", type=["pcm", "wav", "mp3"], key="upl_pcm_test")
+    
+                with p_c2:
+                    predict_target_bytes = None
+                    predict_source_name = ""
+    
+                    if btn_predict_hw and pcm_local_exists:
+                        predict_target_bytes = open("test_audio.pcm", "rb").read()
+                        predict_source_name = "Hardware Node Capture (test_audio.pcm)"
+                    elif uploaded_pcm is not None:
+                        predict_target_bytes = uploaded_pcm.read()
+                        predict_source_name = f"Uploaded Audio ({uploaded_pcm.name})"
+    
+                    if predict_target_bytes:
+                        try:
+                            from backend.audio_service import AudioInferenceService
+                            t_start = time.time()
+                            hw_service = AudioInferenceService()
+                            hw_res = hw_service.infer_pcm16(
+                                audio_bytes=predict_target_bytes,
+                                sample_rate=16000,
+                                top_k=5,
+                                device_status=dev_status,
+                            )
+                            hw_elapsed = (time.time() - t_start) * 1000
+    
+                            hw_pred = hw_res.get("prediction", {})
+                            hw_lbl = hw_pred.get("label", "Unknown")
+                            hw_cnf = float(hw_pred.get("confidence", 0.0))
+                            hw_cadie = hw_res.get("decision") or (hw_res.get("edge_runtime") or {}).get("decision") or {}
+                            hw_risk = str(hw_cadie.get("risk_level", "LOW")).upper()
+                            hw_action = hw_cadie.get("recommended_action", "MONITOR")
+                            hw_score = float(hw_cadie.get("decision_score", 0.0))
+    
+                            hw_risk_color = "#ff7070" if hw_risk in ["HIGH", "CRITICAL"] else ("#f2c66d" if hw_risk in ["ELEVATED", "MEDIUM"] else "#7cf0b2")
+    
+                            st.markdown(
+                                f"""
+                                <div style="background:rgba(12,20,23,0.85); border:1.5px solid {hw_risk_color}; border-radius:12px; padding:16px 20px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                                        <span style="font-family:monospace; font-size:11px; font-weight:700; color:{hw_risk_color};">🎯 PREDICTION RESULT: {hw_lbl.upper()}</span>
+                                        <span style="font-size:10px; color:#73d9e8; font-family:monospace;">{hw_elapsed:.1f} ms Latency</span>
                                     </div>
-                                    <div>
-                                        <span style="font-size:10px; color:#829a97;">RECOMMENDED ACTION:</span>
-                                        <div style="font-size:14px; font-weight:800; color:#7cf0b2;">{hw_action}</div>
+                                    <div style="font-size:22px; font-weight:800; color:#fff; margin-top:6px;">
+                                        {hw_lbl} · <span style="color:{hw_risk_color};">{hw_cnf * 100.0:.2f}% Confidence</span>
+                                    </div>
+                                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; background:rgba(0,0,0,0.3); padding:10px 14px; border-radius:8px;">
+                                        <div>
+                                            <span style="font-size:10px; color:#829a97;">CADIE RISK LEVEL:</span>
+                                            <div style="font-size:14px; font-weight:800; color:{hw_risk_color};">{hw_risk} (Score {hw_score:.3f})</div>
+                                        </div>
+                                        <div>
+                                            <span style="font-size:10px; color:#829a97;">RECOMMENDED ACTION:</span>
+                                            <div style="font-size:14px; font-weight:800; color:#7cf0b2;">{hw_action}</div>
+                                        </div>
+                                    </div>
+                                    <div style="font-size:11px; color:#edf6f3; margin-top:8px;">
+                                        Source: <b>{predict_source_name}</b> · Multimodal Sensor Context Integrated
                                     </div>
                                 </div>
-                                <div style="font-size:11px; color:#edf6f3; margin-top:8px;">
-                                    Source: <b>{predict_source_name}</b> · Multimodal Sensor Context Integrated
-                                </div>
-                            </div>
-                            """,
-                            unsafe_allow_html=True,
-                        )
-                    except Exception as err:
-                        st.error(f"Inference error on hardware audio: {err}")
-                else:
-                    st.info("Click 'Predict Latest Hardware Voice' or upload a 5-second PCM/WAV to test immediate acoustic intelligence classification.")
-
+                                """,
+                                unsafe_allow_html=True,
+                            )
+                        except Exception as err:
+                            st.error(f"Inference error on hardware audio: {err}")
+                    else:
+                        st.info("Click 'Predict Latest Hardware Voice' or upload a 5-second PCM/WAV to test immediate acoustic intelligence classification.")
+    
     elif active_page == "🗺️ Tactical Map & Dispatch":
         st.markdown('<div class="section"><div class="section-title">Live Tactical Map & Field Ranger Dispatch</div><div class="section-meta">GPS SENTINEL NODES · ACTIVE THREATS · NEARBY FIELD RANGERS</div></div>', unsafe_allow_html=True)
         render_geolocation_sentry("COMMAND HQ / CHIEF GPS SENTRY", auto_capture=False)
