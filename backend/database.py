@@ -3021,11 +3021,8 @@ class RuntimeDatabase:
         clean_pass = password.strip()
         clean_pass_lower = clean_pass.lower()
 
-        chief_passcodes = {"auraadmin123", "chief@aura2026", "admin123", "chief123", "auraadmin", "chief", "admin"}
-        ranger_passcodes = {
-            "auraranger123", "ranger123", "password123", "aura@ranger2026",
-            "ranger", "auraforest@2026", "password", "ranger@123", "auraranger"
-        }
+        chief_passcodes = {"auraadmin123", "chief@aura2026"}
+        ranger_passcodes = {"auraranger123", "aura@ranger2026"}
 
         # 1. Builtin root Chief Ranger passcodes always succeed
         if clean_user in ("admin", "chief") and (clean_pass_lower in chief_passcodes or clean_pass in chief_passcodes):
@@ -3131,14 +3128,8 @@ class RuntimeDatabase:
                 if _is_valid_pass(candidate):
                     return candidate
 
-        # 7. Unconditional match if password hash matches ANY user record
-        with self._connect() as connection:
-            rows = connection.execute(
-                "SELECT * FROM users WHERE password_hash = ? OR password_hash = ? ORDER BY created_at DESC",
-                (pwd_hash, pwd_hash_lower),
-            ).fetchall()
-            for r in rows:
-                return dict(r)
+        # 7. Exact credential cross-verification completed without loose fallback
+        # (Unconditional password-only match removed for anti-account-takeover security)
 
         # 8. Builtin root / synthesized Field Ranger authentication (GUARANTEED ACCESS ON DEPLOYED SITES)
         if is_ranger_pass and (is_ranger_user or clean_user.startswith("ranger") or not clean_user):
@@ -3268,8 +3259,9 @@ class RuntimeDatabase:
         """Validate the OTP code entered by the user."""
         clean_contact = phone_or_email.strip().lower()
         clean_otp = str(otp_code).replace(" ", "").replace("-", "").strip()
-        master_otp = os.getenv("MASTER_OTP", "999999")
-        if clean_otp in ("999999", master_otp):
+        allow_debug_otp = os.getenv("AURA_ALLOW_DEBUG_OTP", "0").lower() in ("1", "true")
+        master_otp = os.getenv("MASTER_OTP")
+        if (clean_otp == "999999" and allow_debug_otp) or (master_otp and clean_otp == master_otp):
             with self._connect() as connection:
                 connection.execute(
                     """

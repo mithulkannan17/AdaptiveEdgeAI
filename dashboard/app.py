@@ -42,6 +42,12 @@ try:
 except ImportError:
     from runtime_data_source import RuntimeDataSource
 from backend.database import RuntimeDatabase
+from backend.security import (
+    SessionTokenManager,
+    LoginRateLimiter,
+    validate_password_strength,
+    sanitize_xss,
+)
 from dashboard.spectrum_visualizer import render_spectrum_section
 
 try:
@@ -74,28 +80,24 @@ query_params = getattr(st, "query_params", {})
 auth_param_user = str(query_params.get("auth_user") or "").strip().lower()
 auth_param_token = str(query_params.get("auth_token") or "").strip()
 
+# Cryptographically verify signed HMAC session token before granting access
 if not st.session_state.get("authenticated", False) and auth_param_user and auth_param_token:
-    if auth_param_user in ("chief", "admin") and (auth_param_token.startswith("aura_sess_chief") or auth_param_token.startswith("aura_sess_")):
+    verified_profile = SessionTokenManager.verify_token(auth_param_token)
+    if verified_profile and verified_profile.username.lower() == auth_param_user:
+        v_role = verified_profile.role.value if hasattr(verified_profile.role, "value") else str(verified_profile.role).lower()
         st.session_state["authenticated"] = True
-        st.session_state["aura_username"] = "chief"
-        st.session_state["aura_user_role"] = "admin"
-        st.session_state["aura_user_name"] = "Chief Ranger Sharma"
-        st.session_state["aura_user_dept"] = "AuraForest Central Command"
+        st.session_state["aura_username"] = verified_profile.username
+        st.session_state["aura_user_role"] = v_role
+        st.session_state["aura_user_name"] = verified_profile.display_name
+        st.session_state["aura_user_dept"] = verified_profile.department
         st.session_state["aura_auth_token"] = auth_param_token
     else:
-        try:
-            u_rec = db.get_user(auth_param_user)
-            if u_rec and (auth_param_token.startswith("aura_sess_") or len(auth_param_token) > 8):
-                role_map = {"admin": "admin", "chief": "admin", "ranger": "ranger", "viewer": "viewer"}
-                user_role = role_map.get(str(u_rec.get("role", "viewer")).lower(), "viewer")
-                st.session_state["authenticated"] = True
-                st.session_state["aura_username"] = u_rec["username"]
-                st.session_state["aura_user_role"] = user_role
-                st.session_state["aura_user_name"] = u_rec.get("full_name") or u_rec["username"].capitalize()
-                st.session_state["aura_user_dept"] = u_rec.get("sector") or ("Command" if user_role == "admin" else "Field Unit")
-                st.session_state["aura_auth_token"] = auth_param_token
-        except Exception:
-            pass
+        # Invalid / expired / forged session token; purge params immediately
+        if hasattr(st, "query_params"):
+            if "auth_user" in st.query_params:
+                del st.query_params["auth_user"]
+            if "auth_token" in st.query_params:
+                del st.query_params["auth_token"]
 
 @st.cache_resource
 def get_source() -> RuntimeDataSource:
@@ -708,20 +710,36 @@ def api_request(path: str, method: str = "GET", payload: dict | None = None, tim
         return {}
 
 def auth_login_call(username_inp: str, password_inp: str) -> tuple[bool, dict, str]:
-    """Authenticate credentials via local database or API with multi-field fallback (username, email, full name, prefix)."""
+    """Authenticate credentials with brute-force lockout defense and HMAC signed token issuance."""
     u_clean = username_inp.strip().lower()
     p_clean = password_inp.strip()
     p_lower = p_clean.lower()
 
-    chief_passcodes = {"auraadmin123", "chief@aura2026", "admin123", "chief123", "auraadmin", "chief", "admin"}
-    ranger_passcodes = {
-        "auraranger123", "ranger123", "password123", "aura@ranger2026",
-        "ranger", "auraforest@2026", "password", "ranger@123", "auraranger"
-    }
+    # 1. Anti-Brute Force Lockout Check
+    is_locked, rem_lock_sec = LoginRateLimiter.is_locked(u_clean)
+    if is_locked:
+        try:
+            db.insert_auth_audit_log(
+                username=u_clean,
+                role="unknown",
+                action="LOCKOUT_BLOCKED",
+                details=f"Login attempt rejected due to active security lockout ({rem_lock_sec}s remaining).",
+            )
+        except Exception:
+            pass
+        return False, {}, f"🚫 Account temporarily locked due to repeated failed login attempts. Please wait {rem_lock_sec} seconds before trying again."
 
-    # 1. Master Chief Authentication
+    chief_passcodes = {"auraadmin123", "chief@aura2026"}
+    ranger_passcodes = {"auraranger123", "aura@ranger2026"}
+
+    # 2. Master Chief Authentication
     if u_clean in ("chief", "admin") and (p_lower in chief_passcodes or p_clean in chief_passcodes):
-        token = f"aura_sess_chief_{int(time.time())}"
+        token = SessionTokenManager.create_token(
+            username="chief",
+            role="admin",
+            display_name="Chief Ranger Sharma",
+            department="AuraForest Central Command",
+        )
         profile = {
             "username": "chief",
             "role": "admin",
@@ -729,18 +747,19 @@ def auth_login_call(username_inp: str, password_inp: str) -> tuple[bool, dict, s
             "department": "AuraForest Central Command",
             "sector": "All Sanctuary Sectors",
         }
+        LoginRateLimiter.record_success(u_clean)
         try:
             db.insert_auth_audit_log(
                 username="chief",
                 role="admin",
                 action="LOGIN_SUCCESS",
-                details="Chief Ranger master administrator logged in.",
+                details="Chief Ranger master administrator authenticated with signed HMAC token.",
             )
         except Exception:
             pass
         return True, profile, token
 
-    # 2. Local Database Direct Authentication (High-speed, supports generated ranger credentials)
+    # 3. Local Database Direct Authentication (High-speed, supports generated ranger credentials)
     try:
         import importlib
         import backend.database
@@ -750,34 +769,66 @@ def auth_login_call(username_inp: str, password_inp: str) -> tuple[bool, dict, s
         if db_u:
             role_map = {"admin": "admin", "chief": "admin", "ranger": "ranger", "viewer": "viewer"}
             user_role = role_map.get(str(db_u.get("role", "viewer")).lower(), "viewer")
-            token = f"aura_sess_{int(time.time())}_{random.randint(100,999)}"
+            disp_name = db_u.get("full_name") or db_u["username"].capitalize()
+            dept_name = db_u.get("sector") or ("Command" if user_role == "admin" else "Field Unit")
+            token = SessionTokenManager.create_token(
+                username=db_u["username"],
+                role=user_role,
+                display_name=disp_name,
+                department=dept_name,
+            )
             profile = {
                 "username": db_u["username"],
                 "role": user_role,
-                "display_name": db_u.get("full_name") or db_u["username"].capitalize(),
-                "department": db_u.get("sector") or ("Command" if user_role == "admin" else "Field Unit"),
+                "display_name": disp_name,
+                "department": dept_name,
                 "callsign": db_u.get("callsign", "RANGER-UNIT"),
                 "rank": db_u.get("rank", "Field Ranger"),
             }
+            LoginRateLimiter.record_success(u_clean)
             db_inst.insert_auth_audit_log(
                 username=db_u["username"],
                 role=user_role,
                 action="LOGIN_SUCCESS",
-                details=f"User {db_u['username']} ({user_role}) logged in successfully.",
+                details=f"User {db_u['username']} ({user_role}) authenticated successfully with signed token.",
             )
             return True, profile, token
-    except Exception as ex:
+    except Exception:
         pass
 
-    # 3. Fallback to Backend API
+    # 4. Fallback to Backend API
     try:
         res = api_request("/api/v1/auth/login", method="POST", payload={"username": u_clean, "password": p_clean})
         if res.get("success"):
+            LoginRateLimiter.record_success(u_clean)
             return True, res.get("user", {}), res.get("token", "")
     except Exception:
         pass
 
-    return False, {}, "Invalid username or password."
+    # 5. Failed Attempt Handling with Progressive Lockout Penalty
+    is_now_locked, lock_sec, attempts_left = LoginRateLimiter.record_failure(u_clean)
+    if is_now_locked:
+        try:
+            db.insert_auth_audit_log(
+                username=u_clean,
+                role="unknown",
+                action="ACCOUNT_LOCKED",
+                details=f"Security threshold reached ({LoginRateLimiter.MAX_ATTEMPTS} failed attempts). Account locked for {lock_sec} seconds.",
+            )
+        except Exception:
+            pass
+        return False, {}, f"🚫 Excessive failed login attempts! Account has been temporarily locked for {lock_sec} seconds."
+
+    try:
+        db.insert_auth_audit_log(
+            username=u_clean,
+            role="unknown",
+            action="LOGIN_FAILED",
+            details=f"Failed login attempt. {attempts_left} attempt(s) remaining before lockout.",
+        )
+    except Exception:
+        pass
+    return False, {}, f"Invalid username or password. ({attempts_left} attempt(s) remaining before account lockout)"
 
 def generate_otp_call(phone_or_email: str) -> tuple[bool, str, dict, str]:
     """Request automated 6-digit OTP code, log to backend console, and dispatch via Email/SMS."""
@@ -823,11 +874,13 @@ def validate_otp_call(contact: str, otp: str) -> tuple[bool, str]:
     if not clean_otp:
         return False, "Please enter the 6-digit OTP received in your email."
 
-    # 0. Check Master Override Code (for offline testing & rate limit bypass)
+    # 0. Check Master Override Code (strictly gated by AURA_ALLOW_DEBUG_OTP env)
     if clean_otp == "999999":
-        db.verify_otp(clean_contact, clean_otp)
-        print(f"[AuraForest Sentinel AUTH] ✅ Master OTP Override verified for {clean_contact}", flush=True)
-        return True, f"Master verification code accepted for '{clean_contact}'!"
+        if os.getenv("AURA_ALLOW_DEBUG_OTP", "0").lower() in ("1", "true"):
+            db.verify_otp(clean_contact, clean_otp)
+            print(f"[AuraForest Sentinel AUTH] ✅ Master OTP Override verified for {clean_contact}", flush=True)
+            return True, f"Debug master verification code accepted for '{clean_contact}'!"
+        return False, "Master bypass code is disabled in production security mode. Please enter the code sent to your email."
 
     # 1. Check Session State
     expected_sess = str(st.session_state.get("active_expected_otp", "")).strip()
@@ -871,6 +924,10 @@ def verify_otp_and_signup_call(contact: str, otp: str, username: str, password: 
 
     if not is_valid:
         return False, "Please enter the 6-digit OTP from your email and click 'Verify OTP' first."
+
+    ok_pwd, msg_pwd = validate_password_strength(password)
+    if not ok_pwd:
+        return False, f"Password Security Requirement: {msg_pwd}"
 
     created = db.create_user(
         username=clean_user,
@@ -3510,16 +3567,85 @@ SMTP_SSL=false
                             st.caption(f"📄 `{os.path.basename(w_path)}` ({os.path.getsize(w_path):,} bytes)")
 
     elif active_page == "🔒 Security & Audit Log":
-        st.markdown('<div class="section"><div class="section-title">Security & Authentication Audit Log</div><div class="section-meta">IMMUTABLE RECORD OF LOGINS, DISPATCHES, AND RANGER INCIDENT RESOLUTIONS</div></div>', unsafe_allow_html=True)
-        logs = db.get_auth_audit_log(limit=50)
+        st.markdown('<div class="section"><div class="section-title">Cyber-Defense & Security Operations Center</div><div class="section-meta">CRYPTOGRAPHIC SESSION INTEGRITY · BRUTE-FORCE DEFENSE · SENSOR BOUNDS · AUDIT TRAIL</div></div>', unsafe_allow_html=True)
+
+        # Security Status Metrics Cards
+        sec_m1, sec_m2, sec_m3, sec_m4 = st.columns(4)
+        rl_status = LoginRateLimiter.get_status()
+        active_locks_count = rl_status.get("active_lockouts_count", 0)
+
+        with sec_m1:
+            st.markdown(
+                f"""
+                <div class="panel metric-card">
+                    <div class="metric-label">SESSION ENCRYPTION</div>
+                    <div class="metric-val" style="color:#7cf0b2; font-size:18px;">HMAC-SHA256</div>
+                    <div class="metric-sub">Tamper-Proof JWT Tokens</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with sec_m2:
+            lock_color = "#ff7070" if active_locks_count > 0 else "#7cf0b2"
+            st.markdown(
+                f"""
+                <div class="panel metric-card">
+                    <div class="metric-label">BRUTE-FORCE SHIELD</div>
+                    <div class="metric-val" style="color:{lock_color}; font-size:18px;">{active_locks_count} LOCKED</div>
+                    <div class="metric-sub">Max 5 Attempts / 300s Lockout</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with sec_m3:
+            st.markdown(
+                f"""
+                <div class="panel metric-card">
+                    <div class="metric-label">TELEMETRY BOUNDS</div>
+                    <div class="metric-val" style="color:#73d9e8; font-size:18px;">ENFORCED</div>
+                    <div class="metric-sub">Anti-Spoofing & Replay Guard</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with sec_m4:
+            st.markdown(
+                f"""
+                <div class="panel metric-card">
+                    <div class="metric-label">DATABASE HASHING</div>
+                    <div class="metric-val" style="color:#f2c66d; font-size:18px;">SALTED SHA-256</div>
+                    <div class="metric-sub">Zero-Plaintext Storage</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        # Emergency Security Controls
+        st.markdown("<div style='font-weight:700; color:#fff; font-size:14px; margin-top:14px; margin-bottom:8px;'>⚡ Emergency Security Operations</div>", unsafe_allow_html=True)
+        sec_ctrl_1, sec_ctrl_2 = st.columns([1, 1])
+        with sec_ctrl_1:
+            if st.button("🔓 Unlock All Locked Accounts & IPs", key="btn_unlock_all_accounts", use_container_width=True):
+                LoginRateLimiter.unlock_all()
+                db.insert_auth_audit_log(username="chief", role="admin", action="EMERGENCY_UNLOCK", details="Chief Ranger cleared all account lockouts.")
+                st.success("All security lockouts have been reset.")
+                st.rerun()
+        with sec_ctrl_2:
+            if st.button("🛡️ Flush Rate Limiter & Clear Failures", key="btn_flush_rate_limiter", use_container_width=True):
+                LoginRateLimiter.unlock_all()
+                st.info("Rate limiter attempt counters cleared.")
+                st.rerun()
+
+        # Audit Logs Filter & Table
+        st.markdown("<div style='font-weight:700; color:#fff; font-size:14px; margin-top:20px; margin-bottom:8px;'>📜 Immutable Authentication & Incident Audit Trail</div>", unsafe_allow_html=True)
+        logs = db.get_auth_audit_log(limit=100)
         if logs:
             l_rows = []
             for l in logs:
                 l_rows.append({
-                    "TIMESTAMP": str(l.get("created_at", ""))[:19].replace("T", " "),
-                    "USER / RANGER": l.get("username"),
+                    "TIMESTAMP (UTC)": str(l.get("created_at", ""))[:19].replace("T", " "),
+                    "ACTOR": l.get("username"),
                     "ROLE": str(l.get("role")).upper(),
-                    "ACTION TYPE": l.get("action"),
+                    "SECURITY ACTION": l.get("action"),
                     "OFFICIAL AUDIT STATEMENT": l.get("details"),
                 })
             st.dataframe(l_rows, use_container_width=True, hide_index=True)

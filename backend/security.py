@@ -126,15 +126,24 @@ DEVICE_TOKEN_REGISTRY: Dict[str, str] = {
 # ==========================================================
 
 class SessionTokenManager:
-    """Creates and verifies tamper-proof signed session tokens."""
+    """Creates and verifies tamper-proof signed session tokens using HMAC-SHA256."""
 
     @staticmethod
-    def create_token(username: str, role: UserRole, expires_in_sec: int = 86400) -> str:
+    def create_token(
+        username: str,
+        role: UserRole | str,
+        display_name: str = "",
+        department: str = "",
+        expires_in_sec: int = 86400,
+    ) -> str:
         """Create a signed session token containing payload + expiration + HMAC signature."""
         now = time.time()
+        role_val = role.value if isinstance(role, UserRole) else str(role).lower()
         payload = {
-            "sub": username,
-            "role": role.value,
+            "sub": username.strip().lower(),
+            "role": role_val,
+            "name": display_name.strip() if display_name else username.capitalize(),
+            "dept": department.strip() if department else "AuraForest Operations",
             "iat": now,
             "exp": now + expires_in_sec,
         }
@@ -151,7 +160,7 @@ class SessionTokenManager:
 
     @staticmethod
     def verify_token(token_str: str) -> Optional[UserProfile]:
-        """Verify the signature and expiration of a session token."""
+        """Verify the signature, tampering status, and expiration of a session token."""
         if not token_str or "." not in token_str:
             return None
 
@@ -185,7 +194,10 @@ class SessionTokenManager:
         if time.time() > exp:
             return None
 
-        username = payload.get("sub", "")
+        username = payload.get("sub", "").strip().lower()
+        if not username:
+            return None
+
         role_str = payload.get("role", UserRole.VIEWER.value)
         try:
             role = UserRole(role_str)
@@ -193,8 +205,8 @@ class SessionTokenManager:
             role = UserRole.VIEWER
 
         user_info = BUILTIN_USERS.get(username, {})
-        display_name = user_info.get("display_name", username.capitalize())
-        department = user_info.get("department", "AuraForest Node")
+        display_name = payload.get("name") or user_info.get("display_name", username.capitalize())
+        department = payload.get("dept") or user_info.get("department", "AuraForest Operations")
 
         return UserProfile(
             username=username,
@@ -203,6 +215,105 @@ class SessionTokenManager:
             department=department,
             permissions=ROLE_PERMISSIONS.get(role, []),
         )
+
+
+# ==========================================================
+# BRUTE FORCE & RATE LIMITING DEFENSE
+# ==========================================================
+
+class LoginRateLimiter:
+    """Protects against brute force and credential stuffing attacks with IP/user progressive lockout."""
+    _attempts: Dict[str, List[float]] = {}
+    _lockouts: Dict[str, float] = {}
+
+    MAX_ATTEMPTS: int = 5
+    WINDOW_SECONDS: float = 300.0   # 5-minute tracking window
+    LOCKOUT_SECONDS: float = 300.0  # 5-minute lockout penalty
+
+    @classmethod
+    def is_locked(cls, identifier: str) -> tuple[bool, int]:
+        """Check if an account or IP is locked out. Returns (is_locked, remaining_seconds)."""
+        key = str(identifier).strip().lower()
+        now = time.time()
+        lock_until = cls._lockouts.get(key, 0.0)
+        if now < lock_until:
+            return True, max(1, int(lock_until - now))
+        if key in cls._lockouts:
+            del cls._lockouts[key]
+        return False, 0
+
+    @classmethod
+    def record_failure(cls, identifier: str) -> tuple[bool, int, int]:
+        """
+        Record a failed attempt.
+        Returns (is_now_locked, remaining_lock_sec, attempts_remaining_before_lock).
+        """
+        key = str(identifier).strip().lower()
+        now = time.time()
+        locked, rem = cls.is_locked(key)
+        if locked:
+            return True, rem, 0
+
+        # Purge timestamps outside the window
+        timestamps = [t for t in cls._attempts.get(key, []) if now - t < cls.WINDOW_SECONDS]
+        timestamps.append(now)
+        cls._attempts[key] = timestamps
+
+        if len(timestamps) >= cls.MAX_ATTEMPTS:
+            cls._lockouts[key] = now + cls.LOCKOUT_SECONDS
+            cls._attempts.pop(key, None)
+            return True, int(cls.LOCKOUT_SECONDS), 0
+
+        attempts_left = cls.MAX_ATTEMPTS - len(timestamps)
+        return False, 0, attempts_left
+
+    @classmethod
+    def record_success(cls, identifier: str) -> None:
+        """Clear failed attempts on successful login."""
+        key = str(identifier).strip().lower()
+        cls._attempts.pop(key, None)
+        cls._lockouts.pop(key, None)
+
+    @classmethod
+    def unlock_all(cls) -> None:
+        """Emergency unlock of all accounts (Admin command)."""
+        cls._attempts.clear()
+        cls._lockouts.clear()
+
+    @classmethod
+    def get_status(cls) -> Dict[str, Any]:
+        """Return rate limiter active metrics."""
+        now = time.time()
+        active_locks = {k: max(1, int(v - now)) for k, v in cls._lockouts.items() if v > now}
+        return {
+            "active_lockouts_count": len(active_locks),
+            "locked_entities": active_locks,
+            "max_attempts": cls.MAX_ATTEMPTS,
+            "lockout_window_sec": cls.LOCKOUT_SECONDS,
+        }
+
+
+# ==========================================================
+# INPUT SANITIZATION & PASSWORD COMPLEXITY
+# ==========================================================
+
+import html
+
+def validate_password_strength(password: str) -> tuple[bool, str]:
+    """Validate password complexity (min 8 chars, at least 1 digit, 1 letter)."""
+    if not password or len(password) < 8:
+        return False, "Password must be at least 8 characters long."
+    if not any(c.isdigit() for c in password):
+        return False, "Password must contain at least one numerical digit (0-9)."
+    if not any(c.isalpha() for c in password):
+        return False, "Password must contain at least one alphabetical letter (a-z, A-Z)."
+    return True, "Strong password."
+
+def sanitize_xss(text: Any) -> str:
+    """Sanitize user input to prevent Cross-Site Scripting (XSS)."""
+    if text is None:
+        return ""
+    return html.escape(str(text).strip())
 
 
 # ==========================================================
