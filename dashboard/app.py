@@ -1359,9 +1359,17 @@ with st.sidebar:
             "📊 Acoustic Frequency Monitor",
         ]
     else:
+        v_siren_nav = db.get_active_public_siren()
+        if v_siren_nav:
+            safe_nav_label = "🚨 Safety Notices & Siren (ACTIVE)"
+        elif active_alerts:
+            safe_nav_label = f"⚠️ Safety Notices & Alerts ({len(active_alerts)} Active)"
+        else:
+            safe_nav_label = "⚠️ Safety Notices & Alerts"
+
         nav_options = [
+            safe_nav_label,
             "🌿 Forest Climate & Readings",
-            "⚠️ Safety Notices & Alerts",
             "📸 Report Illegal Activity",
         ]
 
@@ -1478,6 +1486,38 @@ def render_siren_audio_synthesizer(is_active: bool = True, threat_label: str = "
     """
     components.html(siren_html, height=0)
 
+# 🚨 SANCTUARY-WIDE PUBLIC EMERGENCY SIREN (BROADCAST ACROSS ALL ROLES & PAGES)
+active_siren = db.get_active_public_siren()
+if active_siren:
+    s_ts_raw = active_siren.get("timestamp") or time.time()
+    s_time_str = datetime.fromtimestamp(s_ts_raw).strftime("%H:%M:%S") if isinstance(s_ts_raw, (int, float)) else str(active_siren.get("created_at"))[:19].replace("T", " ")
+    s_reason = active_siren.get("reason", "Evacuate active trails immediately")
+
+    st.markdown(
+        f'''
+        <div style="background:linear-gradient(135deg, rgba(239,68,68,0.30), rgba(185,28,28,0.44));border:2.5px solid #ef4444;border-radius:14px;padding:16px 20px;margin-bottom:18px;box-shadow:0 0 35px rgba(239,68,68,0.50);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+            <div style="display:flex;align-items:center;gap:14px;">
+                <span style="font-size:36px;">🚨</span>
+                <div>
+                    <div style="font-size:16px;font-weight:800;color:#ef4444;letter-spacing:0.04em;">EMERGENCY PUBLIC WARNING SIREN BROADCASTING ACROSS ALL SECTORS</div>
+                    <div style="font-size:14px;font-weight:700;color:#ffffff;margin-top:2px;">REASON: {s_reason}</div>
+                    <div style="font-size:11px;color:#fca5a5;margin-top:2px;">Triggered at: <b>{s_time_str}</b> · Immediate Sanctuary-Wide Warning</div>
+                    <div style="font-size:12px;color:#e2e8f0;margin-top:6px;background:rgba(0,0,0,0.35);padding:6px 12px;border-radius:6px;">
+                        ⚠️ <b>INSTRUCTION:</b> Evacuate active trails immediately. Follow sector patrol rangers toward designated safe muster points.
+                    </div>
+                </div>
+            </div>
+        </div>
+        ''',
+        unsafe_allow_html=True
+    )
+    render_siren_audio_synthesizer(is_active=True, threat_label="PUBLIC SIREN")
+    if current_role in ["admin", "ranger"]:
+        if st.button("🔕 Silence & Deactivate Public Emergency Siren", key="btn_silence_siren_top_global", use_container_width=True, type="primary"):
+            db.deactivate_public_siren(deactivated_by=user_display)
+            st.success("Public siren deactivated and silenced.")
+            st.rerun()
+
 # Active alert notification banner
 if active_alerts:
     top_alert = active_alerts[0]
@@ -1491,7 +1531,7 @@ if active_alerts:
 
     # SIREN RULES:
     # 1. Audible tactical siren ONLY for Fire, Chainsaw/Drill, and Gunshot
-    is_siren_threat = any(t in al_threat_lower for t in ["fire", "wildfire", "chainsaw", "drill", "jackhammer", "gunshot", "explosion", "poaching", "logging"])
+    is_siren_threat = any(t in al_threat_lower for t in ["siren", "emergency", "fire", "wildfire", "chainsaw", "drill", "jackhammer", "gunshot", "explosion", "poaching", "logging", "felling", "tip", "sighting"])
     # 2. Yellow Alert (NO SIREN) for Human Activity, Footsteps, and Vehicles
     is_yellow_alert = any(t in al_threat_lower for t in ["human", "footsteps", "speech", "walking", "vehicle", "truck", "car", "engine"])
 
@@ -2292,18 +2332,18 @@ def render_incident_archive_page():
 
 if current_role == "admin":
     if active_page == "📡 Live Sentinel Overview":
-        # Notice for pending citizen tips
+        # Immediate Display & Dispatch for pending citizen tips
         pending_cits_list = [c for c in db.get_citizen_reports() if str(c.get("status", "")).upper() != "RESOLVED"]
         if pending_cits_list:
             st.markdown(
                 f'''
-                <div style="background:rgba(242,198,109,0.12);border:1.5px solid #f2c66d;border-radius:12px;padding:12px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+                <div style="background:rgba(242,198,109,0.14);border:1.5px solid #f2c66d;border-radius:12px;padding:14px 18px;margin-bottom:14px;">
                     <div style="display:flex;align-items:center;gap:12px;">
-                        <span style="font-size:24px;">📸</span>
+                        <span style="font-size:26px;">📸</span>
                         <div>
-                            <div style="font-size:14px;font-weight:700;color:#f2c66d;letter-spacing:0.02em;">ACTION REQUIRED: {len(pending_cits_list)} PENDING CITIZEN FIELD REPORT(S)</div>
+                            <div style="font-size:15px;font-weight:800;color:#f2c66d;letter-spacing:0.02em;">ACTION REQUIRED: {len(pending_cits_list)} PENDING CITIZEN FIELD REPORT(S)</div>
                             <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">
-                                Public visitors have submitted geo-tagged field sighting(s) awaiting Chief review and Ranger dispatch.
+                                Public visitors have submitted live field sighting(s). Transmitted to Chief console and Sector Patrol radar:
                             </div>
                         </div>
                     </div>
@@ -2311,6 +2351,47 @@ if current_role == "admin":
                 ''',
                 unsafe_allow_html=True
             )
+            for c_rep in pending_cits_list[:3]:
+                cr_id = c_rep.get("report_id")
+                cr_cat = c_rep.get("threat_category", "Sighting")
+                cr_name = c_rep.get("reporter_name", "Anonymous")
+                cr_contact = c_rep.get("contact_info", "Unspecified")
+                cr_desc = c_rep.get("description", "")
+                cr_lat = float(safe_num(c_rep.get("location_lat"), sent_lat))
+                cr_lon = float(safe_num(c_rep.get("location_lon"), sent_lon))
+                cr_photo = c_rep.get("photo_filename")
+                cr_ts = c_rep.get("timestamp", time.time())
+                cr_time_str = datetime.fromtimestamp(cr_ts).strftime("%Y-%m-%d %H:%M:%S") if isinstance(cr_ts, (int, float)) else str(c_rep.get("created_at"))[:19].replace("T", " ")
+
+                with st.container(border=True):
+                    pc_c1, pc_c2 = st.columns([1, 3])
+                    with pc_c1:
+                        if cr_photo and cr_photo != "no_photo.jpg":
+                            if cr_photo.startswith("data:image"):
+                                st.image(cr_photo, caption="📸 Evidence Photo", use_container_width=True)
+                            elif os.path.exists(cr_photo):
+                                st.image(cr_photo, caption="📸 Evidence Photo", use_container_width=True)
+                            else:
+                                st.markdown("<div style='padding:12px;background:rgba(255,255,255,0.04);border:1px dashed var(--line);border-radius:6px;text-align:center;'>📸 Photo Attached</div>", unsafe_allow_html=True)
+                        else:
+                            st.caption("📷 No photo attached")
+                    with pc_c2:
+                        st.markdown(f"**📸 Sighting: {cr_cat}** · Reported at `{cr_time_str}`")
+                        st.markdown(f"Reporter: **{cr_name}** (📞 `{cr_contact}`) · 📍 [`{cr_lat:.5f}°N, {cr_lon:.5f}°E`](https://maps.google.com/?q={cr_lat},{cr_lon})")
+                        st.caption(f"Details: {cr_desc}")
+                        
+                        disp_c1, disp_c2 = st.columns([2, 1.2])
+                        with disp_c1:
+                            r_choices = [f"{r.get('name')} ({r.get('ranger_id')})" for r in field_rangers]
+                            sel_r = st.selectbox("Assign Patrol Unit", r_choices, key=f"sel_r_chief_quick_{cr_id}")
+                        with disp_c2:
+                            st.write("")
+                            if st.button("🚨 Dispatch Patrol", key=f"btn_disp_chief_quick_{cr_id}", use_container_width=True, type="primary"):
+                                sel_r_name = sel_r.split(" (")[0] if " (" in sel_r else sel_r
+                                sel_r_id = sel_r.split(" (")[1].replace(")", "") if " (" in sel_r else ""
+                                db.dispatch_citizen_report(cr_id, ranger_id=sel_r_id, ranger_name=sel_r_name, dispatched_by=user_display)
+                                st.success(f"Dispatched {sel_r_name} to citizen coordinates!")
+                                st.rerun()
 
         dev_status = telemetry.get("device_status") if isinstance(telemetry.get("device_status"), dict) else {}
         gas_info = dev_status.get("gas_assessment") or telemetry.get("gas_assessment") or {}
@@ -3548,8 +3629,20 @@ elif current_role == "ranger":
 # ============================================================
 
 elif current_role == "viewer":
-    if active_page == "🌿 Forest Climate & Readings":
+    if "Forest Climate" in active_page:
         st.markdown('<div class="section"><div class="section-title">Live Forest Environmental Readings</div><div class="section-meta">PUBLIC REAL-TIME CLIMATE AND AIR QUALITY</div></div>', unsafe_allow_html=True)
+        if active_alerts:
+            st.markdown(
+                f'''
+                <div style="background:rgba(235,87,87,0.12);border:1.5px solid var(--status-red);border-radius:10px;padding:12px 16px;margin-bottom:14px;">
+                    <div style="font-size:14px;font-weight:700;color:var(--status-red);">⚠️ ACTIVE FOREST ADVISORY IN EFFECT ({len(active_alerts)} Active Alerts)</div>
+                    <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">
+                        Field patrol response units are deployed in the sanctuary. Switch to the <b>Safety Notices & Alerts</b> tab for live coordinates, caution perimeters, and safety advisories.
+                    </div>
+                </div>
+                ''',
+                unsafe_allow_html=True
+            )
         pc1, pc2, pc3 = st.columns(3)
         with pc1:
             metric("Forest Temperature", f"{safe_num(telemetry.get('temperature')):.1f}", "°C", "Pleasant climate", accent="amber", icon="🌲")
@@ -3558,7 +3651,7 @@ elif current_role == "viewer":
         with pc3:
             metric("Air Quality", "FRESH & CLEAN", "", "Natural forest atmosphere", accent="emerald", icon="🍃")
 
-    elif active_page == "⚠️ Safety Notices & Alerts":
+    elif "Safety Notices" in active_page:
         st.markdown('<div class="section"><div class="section-title">Public Forest Safety Notices & Live Advisories</div><div class="section-meta">REAL-TIME SANCTUARY SAFETY STATUS · EDGE SENTRY ADVISORIES</div></div>', unsafe_allow_html=True)
         render_geolocation_sentry("VISITOR GPS LOCATION SENTRY", auto_capture=True)
 
@@ -3688,7 +3781,7 @@ elif current_role == "viewer":
                         st.markdown(f"**Assigned Unit:**<br/>`{resp_ranger}`", unsafe_allow_html=True)
                         st.markdown(f"[🗺️ Open in Google Maps](https://maps.google.com/?q={a_lat},{a_lon})")
 
-    elif active_page == "📸 Report Illegal Activity":
+    elif "Report Illegal Activity" in active_page:
         st.markdown('<div class="section"><div class="section-title">Citizen Tip: Report Illegal Forest Activity</div><div class="section-meta">REPORT CHAINSAWS, POACHING, OR FIRES DIRECTLY TO CHIEF RANGER</div></div>', unsafe_allow_html=True)
         render_geolocation_sentry("CITIZEN LIVE GPS SENTRY (GEO-TAGGED EVIDENCE)", auto_capture=True)
 

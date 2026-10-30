@@ -1836,6 +1836,19 @@ class RuntimeDatabase:
                 """,
                 (now_iso, acknowledged_by.strip(), alert_id.strip()),
             )
+            # If this alert is linked to a citizen report, update status to INVESTIGATING
+            if alert_id.strip().startswith("alert_cit_"):
+                linked_cit_id = alert_id.strip().replace("alert_", "")
+                connection.execute(
+                    """
+                    UPDATE citizen_reports
+                    SET status = 'INVESTIGATING',
+                        status_notes = ?,
+                        updated_at = ?
+                    WHERE report_id = ? AND status = 'PENDING'
+                    """,
+                    (f"Acknowledged by {acknowledged_by.strip()}. Patrol dispatched.", now_iso, linked_cit_id),
+                )
             connection.commit()
 
         # Record operational acknowledgment log
@@ -1878,6 +1891,22 @@ class RuntimeDatabase:
                 """,
                 (now_iso, resolved_by.strip(), resolution_notes.strip(), alert_id.strip()),
             )
+            # If this alert is linked to a citizen report, resolve it as well
+            if alert_id.strip().startswith("alert_cit_"):
+                linked_cit_id = alert_id.strip().replace("alert_", "")
+                connection.execute(
+                    """
+                    UPDATE citizen_reports
+                    SET status = 'RESOLVED',
+                        status_notes = ?,
+                        resolved_at = ?,
+                        resolved_by = ?,
+                        resolution_notes = ?,
+                        updated_at = ?
+                    WHERE report_id = ?
+                    """,
+                    (f"Resolved by {resolved_by.strip()}: {resolution_notes.strip()}", now_iso, resolved_by.strip(), resolution_notes.strip(), now_iso, linked_cit_id),
+                )
             # Free up field ranger
             connection.execute(
                 """
@@ -2067,6 +2096,15 @@ class RuntimeDatabase:
         ts = float(timestamp or _t.time())
         now_iso = datetime.now(timezone.utc).isoformat()
 
+        clean_cat = threat_category.strip()
+        is_crit = any(k in clean_cat.lower() for k in ["fire", "smoke", "chainsaw", "felling", "poaching", "trap", "gunshot"])
+        alert_risk = "CRITICAL" if is_crit else "HIGH"
+        threat_label = f"CITIZEN TIP: {clean_cat}"
+        msg = f"Citizen report by {reporter_name}: {description}"
+        cit_lat = float(location_lat) if location_lat is not None else 12.2965
+        cit_lon = float(location_lon) if location_lon is not None else 76.6405
+        alert_id = f"alert_{report_id}"
+
         with self._connect() as connection:
             connection.execute(
                 """
@@ -2081,7 +2119,31 @@ class RuntimeDatabase:
                 (
                     report_id, ts, reporter_name, contact_info,
                     threat_category, description, photo_filename,
-                    location_lat, location_lon, now_iso, now_iso
+                    cit_lat, cit_lon, now_iso, now_iso
+                ),
+            )
+            # Create corresponding emergency alert so it IMMEDIATELY appears across Chief Overview, Ranger Response, Radar Map, and CADIE
+            connection.execute(
+                """
+                INSERT OR REPLACE INTO emergency_alerts (
+                    alert_id, device_id, timestamp, threat_type, risk_level,
+                    confidence, location_lat, location_lon, message,
+                    channels_json, decision_json, status, created_at,
+                    acknowledged_at, acknowledged_by, resolved_at, resolved_by, resolution_notes
+                )
+                VALUES (?, 'CITIZEN_MOBILE_SENTRY', ?, ?, ?, 0.98, ?, ?, ?, ?, ?, 'DISPATCHED', ?, NULL, NULL, NULL, NULL, NULL)
+                """,
+                (
+                    alert_id,
+                    ts,
+                    threat_label,
+                    alert_risk,
+                    cit_lat,
+                    cit_lon,
+                    msg,
+                    json.dumps(["CITIZEN_MOBILE_SENTRY", "CHIEF_OVERVIEW", "TACTICAL_RADAR", "FIELD_PATROL"]),
+                    json.dumps({"action": "DISPATCH_INTERCEPT", "risk_level": alert_risk, "reporter": reporter_name, "citizen_report_id": report_id}),
+                    now_iso,
                 ),
             )
             connection.commit()
@@ -2160,6 +2222,18 @@ class RuntimeDatabase:
                 ),
             )
 
+            # Also update linked emergency alert status to ASSIGNED with ranger details
+            connection.execute(
+                """
+                UPDATE emergency_alerts
+                SET status = 'ASSIGNED',
+                    assigned_ranger_id = ?,
+                    assigned_ranger_name = ?
+                WHERE alert_id = ?
+                """,
+                (ranger_id.strip() if ranger_id else None, ranger_name.strip() if ranger_name else None, f"alert_{report_id.strip()}"),
+            )
+
             # If a specific ranger was assigned, set their status to RESPONDING
             if ranger_id:
                 connection.execute(
@@ -2221,6 +2295,18 @@ class RuntimeDatabase:
                     now_iso,
                     report_id.strip(),
                 ),
+            )
+            # Also resolve linked emergency_alert
+            connection.execute(
+                """
+                UPDATE emergency_alerts
+                SET status = 'RESOLVED',
+                    resolved_at = ?,
+                    resolved_by = ?,
+                    resolution_notes = ?
+                WHERE alert_id = ?
+                """,
+                (now_iso, resolved_by.strip(), resolution_notes.strip(), f"alert_{report_id.strip()}"),
             )
 
             # Free up field ranger
