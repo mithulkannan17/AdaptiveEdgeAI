@@ -1232,6 +1232,28 @@ risk_raw = str(cadie.get("risk_level") or "LOW").upper()
 threat_class = "threat-critical" if risk_raw in ["HIGH", "CRITICAL"] else ("threat-elevated" if risk_raw in ["ELEVATED", "MEDIUM"] else "threat-nominal")
 conf_color = "#ff7070" if risk_raw in ["HIGH", "CRITICAL"] else ("#f2c66d" if risk_raw in ["ELEVATED", "MEDIUM"] else "#7cf0b2")
 
+# Multimodal Smoke & Gas Assessment (Globally accessible across Chief, Ranger, and Public views)
+dev_status = telemetry.get("device_status") if isinstance(telemetry.get("device_status"), dict) else {}
+gas_info = dev_status.get("gas_assessment") or telemetry.get("gas_assessment") or {}
+gas_status = str(gas_info.get("overall_status") or "NOMINAL").upper()
+gas_score = safe_num(gas_info.get("gas_risk_score", 0.0))
+mq2_val = safe_num(telemetry.get("mq2_raw", dev_status.get("mq2_raw", 0)))
+mq2_v = safe_num(telemetry.get("mq2_adc_voltage", dev_status.get("mq2_adc_voltage", dev_status.get("mq2_voltage", 0.0))))
+mq135_val = safe_num(telemetry.get("mq135_raw", dev_status.get("mq135_raw", 0)))
+mq135_v = safe_num(telemetry.get("mq135_adc_voltage", dev_status.get("mq135_adc_voltage", dev_status.get("mq135_voltage", 0.0))))
+gas_sub = f"MQ2:{int(mq2_val)} ({mq2_v:.2f}V) · MQ135:{int(mq135_val)} ({mq135_v:.2f}V)" if (mq2_val > 0 or mq135_val > 0) else f"Risk {gas_score:.2f} (MQ2/135)"
+
+is_smoke_detected = bool(
+    mq2_val >= 400
+    or mq2_v >= 0.50
+    or mq135_val >= 800
+    or mq135_v >= 1.0
+    or gas_status in ["WARNING", "ALERT", "CRITICAL", "ELEVATED", "SMOKE / FIRE ANOMALY", "POLLUTION / VOC SPIKE"]
+    or "smoke" in str(label).lower()
+    or "fire" in str(label).lower()
+    or "smoke" in str(cadie.get("action", "")).lower()
+)
+
 # Ingest live device GPS from browser/mobile device query parameters
 query_params = getattr(st, "query_params", None)
 if query_params:
