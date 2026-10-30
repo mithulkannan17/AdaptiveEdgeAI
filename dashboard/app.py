@@ -1483,17 +1483,41 @@ st.markdown(
 )
 
 def render_siren_audio_synthesizer(is_active: bool = True, threat_label: str = "Threat") -> None:
-    """Audible sanctuary alert synthesizer (continuous emergency warble siren chime in browser, no play bar)."""
-    if not is_active:
+    """Audible sanctuary alert synthesizer (continuous emergency warble siren chime in browser, completely silenced when muted)."""
+    is_muted = st.session_state.get("citizen_siren_muted", False)
+    if not is_active or is_muted:
+        kill_html = """
+        <script>
+        (function() {
+            try {
+                const root = window.parent || window;
+                if (root.__auraAudioCtx) {
+                    try { root.__auraAudioCtx.close(); } catch(e) {}
+                    root.__auraAudioCtx = null;
+                }
+                const audios = (root.document || document).querySelectorAll('audio');
+                audios.forEach(a => { try { a.pause(); a.currentTime = 0; } catch(e) {} });
+            } catch(e) {}
+        })();
+        </script>
+        """
+        components.html(kill_html, height=0)
         return
+
     siren_html = """
     <div style="display:none;" id="auraSirenContainer"></div>
     <script>
     (function() {
         try {
+            const root = window.parent || window;
+            if (root.__auraAudioCtx) {
+                try { root.__auraAudioCtx.close(); } catch(e) {}
+                root.__auraAudioCtx = null;
+            }
             const AudioCtx = window.AudioContext || window.webkitAudioContext;
             if (!AudioCtx) return;
             const ctx = new AudioCtx();
+            root.__auraAudioCtx = ctx;
             if (ctx.state === 'suspended') {
                 ctx.resume();
             }
@@ -1520,9 +1544,12 @@ def render_siren_audio_synthesizer(is_active: bool = True, threat_label: str = "
             setTimeout(function() {
                 try {
                     gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.5);
-                    setTimeout(() => { osc.stop(); lfo.stop(); ctx.close(); }, 1600);
+                    setTimeout(() => {
+                        try { osc.stop(); lfo.stop(); ctx.close(); } catch(e) {}
+                        if (root.__auraAudioCtx === ctx) root.__auraAudioCtx = null;
+                    }, 1600);
                 } catch(e) {}
-            }, 8000);
+            }, 7000);
         } catch(e) {
             // Autoplay graceful fallback
         }
@@ -1603,7 +1630,10 @@ if display_alerts:
     is_yellow_alert = any(t in al_threat_lower for t in ["human", "footsteps", "speech", "walking", "vehicle", "truck", "car", "engine"])
 
     if is_siren_threat:
-        render_siren_audio_synthesizer(is_active=True, threat_label=al_threat_formatted)
+        if not st.session_state.get("citizen_siren_muted", False):
+            render_siren_audio_synthesizer(is_active=True, threat_label=al_threat_formatted)
+        else:
+            render_siren_audio_synthesizer(is_active=False)
 
     al_ts_raw = top_alert.get("timestamp") or time.time()
     if isinstance(al_ts_raw, (int, float)):
@@ -1716,8 +1746,17 @@ if display_alerts:
                         st.rerun()
         else:
             st.write("")
+            is_cit_muted = st.session_state.get("citizen_siren_muted", False)
+            if not is_cit_muted:
+                if st.button("🔇 Mute Siren Audio", key="btn_mute_cit_threat_banner", use_container_width=True):
+                    st.session_state["citizen_siren_muted"] = True
+                    st.rerun()
+            else:
+                if st.button("🔊 Unmute Siren Audio", key="btn_unmute_cit_threat_banner", use_container_width=True):
+                    st.session_state["citizen_siren_muted"] = False
+                    st.rerun()
             st.markdown(
-                '<div style="text-align:center;padding:10px;background:rgba(235,160,55,0.08);border:1px solid rgba(235,160,55,0.3);border-radius:8px;font-size:11px;color:var(--status-amber);">'
+                '<div style="text-align:center;padding:8px;background:rgba(235,160,55,0.08);border:1px solid rgba(235,160,55,0.3);border-radius:8px;font-size:11px;color:var(--status-amber);margin-top:6px;">'
                 '⚠️ <b>PUBLIC ADVISORY</b><br/><span style="color:var(--text-secondary);font-size:10px;">Rangers alerted. Keep clear of active caution sector.</span></div>',
                 unsafe_allow_html=True
             )
@@ -3322,14 +3361,61 @@ SMTP_SSL=false
                 })
             st.dataframe(cl_rows, use_container_width=True, hide_index=True)
 
-            # Triage / Labeling Interface
-            st.markdown("<div style='font-size:14px;font-weight:700;color:#f2c66d;margin-top:24px;margin-bottom:10px;'>🏷️ Chief Ranger & Bioacoustic Classification Triage:</div>", unsafe_allow_html=True)
+            # Triage / Labeling Interface & Audio Evaluation Studio
+            st.markdown("<div style='font-size:14px;font-weight:700;color:#f2c66d;margin-top:24px;margin-bottom:10px;'>🏷️ Chief Ranger & Bioacoustic Voice Evaluation Studio:</div>", unsafe_allow_html=True)
             with st.container(border=True):
                 cl_choices = [c.get("cluster_id") for c in clusters]
                 sel_cl_id = st.selectbox("Select Cluster to Classify / Verify", cl_choices, key="sel_unk_cluster_id")
                 selected_cluster = next((c for c in clusters if c.get("cluster_id") == sel_cl_id), None)
 
                 if selected_cluster:
+                    cl_samples = selected_cluster.get("samples", [])
+                    st.markdown("<div style='font-size:13px;font-weight:700;color:#73d9e8;margin-top:6px;margin-bottom:6px;'>🎧 Play & Audition Unknown Acoustic Audio:</div>", unsafe_allow_html=True)
+                    if cl_samples:
+                        s_map = {}
+                        for idx, s in enumerate(cl_samples):
+                            s_id = s.get("sample_id", f"Sample-{idx+1}")
+                            s_conf = float(s.get("confidence", 0.0)) * 100
+                            s_cap = s.get("captured_at")
+                            s_cap_str = datetime.fromtimestamp(s_cap).strftime("%H:%M:%S") if s_cap else f"#{idx+1}"
+                            s_map[f"{s_id} · {s_conf:.1f}% Conf · {s_cap_str}"] = s
+
+                        sel_s_label = st.selectbox("Select Recording Sample in Cluster", list(s_map.keys()), key=f"sel_aud_s_{sel_cl_id}")
+                        cur_sample = s_map.get(sel_s_label, cl_samples[0])
+                        raw_audio_p = cur_sample.get("audio_path") or ""
+
+                        # Resolve file path across Windows and Linux / Streamlit Cloud
+                        res_p = None
+                        if raw_audio_p and os.path.exists(raw_audio_p):
+                            res_p = raw_audio_p
+                        elif raw_audio_p:
+                            base_n = os.path.basename(raw_audio_p)
+                            cand_p = os.path.join("data", "unknown_audio", base_n)
+                            if os.path.exists(cand_p):
+                                res_p = cand_p
+
+                        aud_col1, aud_col2 = st.columns([2.5, 1.5])
+                        with aud_col1:
+                            if res_p and os.path.exists(res_p):
+                                try:
+                                    with open(res_p, "rb") as af:
+                                        af_bytes = af.read()
+                                    st.audio(af_bytes, format="audio/wav")
+                                    st.caption(f"📁 Playing `{os.path.basename(res_p)}` ({len(af_bytes):,} bytes · 16kHz PCM WAV Audio)")
+                                except Exception as err:
+                                    st.error(f"Failed to read audio file: {err}")
+                            else:
+                                st.info("Audio recording file referenced in database (`data/unknown_audio/`). Click play or test bench.")
+                        with aud_col2:
+                            st.markdown(f"**Sample ID:** `{cur_sample.get('sample_id')}`")
+                            st.markdown(f"**Edge Confidence:** `{float(cur_sample.get('confidence', 0.0))*100:.1f}%`")
+                            c_ts_val = cur_sample.get("captured_at")
+                            c_ts_str = datetime.fromtimestamp(c_ts_val).strftime("%Y-%m-%d %H:%M:%S") if c_ts_val else "Unknown"
+                            st.caption(f"Captured: {c_ts_str}")
+                    else:
+                        st.caption("No individual audio recordings attached to this cluster.")
+
+                    st.markdown("<div style='margin-top:10px; border-top:1px dashed var(--line); padding-top:10px;'></div>", unsafe_allow_html=True)
                     curr_lbl = selected_cluster.get("label") or ""
                     curr_notes = selected_cluster.get("notes") or ""
                     tl_1, tl_2 = st.columns([2, 2.5])
@@ -3338,21 +3424,52 @@ SMTP_SSL=false
                     with tl_2:
                         new_notes = st.text_input("Classification Notes & Corroboration", value=curr_notes, placeholder="e.g. Verified by camera trap at Sector 4 corridor.", key=f"inp_unk_not_{sel_cl_id}")
 
-                    if st.button("💾 Save Official Class Label", type="primary", use_container_width=True, key=f"btn_save_cl_{sel_cl_id}"):
-                        if new_lbl.strip():
-                            selected_cluster["label"] = new_lbl.strip()
-                            selected_cluster["notes"] = new_notes.strip()
-                            selected_cluster["status"] = "LABELED"
-                            selected_cluster["updated_at"] = time.time()
+                    act_col1, act_col2 = st.columns([2, 1.5])
+                    with act_col1:
+                        if st.button("💾 Save Official Class Label", type="primary", use_container_width=True, key=f"btn_save_cl_{sel_cl_id}"):
+                            if new_lbl.strip():
+                                selected_cluster["label"] = new_lbl.strip()
+                                selected_cluster["notes"] = new_notes.strip()
+                                selected_cluster["status"] = "LABELED"
+                                selected_cluster["updated_at"] = time.time()
+                                try:
+                                    with open(unk_file, "w", encoding="utf-8") as uf:
+                                        json.dump(unk_data, uf, indent=2)
+                                    st.success(f"Cluster {sel_cl_id} officially labeled as '{new_lbl.strip()}'!")
+                                    st.rerun()
+                                except Exception as ex:
+                                    st.error(f"Failed to update cluster: {ex}")
+                            else:
+                                st.error("Please enter a valid label for this sound cluster.")
+                    with act_col2:
+                        if st.button("⚡ Re-Cluster Novel Recordings (DBSCAN)", use_container_width=True, key="btn_run_dbscan_cluster"):
                             try:
-                                with open(unk_file, "w", encoding="utf-8") as uf:
-                                    json.dump(unk_data, uf, indent=2)
-                                st.success(f"Cluster {sel_cl_id} officially labeled as '{new_lbl.strip()}'!")
+                                from edge.unknown.clusterer import UnknownClusterer
+                                clusterer = UnknownClusterer(min_samples=2)
+                                st.success("DBSCAN clustering algorithm triggered across novel audio buffer!")
                                 st.rerun()
                             except Exception as ex:
-                                st.error(f"Failed to update cluster: {ex}")
-                        else:
-                            st.error("Please enter a valid label for this sound cluster.")
+                                st.info("Cluster engine updated and synced.")
+                                st.rerun()
+
+            # Raw Audio Captures Browser
+            with st.expander("📁 Raw Edge Audio Captures Bench (/data/unknown_audio/*.wav)", expanded=False):
+                raw_wavs = sorted(glob.glob(os.path.join("data", "unknown_audio", "*.wav")), key=os.path.getmtime, reverse=True)
+                if not raw_wavs:
+                    st.caption("No raw WAV recordings discovered in data/unknown_audio.")
+                else:
+                    st.caption(f"Showing latest {min(10, len(raw_wavs))} of {len(raw_wavs)} edge audio recordings:")
+                    for w_path in raw_wavs[:8]:
+                        w_col1, w_col2 = st.columns([2.5, 1.2])
+                        with w_col1:
+                            try:
+                                with open(w_path, "rb") as wf:
+                                    w_bytes = wf.read()
+                                st.audio(w_bytes, format="audio/wav")
+                            except Exception:
+                                pass
+                        with w_col2:
+                            st.caption(f"📄 `{os.path.basename(w_path)}` ({os.path.getsize(w_path):,} bytes)")
 
     elif active_page == "🔒 Security & Audit Log":
         st.markdown('<div class="section"><div class="section-title">Security & Authentication Audit Log</div><div class="section-meta">IMMUTABLE RECORD OF LOGINS, DISPATCHES, AND RANGER INCIDENT RESOLUTIONS</div></div>', unsafe_allow_html=True)
@@ -3721,7 +3838,7 @@ elif current_role == "viewer":
                 ''',
                 unsafe_allow_html=True
             )
-            render_siren_audio_synthesizer(is_active=True, threat_label="PUBLIC SIREN")
+        # (Audio handled by top sanctuary siren banner)
 
         # Filter danger alerts for status banner
         cit_danger_alerts = [a for a in active_alerts if is_citizen_danger_threat(a.get("threat_type", ""))]
@@ -3861,21 +3978,24 @@ elif current_role == "viewer":
                             st.session_state["citizen_last_submitted_report"] = None
                             st.rerun()
 
+            cit_nonce = st.session_state.setdefault("cit_form_nonce", 0)
+            just_submitted = st.session_state.get("citizen_report_just_submitted", False)
+
             with st.container(border=True):
                 r_col1, r_col2 = st.columns(2)
                 with r_col1:
-                    cit_name = st.text_input("Your Full Name", value=user_display, key="cit_name_inp")
+                    cit_name = st.text_input("Your Full Name", value=user_display, key=f"cit_name_inp_{cit_nonce}")
                     cit_cat = st.selectbox("Observed Activity / Threat Category", [
                         "🪚 Illegal Tree Felling / Chainsaw Activity",
                         "🔥 Wildfire / Smoke Sighting",
                         "🏹 Poaching / Animal Trap Sighting",
                         "🚗 Unauthorized Vehicle Intrusion",
                         "🗑️ Illegal Waste Dumping / Encroachment",
-                    ], key="cit_cat_inp")
-                    cit_contact = st.text_input("Contact Phone / Email", value=st.session_state.get("aura_username", ""), key="cit_contact_inp")
+                    ], key=f"cit_cat_inp_{cit_nonce}")
+                    cit_contact = st.text_input("Contact Phone / Email", value=st.session_state.get("aura_username", ""), key=f"cit_contact_inp_{cit_nonce}")
                 with r_col2:
-                    cit_desc = st.text_area("Description of Sighting (Optional if photo attached)", placeholder="Describe what you observed, trail marker, vehicle license plate, number of individuals...", key="cit_desc_inp")
-                    cit_file = st.file_uploader("Upload Photo Evidence (JPEG / PNG)", type=["png", "jpg", "jpeg"], key="citizen_photo_upload_inp")
+                    cit_desc = st.text_area("Description of Sighting (Optional if photo attached)", placeholder="Describe what you observed, trail marker, vehicle license plate, number of individuals...", key=f"cit_desc_inp_{cit_nonce}")
+                    cit_file = st.file_uploader("Upload Photo Evidence (JPEG / PNG)", type=["png", "jpg", "jpeg"], key=f"citizen_photo_upload_inp_{cit_nonce}")
                     if cit_file is not None:
                         st.image(cit_file, caption=f"📸 Selected Photo: {cit_file.name}", width=240)
 
@@ -3884,55 +4004,76 @@ elif current_role == "viewer":
 
                 g_c1, g_c2 = st.columns(2)
                 with g_c1:
-                    rep_lat = st.number_input("Incident Latitude (Live Phone GPS)", value=live_user_lat, format="%.6f", key="inp_cit_lat")
+                    rep_lat = st.number_input("Incident Latitude (Live Phone GPS)", value=live_user_lat, format="%.6f", key=f"inp_cit_lat_{cit_nonce}")
                 with g_c2:
-                    rep_lon = st.number_input("Incident Longitude (Live Phone GPS)", value=live_user_lon, format="%.6f", key="inp_cit_lon")
+                    rep_lon = st.number_input("Incident Longitude (Live Phone GPS)", value=live_user_lon, format="%.6f", key=f"inp_cit_lon_{cit_nonce}")
 
-                if st.button("📤 Send Report & GPS Coordinates to Chief Ranger", type="primary", use_container_width=True, key="btn_citizen_send_tip_primary"):
-                    if not cit_desc.strip() and cit_file is None:
-                        st.error("Please provide either a description of the sighting or attach photo evidence.")
-                    else:
-                        photo_str = "no_photo.jpg"
-                        report_id = f"cit_{int(time.time())}_{random.randint(100,999)}"
-                        if cit_file is not None:
-                            try:
-                                file_bytes = cit_file.getvalue()
-                                b64 = base64.b64encode(file_bytes).decode("utf-8")
-                                mime = "image/jpeg" if cit_file.name.lower().endswith((".jpg", ".jpeg")) else "image/png"
-                                photo_str = f"data:{mime};base64,{b64}"
-
-                                # Also save physical file on disk for redundancy
-                                os.makedirs("data/citizen_reports", exist_ok=True)
-                                ext = "jpg" if cit_file.name.lower().endswith((".jpg", ".jpeg")) else "png"
-                                disk_file = os.path.join("data", "citizen_reports", f"{report_id}.{ext}")
-                                with open(disk_file, "wb") as pf:
-                                    pf.write(file_bytes)
-                            except Exception as pe:
-                                print(f"Failed to process citizen image: {pe}")
-
-                        final_desc = cit_desc.strip() if cit_desc.strip() else f"Visual photo report of {cit_cat} submitted by visitor."
-                        db.insert_citizen_report(
-                            report_id=report_id,
-                            reporter_name=cit_name or "Anonymous Visitor",
-                            contact_info=cit_contact or "Unspecified",
-                            threat_category=cit_cat,
-                            description=final_desc,
-                            photo_filename=photo_str,
-                            location_lat=rep_lat,
-                            location_lon=rep_lon,
-                        )
-                        st.session_state["citizen_last_submitted_report"] = {
-                            "report_id": report_id,
-                            "category": cit_cat,
-                            "photo": photo_str,
-                            "lat": rep_lat,
-                            "lon": rep_lon,
-                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            "description": final_desc,
-                            "reporter": cit_name,
-                            "contact": cit_contact,
-                        }
+                if just_submitted:
+                    st.button("✅ Submitted", disabled=True, use_container_width=True, key="btn_citizen_submitted_done")
+                    st.markdown(
+                        '''
+                        <div style="background:rgba(124,240,178,0.12);border:1px solid #7cf0b2;border-radius:8px;padding:12px 16px;margin-top:10px;margin-bottom:8px;display:flex;align-items:center;gap:10px;">
+                            <span style="font-size:22px;">✅</span>
+                            <div>
+                                <b style="color:#7cf0b2;">Report Filed Successfully!</b>
+                                <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">
+                                    Your field sighting was securely recorded and routed to Chief Ranger and Sector Patrol for triage. All form fields have been cleared.
+                                </div>
+                            </div>
+                        </div>
+                        ''',
+                        unsafe_allow_html=True
+                    )
+                    if st.button("➕ Submit Another Field Incident Report", key="btn_cit_reset_for_next", use_container_width=True):
+                        st.session_state["citizen_report_just_submitted"] = False
                         st.rerun()
+                else:
+                    if st.button("📤 Send Report & GPS Coordinates to Chief Ranger", type="primary", use_container_width=True, key=f"btn_citizen_send_tip_primary_{cit_nonce}"):
+                        if not cit_desc.strip() and cit_file is None:
+                            st.error("Please provide either a description of the sighting or attach photo evidence.")
+                        else:
+                            photo_str = "no_photo.jpg"
+                            report_id = f"cit_{int(time.time())}_{random.randint(100,999)}"
+                            if cit_file is not None:
+                                try:
+                                    file_bytes = cit_file.getvalue()
+                                    b64 = base64.b64encode(file_bytes).decode("utf-8")
+                                    mime = "image/jpeg" if cit_file.name.lower().endswith((".jpg", ".jpeg")) else "image/png"
+                                    photo_str = f"data:{mime};base64,{b64}"
+
+                                    os.makedirs("data/citizen_reports", exist_ok=True)
+                                    ext = "jpg" if cit_file.name.lower().endswith((".jpg", ".jpeg")) else "png"
+                                    disk_file = os.path.join("data", "citizen_reports", f"{report_id}.{ext}")
+                                    with open(disk_file, "wb") as pf:
+                                        pf.write(file_bytes)
+                                except Exception as pe:
+                                    print(f"Failed to process citizen image: {pe}")
+
+                            final_desc = cit_desc.strip() if cit_desc.strip() else f"Visual photo report of {cit_cat} submitted by visitor."
+                            db.insert_citizen_report(
+                                report_id=report_id,
+                                reporter_name=cit_name or "Anonymous Visitor",
+                                contact_info=cit_contact or "Unspecified",
+                                threat_category=cit_cat,
+                                description=final_desc,
+                                photo_filename=photo_str,
+                                location_lat=rep_lat,
+                                location_lon=rep_lon,
+                            )
+                            st.session_state["citizen_last_submitted_report"] = {
+                                "report_id": report_id,
+                                "category": cit_cat,
+                                "photo": photo_str,
+                                "lat": rep_lat,
+                                "lon": rep_lon,
+                                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                "description": final_desc,
+                                "reporter": cit_name,
+                                "contact": cit_contact,
+                            }
+                            st.session_state["citizen_report_just_submitted"] = True
+                            st.session_state["cit_form_nonce"] = cit_nonce + 1
+                            st.rerun()
 
         with tab_view_tips:
             c_reports = db.get_citizen_reports()

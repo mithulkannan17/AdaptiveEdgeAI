@@ -583,6 +583,11 @@ class RuntimeDatabase:
                 CREATE INDEX IF NOT EXISTS
                 idx_citizen_reports_status
                 ON citizen_reports(status)
+            )
+
+            connection.execute(
+                "DELETE FROM emergency_alerts WHERE device_id = 'CITIZEN_MOBILE_SENTRY' OR threat_type LIKE 'CITIZEN TIP%'"
+            
                 """
             )
 
@@ -2130,30 +2135,8 @@ class RuntimeDatabase:
                     cit_lat, cit_lon, now_iso, now_iso
                 ),
             )
-            # Create corresponding emergency alert so it IMMEDIATELY appears across Chief Overview, Ranger Response, Radar Map, and CADIE
-            connection.execute(
-                """
-                INSERT OR REPLACE INTO emergency_alerts (
-                    alert_id, device_id, timestamp, threat_type, risk_level,
-                    confidence, location_lat, location_lon, message,
-                    channels_json, decision_json, status, created_at,
-                    acknowledged_at, acknowledged_by, resolved_at, resolved_by, resolution_notes
-                )
-                VALUES (?, 'CITIZEN_MOBILE_SENTRY', ?, ?, ?, 0.98, ?, ?, ?, ?, ?, 'DISPATCHED', ?, NULL, NULL, NULL, NULL, NULL)
-                """,
-                (
-                    alert_id,
-                    ts,
-                    threat_label,
-                    alert_risk,
-                    cit_lat,
-                    cit_lon,
-                    msg,
-                    json.dumps(["CITIZEN_MOBILE_SENTRY", "CHIEF_OVERVIEW", "TACTICAL_RADAR", "FIELD_PATROL"]),
-                    json.dumps({"action": "DISPATCH_INTERCEPT", "risk_level": alert_risk, "reporter": reporter_name, "citizen_report_id": report_id}),
-                    now_iso,
-                ),
-            )
+            # Citizen reports do NOT raise emergency alerts or sirens; they are stored exclusively for Chief & Ranger triage
+            pass
             connection.commit()
 
         return report_id
