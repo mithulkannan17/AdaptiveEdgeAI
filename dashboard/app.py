@@ -150,6 +150,23 @@ def format_display_label(raw_label: str) -> str:
         return "Ambient Forest"
     return raw_label.title() if raw_label else "Ambient Forest"
 
+def is_citizen_danger_threat(threat_type: str) -> bool:
+    """
+    Returns True ONLY if threat causes direct physical danger to citizens/visitors:
+    - Fire, Wildfire, Smoke, Combustion
+    - Dangerous Animals/Predators (Tiger, Leopard, Elephant, Bear, Predator, Animal Intrusion, Venomous)
+    - Sanctuary-wide Public Emergency Siren
+    Excludes law-enforcement/internal forest concerns (chainsaws, drills, logging, poaching gear, vehicles, etc.)
+    """
+    th = str(threat_type).lower()
+    if any(k in th for k in ["fire", "wildfire", "smoke", "combustion", "flame", "thermal"]):
+        return True
+    if any(k in th for k in ["animal", "predator", "tiger", "leopard", "elephant", "bear", "carnivore", "wildlife danger", "lion"]):
+        return True
+    if any(k in th for k in ["siren", "evacuate", "evacuation", "public emergency"]):
+        return True
+    return False
+
 # Real-time auto-refresh across all portals (Chief, Ranger, and Citizens)
 if st_autorefresh is not None:
     st_autorefresh(interval=1000, key="aura_live_refresh")
@@ -1565,23 +1582,6 @@ if active_siren:
                 db.deactivate_public_siren(deactivated_by=user_display)
                 st.success("Public siren deactivated and silenced.")
                 st.rerun()
-
-def is_citizen_danger_threat(threat_type: str) -> bool:
-    """
-    Returns True ONLY if threat causes direct physical danger to citizens/visitors:
-    - Fire, Wildfire, Smoke, Combustion
-    - Dangerous Animals/Predators (Tiger, Leopard, Elephant, Bear, Predator, Animal Intrusion, Venomous)
-    - Sanctuary-wide Public Emergency Siren
-    Excludes law-enforcement/internal forest concerns (chainsaws, drills, logging, poaching gear, vehicles, etc.)
-    """
-    th = str(threat_type).lower()
-    if any(k in th for k in ["fire", "wildfire", "smoke", "combustion", "flame", "thermal"]):
-        return True
-    if any(k in th for k in ["animal", "predator", "tiger", "leopard", "elephant", "bear", "carnivore", "wildlife danger", "lion"]):
-        return True
-    if any(k in th for k in ["siren", "evacuate", "evacuation", "public emergency"]):
-        return True
-    return False
 
 # For public visitors/citizens, only alert for direct danger (Fire & Dangerous Animals & Siren)
 if current_role == "viewer":
