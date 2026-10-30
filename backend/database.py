@@ -1183,6 +1183,12 @@ class RuntimeDatabase:
         """
         return self.get_recent(limit=limit)
 
+    def get_latest_event(self) -> dict[str, Any] | None:
+        """
+        Return latest edge event (alias for get_latest).
+        """
+        return self.get_latest()
+
     # ==========================================================
     # DEVICES
     # ==========================================================

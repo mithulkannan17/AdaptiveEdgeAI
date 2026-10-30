@@ -169,7 +169,7 @@ def is_citizen_danger_threat(threat_type: str) -> bool:
 
 # Real-time auto-refresh across all portals (Chief, Ranger, and Citizens)
 if st_autorefresh is not None:
-    st_autorefresh(interval=1000, key="aura_live_refresh")
+    st_autorefresh(interval=3500, key="aura_live_refresh")
 
 # ============================================================
 # DESIGN SYSTEM & MOBILE RESPONSIVE CSS
@@ -1934,7 +1934,7 @@ def build_map_data() -> tuple[pd.DataFrame, list[dict[str, Any]]]:
                         "radius": 130,
                         "size": 48,
                     })
-    elif detected or str(cadie_dict.get("risk_level", "")).upper() in ["HIGH", "CRITICAL"]:
+    elif detected or str(cadie.get("risk_level", "")).upper() in ["HIGH", "CRITICAL"]:
         live_th_lat = float(sent_lat + 0.0022)
         live_th_lon = float(sent_lon + 0.0025)
         alert_loc_map["live_ai_threat"] = (live_th_lat, live_th_lon, label)

@@ -72,6 +72,8 @@ class RuntimeDataSource:
         self.timeout_seconds = max(0.5, float(timeout_seconds if timeout_seconds != 2.5 else 1.5))
         self._last_state: dict[str, Any] | None = None
         self._last_error: str | None = None
+        self._api_offline_until: float = 0.0
+        self._db_instance: Any = None
 
     # ==========================================================
     # HTTP
@@ -120,10 +122,18 @@ class RuntimeDataSource:
         """
         Fetch a completely fresh dashboard snapshot from FastAPI.
         """
-
+        import time as _t
         self._last_error = None
 
-        health = self._get_json("/health")
+        now = _t.time()
+        # If API was recently unreachable (e.g. on Streamlit Cloud), skip blocking urlopen
+        if now < getattr(self, "_api_offline_until", 0.0):
+            health = None
+        else:
+            health = self._get_json("/health")
+            if health is None and "127.0.0.1" in self.api_url:
+                # Back off for 20 seconds to prevent blocking UI execution loops
+                self._api_offline_until = now + 20.0
         
         # If /health check failed or timed out, do NOT waste time cascading
         # 3 additional blocking timeouts on every refresh cycle.
@@ -149,10 +159,12 @@ class RuntimeDataSource:
             and history_response is None
         ):
             try:
-                from backend.database import RuntimeDatabase
-                db_fallback = RuntimeDatabase()
+                if self._db_instance is None:
+                    from backend.database import RuntimeDatabase
+                    self._db_instance = RuntimeDatabase()
+                db_fallback = self._db_instance
                 db_telemetry = db_fallback.get_latest_telemetry(self.device_id)
-                db_latest_event = db_fallback.get_latest_event()
+                db_latest_event = db_fallback.get_latest() if hasattr(db_fallback, "get_latest") else getattr(db_fallback, "get_latest_event", lambda: None)()
                 db_history = db_fallback.get_recent_events(limit=self.event_history_limit)
                 
                 if db_telemetry is not None or db_latest_event is not None or (db_history and len(db_history) > 0):
