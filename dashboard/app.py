@@ -691,7 +691,7 @@ def api_request(path: str, method: str = "GET", payload: dict | None = None, tim
         return {}
 
 def auth_login_call(username_inp: str, password_inp: str) -> tuple[bool, dict, str]:
-    """Authenticate credentials via API, local database, or root admin fallback."""
+    """Authenticate credentials via local database or API with multi-field fallback (username, email, full name, prefix)."""
     u_clean = username_inp.strip().lower()
     p_clean = password_inp.strip()
     p_lower = p_clean.lower()
@@ -702,7 +702,7 @@ def auth_login_call(username_inp: str, password_inp: str) -> tuple[bool, dict, s
         "ranger", "auraforest@2026", "password", "ranger@123", "auraranger"
     }
 
-    # 1. Immediate Root Chief Master Authentication
+    # 1. Master Chief Authentication
     if u_clean in ("chief", "admin") and (p_lower in chief_passcodes or p_clean in chief_passcodes):
         token = f"aura_sess_chief_{int(time.time())}"
         profile = {
@@ -723,36 +723,7 @@ def auth_login_call(username_inp: str, password_inp: str) -> tuple[bool, dict, s
             pass
         return True, profile, token
 
-    # 1b. Immediate Root Field Ranger Master Authentication
-    if u_clean in ("ranger", "field_ranger") and (p_lower in ranger_passcodes or p_clean in ranger_passcodes or p_clean.startswith("Aura#Ranger") or p_lower.startswith("aura#ranger")):
-        token = f"aura_sess_ranger_{int(time.time())}"
-        profile = {
-            "username": "ranger",
-            "role": "ranger",
-            "display_name": "Field Ranger Unit (ALPHA-1)",
-            "department": "Sector 4 (Tiger Corridor)",
-            "callsign": "ALPHA-1",
-        }
-        try:
-            db.insert_auth_audit_log(
-                username="ranger",
-                role="ranger",
-                action="LOGIN_SUCCESS",
-                details="Field Ranger logged in via master credentials.",
-            )
-        except Exception:
-            pass
-        return True, profile, token
-
-    # 2. Try Backend API
-    try:
-        res = api_request("/api/v1/auth/login", method="POST", payload={"username": u_clean, "password": p_clean})
-        if res.get("success"):
-            return True, res.get("user", {}), res.get("token", "")
-    except Exception:
-        pass
-
-    # 3. Fallback to direct Database
+    # 2. Local Database Direct Authentication (High-speed, supports generated ranger credentials)
     try:
         import importlib
         import backend.database
@@ -768,14 +739,24 @@ def auth_login_call(username_inp: str, password_inp: str) -> tuple[bool, dict, s
                 "role": user_role,
                 "display_name": db_u.get("full_name") or db_u["username"].capitalize(),
                 "department": db_u.get("sector") or ("Command" if user_role == "admin" else "Field Unit"),
+                "callsign": db_u.get("callsign", "RANGER-UNIT"),
+                "rank": db_u.get("rank", "Field Ranger"),
             }
             db_inst.insert_auth_audit_log(
                 username=db_u["username"],
                 role=user_role,
                 action="LOGIN_SUCCESS",
-                details=f"User {db_u['username']} logged in via local auth.",
+                details=f"User {db_u['username']} ({user_role}) logged in successfully.",
             )
             return True, profile, token
+    except Exception as ex:
+        pass
+
+    # 3. Fallback to Backend API
+    try:
+        res = api_request("/api/v1/auth/login", method="POST", payload={"username": u_clean, "password": p_clean})
+        if res.get("success"):
+            return True, res.get("user", {}), res.get("token", "")
     except Exception:
         pass
 
@@ -1051,29 +1032,7 @@ if not st.session_state.get("authenticated", False):
             with st.container(border=True):
                 st.markdown("<div style='font-size:16px;font-weight:800;color:#fff;margin-bottom:10px;'>Enter Portal Credentials</div>", unsafe_allow_html=True)
                 
-                # Instant 1-Click Quick Access for Field Ranger & Chief Ranger
-                st.markdown("<div style='font-size:11px;color:var(--text-secondary);margin-bottom:8px;'>⚡ <b>ONE-CLICK DEMO ACCESS:</b></div>", unsafe_allow_html=True)
-                q_c1, q_c2 = st.columns(2)
-                with q_c1:
-                    if st.button("🛡️ 1-Click Ranger Sign-In", use_container_width=True, key="btn_quick_ranger_login", type="secondary"):
-                        st.session_state["authenticated"] = True
-                        st.session_state["aura_username"] = "ranger"
-                        st.session_state["aura_user_role"] = "ranger"
-                        st.session_state["aura_user_name"] = "Field Ranger Unit (ALPHA-1)"
-                        st.session_state["aura_user_dept"] = "Sector 4 (Tiger Corridor)"
-                        st.session_state["aura_auth_token"] = f"aura_sess_ranger_{int(time.time())}"
-                        st.rerun()
-                with q_c2:
-                    if st.button("🌲 1-Click Chief Sign-In", use_container_width=True, key="btn_quick_chief_login", type="secondary"):
-                        st.session_state["authenticated"] = True
-                        st.session_state["aura_username"] = "chief"
-                        st.session_state["aura_user_role"] = "admin"
-                        st.session_state["aura_user_name"] = "Chief Ranger Sharma"
-                        st.session_state["aura_user_dept"] = "AuraForest Central Command"
-                        st.session_state["aura_auth_token"] = f"aura_sess_chief_{int(time.time())}"
-                        st.rerun()
 
-                st.markdown("<div style='margin:14px 0 10px 0;border-top:1px dashed var(--line);'></div>", unsafe_allow_html=True)
                 l_user = st.text_input("Username or Registered Email", key="login_username_inp", placeholder="e.g. ranger, ranger.amar, or user@gmail.com")
                 l_pass = st.text_input("Password", type="password", key="login_password_inp", placeholder="e.g. auraranger123")
                 st.caption("💡 Field Rangers can sign in using either their assigned username (e.g. ranger.amar) or registered email address.")
@@ -1573,10 +1532,15 @@ if active_alerts:
             else:
                 ack_by = top_alert.get("acknowledged_by") or "Field Unit"
                 st.markdown(
-                    f'<div style="text-align:center;padding:10px;background:rgba(124,240,178,0.06);border:1px solid var(--status-green);border-radius:8px;font-size:11px;color:var(--status-green);font-family:monospace;">'
+                    f'<div style="text-align:center;padding:8px;background:rgba(124,240,178,0.06);border:1px solid var(--status-green);border-radius:8px;font-size:11px;color:var(--status-green);font-family:monospace;margin-bottom:6px;">'
                     f'✓ ACKNOWLEDGED<br/><span style="color:var(--text-secondary);font-size:10px;">{ack_by}</span></div>',
                     unsafe_allow_html=True
                 )
+                if current_role == "ranger":
+                    if st.button("✅ Mark Solved", key="btn_top_mark_solved_ranger", use_container_width=True, type="primary"):
+                        db.resolve_emergency_alert(top_alert.get("alert_id"), resolved_by=user_display, resolution_notes="Threat investigated on-site and perimeter secured by Field Ranger.")
+                        st.success("Threat resolved and logged to Incident Archive!")
+                        st.rerun()
         else:
             st.write("")
             st.markdown(
@@ -1762,7 +1726,7 @@ def build_map_data() -> tuple[pd.DataFrame, list[dict[str, Any]]]:
                         "radius": 130,
                         "size": 48,
                     })
-    elif detected or str(cadie.get("risk_level", "")).upper() in ["HIGH", "CRITICAL"]:
+    elif detected or str(cadie_dict.get("risk_level", "")).upper() in ["HIGH", "CRITICAL"]:
         live_th_lat = float(sent_lat + 0.0022)
         live_th_lon = float(sent_lon + 0.0025)
         alert_loc_map["live_ai_threat"] = (live_th_lat, live_th_lon, label)
@@ -2042,9 +2006,18 @@ def render_tactical_pydeck_map(df: pd.DataFrame, center_lat: float, center_lon: 
     st.pydeck_chart(deck, use_container_width=True)
 
 
-def render_active_threat_map_hud(active_alerts: list[dict[str, Any]], detected: bool, cadie: dict[str, Any], label: str, sent_lat: float, sent_lon: float, conf_val: float):
+def render_active_threat_map_hud(
+    active_alerts: list[dict[str, Any]],
+    detected: bool = False,
+    cadie: dict[str, Any] | None = None,
+    label: str = "Acoustic Sentry",
+    sent_lat: float = 12.2958,
+    sent_lon: float = 76.6394,
+    conf_val: float = 0.95,
+):
+    cadie_dict = cadie if isinstance(cadie, dict) else {}
     """Render high-intensity animated pulsing red alert banner above tactical radar whenever active threats exist."""
-    has_active = bool(active_alerts) or detected or str(cadie.get("risk_level", "")).upper() in ["HIGH", "CRITICAL"]
+    has_active = bool(active_alerts) or detected or str(cadie_dict.get("risk_level", "")).upper() in ["HIGH", "CRITICAL"]
     if not has_active:
         return
 
@@ -2068,8 +2041,8 @@ def render_active_threat_map_hud(active_alerts: list[dict[str, Any]], detected: 
     elif detected:
         top_title = f"{label} (Perception Confidence: {confidence(conf_val)})"
         top_coords = f"{(sent_lat + 0.0022):.5f}°N, {(sent_lon + 0.0025):.5f}°E"
-        assigned_info = f"CADIE Action: {cadie.get('action', 'DISPATCH')} · Edge Alert Armed"
-        risk_tag = str(cadie.get("risk_level", "HIGH")).upper()
+        assigned_info = f"CADIE Action: {cadie_dict.get('action', 'DISPATCH')} · Edge Alert Armed"
+        risk_tag = str(cadie_dict.get("risk_level", "HIGH")).upper()
 
     st.markdown(
         f"""
@@ -3215,7 +3188,7 @@ elif current_role == "viewer":
 
         # Interactive Public Safety Map
         st.markdown("<div style='margin-top:18px;margin-bottom:8px;font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:0.04em;'>SANCTUARY TACTICAL MAP & CAUTION ZONES</div>", unsafe_allow_html=True)
-        render_active_threat_map_hud(active_alerts, field_rangers)
+        render_active_threat_map_hud(active_alerts, detected=False, cadie={}, label='Public Caution Zone', sent_lat=v_lat, sent_lon=v_lon, conf_val=0.95)
 
         # Active Advisories List
         if active_alerts:

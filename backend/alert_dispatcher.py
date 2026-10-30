@@ -107,22 +107,27 @@ class EmergencyAlertDispatcher:
         label = str(prediction.get("label", "")).strip().lower()
         confidence = float(prediction.get("confidence", 0.0))
 
-        # 0. Strict filter for benign / non-threat classes
+        # 0. Strict filter for benign / non-threat classes (Wildlife & Natural Ambience)
         benign_classes = {
             "bird", "birds", "chirp", "tweet", "wildlife", "animal", "dog", "cat",
             "insects", "insect", "cricket", "cicada", "bee",
             "water", "river", "stream", "ocean", "waves", "waterfall",
             "wind", "breeze", "rain", "thunderstorm", "thunder",
-            "ambient", "silence", "unknown", "background", "none",
-            "vehicle", "truck", "car", "engine", "motorcycle", "human", "footsteps", "speech", "walking"
+            "ambient", "silence", "unknown", "background", "none"
         }
-        if label in benign_classes or any(b in label for b in ["bird", "insect", "water", "wind", "rain", "ambient", "silence", "vehicle", "human", "footstep"]):
+        if label in benign_classes or any(b in label for b in ["bird", "insect", "water", "wind", "rain", "ambient", "silence"]):
             return False
 
-        # 1. Fire, Logging (Chainsaw/Drill/Jackhammer) & Poaching/Gunshot (Critical Sentry Sirens ONLY)
+        # 1. Fire, Logging (Chainsaw/Drill/Jackhammer) & Poaching/Gunshot (Critical Priority)
         siren_threat_keywords = ["fire", "wildfire", "chainsaw", "drill", "jackhammer", "gunshot", "explosion", "poaching", "logging"]
-        if any(t in label for t in siren_threat_keywords) and confidence >= 0.70:
+        if any(t in label for t in siren_threat_keywords) and confidence >= 0.65:
             return True
+
+        # 2. Unauthorized Vehicles, Engines, and Human Intrusion (Elevated Priority)
+        intrusion_keywords = ["vehicle", "truck", "car", "engine", "motorcycle", "human", "footsteps", "speech", "walking", "intrusion"]
+        if any(t in label for t in intrusion_keywords):
+            if confidence >= 0.70 or requires_attention or risk in ["HIGH", "CRITICAL"]:
+                return True
 
         return False
 

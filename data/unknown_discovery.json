@@ -1,15 +1,15 @@
 {
   "version": 2,
-  "total_unknown_samples": 285,
-  "total_cluster_runs": 5,
-  "last_cluster_at": 1793299186.6801348,
+  "total_unknown_samples": 350,
+  "total_cluster_runs": 7,
+  "last_cluster_at": 1793301728.7324483,
   "last_decision": {
     "is_unknown": true,
-    "predicted_class": 0,
-    "confidence": 0.5056595802307129,
-    "margin": 0.125454843044281,
+    "predicted_class": 10,
+    "confidence": 0.5668357014656067,
+    "margin": 0.13367506861686707,
     "reason": "Low classification confidence.",
-    "audio_rms": 0.0011868108995258808
+    "audio_rms": 0.014359191060066223
   },
   "clusters": [
     {
@@ -744,6 +744,43 @@
           "predicted_class": 0,
           "confidence": 0.9266060590744019,
           "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_fc417158dd694913bd19f62e64dc2c1c.wav"
+        }
+      ]
+    },
+    {
+      "cluster_id": "CL-FBDE9993",
+      "created_at": 1793300415.2600923,
+      "updated_at": 1793300415.2600923,
+      "sample_count": 3,
+      "noise_samples": 0,
+      "status": "UNLABELED",
+      "label": null,
+      "notes": "",
+      "source_batch_size": 30,
+      "samples": [
+        {
+          "sample_id": "US-8937949F7D",
+          "cluster_id": "CL-FBDE9993",
+          "captured_at": 1793299195.9929395,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_10df2561a256430f8238e5c3240618ba.wav"
+        },
+        {
+          "sample_id": "US-B0890A08A3",
+          "cluster_id": "CL-FBDE9993",
+          "captured_at": 1793299204.9039972,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_e9ad8471c3134d28a65b0e295169f720.wav"
+        },
+        {
+          "sample_id": "US-7BA5AD47D9",
+          "cluster_id": "CL-FBDE9993",
+          "captured_at": 1793299213.8575816,
+          "predicted_class": 0,
+          "confidence": 0.9266060590744019,
+          "audio_path": "D:\\user\\Workspace\\Major project\\AuraForest\\AdaptiveEdgeAI\\data\\unknown_audio\\incoming_6230ec54e8fa4654b5ae0fe0d785ead2.wav"
         }
       ]
     }

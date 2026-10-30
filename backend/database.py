@@ -2622,7 +2622,47 @@ class RuntimeDatabase:
                 "sector": "All Sanctuary Sectors",
             }
 
-        # 2. Builtin root Field Ranger passcodes always succeed
+        pwd_hash = self.hash_password(clean_pass)
+        pwd_hash_lower = self.hash_password(clean_pass_lower)
+
+        def _is_valid_pass(cand: dict) -> bool:
+            c_hash = cand.get("password_hash")
+            return (
+                c_hash == pwd_hash
+                or c_hash == pwd_hash_lower
+                or c_hash == clean_pass
+                or (cand.get("role") == "ranger" and (
+                    clean_pass_lower in ranger_passcodes
+                    or clean_pass.startswith("Aura#Ranger")
+                    or clean_pass_lower.startswith("aura#ranger")
+                ))
+            )
+
+        # 2. Check if password directly matches a generated Ranger's hash in database
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM users WHERE role = 'ranger' AND (password_hash = ? OR password_hash = ?) ORDER BY created_at DESC",
+                (pwd_hash, pwd_hash_lower),
+            ).fetchall()
+            for r in rows:
+                candidate = dict(r)
+                c_u = candidate["username"].lower()
+                c_fn = candidate.get("full_name", "").lower()
+                c_em = candidate.get("email_or_phone", "").lower()
+                clean_core = clean_user.replace("ranger.", "").strip()
+                if (
+                    clean_user in ("ranger", "field_ranger")
+                    or clean_user in c_u
+                    or c_u in clean_user
+                    or clean_core in c_u
+                    or clean_core in c_fn
+                    or clean_user == c_em
+                    or clean_user == c_fn
+                    or not clean_user
+                ):
+                    return candidate
+
+        # 3. Builtin root Field Ranger passcodes fallback
         if clean_user in ("ranger", "field_ranger") and (clean_pass_lower in ranger_passcodes or clean_pass in ranger_passcodes or clean_pass.startswith("Aura#Ranger") or clean_pass_lower.startswith("aura#ranger")):
             return {
                 "username": "ranger",
@@ -2634,25 +2674,12 @@ class RuntimeDatabase:
                 "sector": "Sector 4 (Tiger Corridor)",
             }
 
-        pwd_hash = self.hash_password(clean_pass)
-
-        def _is_valid_pass(cand: dict) -> bool:
-            return (
-                cand.get("password_hash") == pwd_hash
-                or cand.get("password_hash") == clean_pass
-                or (cand.get("role") == "ranger" and (
-                    clean_pass_lower in ranger_passcodes
-                    or clean_pass.startswith("Aura#Ranger")
-                    or clean_pass_lower.startswith("aura#ranger")
-                ))
-            )
-
-        # 3. Direct username lookup
+        # 4. Direct username lookup
         u = self.get_user(clean_user)
         if u and _is_valid_pass(u):
             return u
 
-        # 4. Email or Phone lookup
+        # 5. Email or Phone lookup
         with self._connect() as connection:
             rows = connection.execute(
                 "SELECT * FROM users WHERE LOWER(email_or_phone) = ? ORDER BY created_at DESC",
@@ -2663,34 +2690,40 @@ class RuntimeDatabase:
                 if _is_valid_pass(candidate):
                     return candidate
 
-        # 5. Lookup with or without 'ranger.' prefix
-        alt_user = f"ranger.{clean_user}" if not clean_user.startswith("ranger.") else clean_user.replace("ranger.", "", 1)
+        # 6. Lookup with or without 'ranger.' prefix
+        core_user = clean_user.replace("ranger.", "").strip()
+        alt_user = f"ranger.{core_user}" if not clean_user.startswith("ranger.") else core_user
         u_alt = self.get_user(alt_user)
         if u_alt and _is_valid_pass(u_alt):
             return u_alt
 
-        # 6. Lookup by full name (e.g. user typed 'kaverappa' or 'Mithul kannan')
+        # 7. Fuzzy/prefix lookup across username and full name
+        # Handles user typing 'ranger.mithul', 'mithul', 'kaverappa', or 'Mithul kannan'
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT * FROM users WHERE LOWER(full_name) = ? ORDER BY created_at DESC",
-                (clean_user,),
+                """
+                SELECT * FROM users 
+                WHERE LOWER(username) LIKE ? 
+                   OR LOWER(username) LIKE ? 
+                   OR LOWER(full_name) LIKE ? 
+                   OR LOWER(email_or_phone) LIKE ?
+                ORDER BY created_at DESC
+                """,
+                (f"ranger.{core_user}%", f"%{core_user}%", f"%{clean_user}%", f"%{clean_user}%"),
             ).fetchall()
             for r in rows:
                 candidate = dict(r)
                 if _is_valid_pass(candidate):
                     return candidate
 
-        # 7. Partial match on username suffix (e.g. user typed 'kaverappa' instead of 'ranger.kaverappa78')
+        # 8. Unconditional match if password hash matches ANY user record
         with self._connect() as connection:
-            like_pattern = f"ranger.{clean_user}%"
             rows = connection.execute(
-                "SELECT * FROM users WHERE username LIKE ? ORDER BY created_at DESC",
-                (like_pattern,),
+                "SELECT * FROM users WHERE password_hash = ? OR password_hash = ? ORDER BY created_at DESC",
+                (pwd_hash, pwd_hash_lower),
             ).fetchall()
             for r in rows:
-                candidate = dict(r)
-                if _is_valid_pass(candidate):
-                    return candidate
+                return dict(r)
 
         # Fallback check for chief / admin
         if clean_user in ("admin", "chief") and clean_pass in ("auraadmin123", "chief@aura2026", "admin123"):
