@@ -583,12 +583,11 @@ class RuntimeDatabase:
                 CREATE INDEX IF NOT EXISTS
                 idx_citizen_reports_status
                 ON citizen_reports(status)
+                """
             )
 
             connection.execute(
                 "DELETE FROM emergency_alerts WHERE device_id = 'CITIZEN_MOBILE_SENTRY' OR threat_type LIKE 'CITIZEN TIP%'"
-            
-                """
             )
 
             connection.execute(
