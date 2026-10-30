@@ -2702,7 +2702,7 @@ if current_role == "admin":
 
                     if deliv.get("html_preview"):
                         with st.expander("📨 Click to Preview Official Commissioning Email Sent to Ranger", expanded=False):
-                            st.components.v1.html(deliv.get("html_preview"), height=380, scrolling=True)
+                            components.html(deliv.get("html_preview"), height=380, scrolling=True)
 
         with cr_tab2:
             all_users = get_all_users_call()
@@ -2866,7 +2866,7 @@ SMTP_SSL=false
                             st.success(f"Dispatched: {res.get('message')}")
                             if res.get("html_preview"):
                                 with st.expander("View Dispatched Message", expanded=True):
-                                    st.components.v1.html(res["html_preview"], height=300, scrolling=True)
+                                    components.html(res["html_preview"], height=300, scrolling=True)
 
     elif active_page == "📊 Acoustic AI & Spectrum":
         render_spectrum_section(label, mic_level=safe_num(telemetry.get("microphone_level", 500.0)))
@@ -3185,7 +3185,7 @@ elif current_role == "ranger":
         # 3. LIVE ACOUSTIC SENTRY PERCEPTION LOG (HARDWARE STREAM)
         # ----------------------------------------------------
         st.markdown("<div style='font-size:14px;font-weight:700;color:#73d9e8;margin-top:24px;margin-bottom:8px;'>📡 Live Sentinel Acoustic Perception Feed (Sensor Log):</div>", unsafe_allow_html=True)
-        recent_evs = db.get_recent_events(limit=8)
+        recent_evs = db.get_recent(limit=8) if hasattr(db, "get_recent") else (db.get_recent_events(limit=8) if hasattr(db, "get_recent_events") else [])
         if not recent_evs:
             st.caption("Awaiting incoming acoustic telemetry stream from Sentinel edge hardware...")
         else:

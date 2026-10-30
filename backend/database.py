@@ -1174,6 +1174,15 @@ class RuntimeDatabase:
             for row in rows
         ]
 
+    def get_recent_events(
+        self,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """
+        Return recent edge events (alias for get_recent).
+        """
+        return self.get_recent(limit=limit)
+
     # ==========================================================
     # DEVICES
     # ==========================================================
