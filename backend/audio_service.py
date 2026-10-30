@@ -493,16 +493,32 @@ class AudioInferenceService:
         if audio_bytes[:3] == b"ID3":
             return "mp3"
 
-        # MP3 MPEG frame sync
-        if len(audio_bytes) >= 2:
+        # MP3 MPEG frame sync (Strict 4-byte validation + multi-frame sync check
+        # to prevent false-positives on raw signed PCM16 audio)
+        if len(audio_bytes) >= 4:
             b0 = audio_bytes[0]
             b1 = audio_bytes[1]
-
-            if (
-                b0 == 0xFF
-                and (b1 & 0xE0) == 0xE0
-            ):
-                return "mp3"
+            b2 = audio_bytes[2]
+            # Sync word (11 bits = 0xFF and top 3 bits of b1 == 0xE0)
+            if b0 == 0xFF and (b1 & 0xE0) == 0xE0:
+                version = (b1 & 0x18) >> 3
+                layer = (b1 & 0x06) >> 1
+                bitrate_idx = (b2 & 0xF0) >> 4
+                sr_idx = (b2 & 0x0C) >> 2
+                # Valid MPEG Audio: version != 1 (reserved), layer != 0 (reserved),
+                # bitrate_idx not in (0, 15), sr_idx != 3 (reserved)
+                if version != 1 and layer != 0 and 0 < bitrate_idx < 15 and sr_idx != 3:
+                    bitrates_l3_v1 = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320]
+                    srs_v1 = [44100, 48000, 32000]
+                    if version == 3 and layer == 1 and sr_idx < len(srs_v1) and bitrate_idx < len(bitrates_l3_v1):
+                        br = bitrates_l3_v1[bitrate_idx] * 1000
+                        sr = srs_v1[sr_idx]
+                        padding = (b2 & 0x02) >> 1
+                        frame_len = int((144 * br / sr) + padding)
+                        if len(audio_bytes) > frame_len + 1:
+                            # Verify second consecutive sync header at frame boundary
+                            if audio_bytes[frame_len] == 0xFF and (audio_bytes[frame_len + 1] & 0xE0) == 0xE0:
+                                return "mp3"
 
         # MP4 / M4A
         #
@@ -511,13 +527,13 @@ class AudioInferenceService:
         if len(audio_bytes) >= 12 and audio_bytes[4:8] == b"ftyp":
             return "m4a"
 
-        # AAC ADTS
-        if len(audio_bytes) >= 2:
-            if (
-                audio_bytes[0] == 0xFF
-                and (audio_bytes[1] & 0xF6) == 0xF0
-            ):
-                return "aac"
+        # AAC ADTS (Strict 4-byte check)
+        if len(audio_bytes) >= 4:
+            if audio_bytes[0] == 0xFF and (audio_bytes[1] & 0xF6) == 0xF0:
+                # ADTS sampling frequency index (bits 18-21) < 15
+                adts_sr_idx = (audio_bytes[2] & 0x3C) >> 2
+                if adts_sr_idx < 15:
+                    return "aac"
 
         # Anything else is treated as the ESP32 raw PCM16 path.
         return "pcm16"
@@ -675,11 +691,23 @@ class AudioInferenceService:
             return None, pcm_bytes, int(wav_sample_rate), "wav"
 
         if detected in {"mp3", "flac", "ogg", "m4a", "aiff", "aac"}:
-            waveform, decoded_rate = self.compressed_to_waveform(
-                audio_bytes,
-                detected,
-            )
-            return waveform, None, int(decoded_rate), detected
+            try:
+                waveform, decoded_rate = self.compressed_to_waveform(
+                    audio_bytes,
+                    detected,
+                )
+                return waveform, None, int(decoded_rate), detected
+            except Exception as decode_err:
+                # Resilient fallback: If compressed decoding fails (e.g. false-positive MP3 on raw PCM noise),
+                # and bytes align to 16-bit boundaries, safely fall back to raw PCM16 rather than throwing 500!
+                if len(audio_bytes) % 2 == 0:
+                    print(
+                        f"[AudioService] Warning: '{detected}' decoder failed ({decode_err}); "
+                        f"safely falling back to raw PCM16.",
+                        flush=True,
+                    )
+                    return None, audio_bytes, int(sample_rate), "pcm16"
+                raise
 
         if len(audio_bytes) % 2 != 0:
             raise ValueError(
