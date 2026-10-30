@@ -677,7 +677,7 @@ class CADIE:
             )
 
         if has_smoke:
-            factors.append(f"🔥 PHYSICAL SENSOR ALERT: MQ-2 sensor detected active smoke/combustible gas ({int(mq2_val)} ADC / {mq2_v:.3f}V).")
+            factors.append(f"[SMOKE ALERT] MQ-2 physical sensor alert: MQ-2 sensor detected active smoke/combustible gas ({int(mq2_val)} ADC / {mq2_v:.3f}V).")
         if fire_multimodal_confirmed:
             factors.append(f"[FIRE] Multimodal Corroboration: Fire crackle acoustics verified with DHT11 ({temp_val:.1f}C, {humidity_val:.1f}% RH) & MQ-2/MQ-135 Gas/Smoke ({mq2_v:.2f}V).")
         elif is_gas_active and gas_summary:
@@ -688,7 +688,7 @@ class CADIE:
         elif is_logging_voice:
             factors.append("Acoustic Detection: Logging/Chainsaw voice detected without ground vibration (possible distant or airborne machinery).")
         elif vibration_only_earthquake:
-            factors.append("ℹ️ Seismic / Environmental Ground Vibration: Mechanical vibration detected without logging acoustic voice (possible earthquake tremor, wind sway, or animal movement; logging not confirmed).")
+            factors.append("[SEISMIC VIBRATION] Environmental ground vibration: Mechanical vibration detected without logging acoustic voice (possible earthquake tremor, wind sway, or animal movement; logging not confirmed).")
 
         if battery_percent is not None:
 

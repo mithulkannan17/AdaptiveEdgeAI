@@ -1524,6 +1524,9 @@ async def receive_edge_audio(
     x_api_key: str | None = Header(None),
 ):
     audio: bytes = await request.body()
+    # Align audio bytes to even 16-bit boundaries
+    if audio and len(audio) % 2 != 0:
+        audio = audio[:-1]
 
     # ------------------------------------------------------
     # 1. Edge Device Authentication
@@ -1666,6 +1669,8 @@ async def receive_edge_audio(
         ) from exc
 
     except Exception as exc:
+        import traceback
+        traceback.print_exc()
 
         if audio_evidence_path is not None:
             try:
@@ -1724,6 +1729,10 @@ async def receive_edge_audio(
         runtime.get("decision")
         or inference_result.get("decision")
     )
+    if hasattr(decision, "to_dict"):
+        decision = decision.to_dict()
+    elif not isinstance(decision, dict):
+        decision = {}
 
     unknown_discovery = (
         runtime.get("unknown_discovery")
@@ -3099,4 +3108,4 @@ def get_audit_log(
         "count": len(logs),
         "audit_logs": logs,
     }
-
+

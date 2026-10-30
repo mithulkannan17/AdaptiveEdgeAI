@@ -102,6 +102,10 @@ class EmergencyAlertDispatcher:
         - Unauthorized Vehicles & Human Intrusion: triggers at >= 0.78 confidence + HIGH/CRITICAL CADIE risk
         - Benign sounds (Birds, Insects, Wildlife, Water, Wind, Rain, Ambient, Silence, Unknown) NEVER trigger emergency sirens.
         """
+        if cadie_decision is None:
+            cadie_decision = {}
+        if prediction is None:
+            prediction = {}
         risk = str(cadie_decision.get("risk_level", "")).upper()
         requires_attention = bool(cadie_decision.get("requires_attention", False))
         label = str(prediction.get("label", "")).strip().lower()
