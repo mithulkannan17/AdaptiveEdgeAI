@@ -1814,10 +1814,18 @@ class RuntimeDatabase:
         acknowledged_by: str = "Ranger Station",
     ) -> bool:
         """
-        Acknowledge an emergency alert.
+        Acknowledge an emergency alert and record immutable operational acknowledgment audit trail.
         """
         now_iso = datetime.now(timezone.utc).isoformat()
+        threat_type = "Threat"
         with self._connect() as connection:
+            al_row = connection.execute(
+                "SELECT threat_type FROM emergency_alerts WHERE alert_id = ?",
+                (alert_id.strip(),),
+            ).fetchone()
+            if al_row:
+                threat_type = al_row["threat_type"] or "Threat"
+
             cursor = connection.execute(
                 """
                 UPDATE emergency_alerts
@@ -1829,7 +1837,15 @@ class RuntimeDatabase:
                 (now_iso, acknowledged_by.strip(), alert_id.strip()),
             )
             connection.commit()
-            return cursor.rowcount > 0
+
+        # Record operational acknowledgment log
+        self.insert_auth_audit_log(
+            username=acknowledged_by.strip(),
+            role="ranger",
+            action="ALERT_ACKNOWLEDGED",
+            details=f"Ranger {acknowledged_by.strip()} officially acknowledged {threat_type} Alert ({alert_id.strip()}) at {now_iso[:19].replace('T', ' ')}. Field response unit dispatched.",
+        )
+        return cursor.rowcount > 0
 
     def resolve_emergency_alert(
         self,
@@ -2162,6 +2178,8 @@ class RuntimeDatabase:
                     "threat_category": r["threat_type"],
                     "priority": r["risk_level"],
                     "occurred_at": r["created_at"],
+                    "acknowledged_at": r["acknowledged_at"] if "acknowledged_at" in r.keys() else None,
+                    "acknowledged_by": r["acknowledged_by"] if "acknowledged_by" in r.keys() else None,
                     "resolved_at": r["resolved_at"] or r["created_at"],
                     "resolved_by": r["resolved_by"] or "Chief Ranger",
                     "assigned_to": r["assigned_ranger_name"] or "Direct Dispatch",
@@ -2189,6 +2207,8 @@ class RuntimeDatabase:
                     "threat_category": r["threat_category"],
                     "priority": "HIGH",
                     "occurred_at": r["created_at"],
+                    "acknowledged_at": r["dispatched_at"] if "dispatched_at" in r.keys() else None,
+                    "acknowledged_by": r["assigned_ranger_name"] if "assigned_ranger_name" in r.keys() else (r["resolved_by"] if "resolved_by" in r.keys() else None),
                     "resolved_at": r["resolved_at"] or r["updated_at"] or r["created_at"],
                     "resolved_by": r["resolved_by"] or r["status_notes"] or "Field Ranger Unit",
                     "assigned_to": r["assigned_ranger_name"] or "Field Patrol",

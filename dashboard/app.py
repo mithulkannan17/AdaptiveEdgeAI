@@ -2148,49 +2148,81 @@ def render_incident_archive_page():
 
     st.markdown(f"<div style='font-size:12px; color:#829a97; margin-bottom:12px;'>Showing <b>{len(filtered)}</b> resolved incident records in chronological order:</div>", unsafe_allow_html=True)
 
-    for idx, inc in enumerate(filtered):
-        inc_id = inc.get("incident_id")
-        src_type = inc.get("source_type")
-        th_cat = inc.get("threat_category")
-        occ_time = str(inc.get("occurred_at", ""))[:19].replace("T", " ")
-        res_time = str(inc.get("resolved_at", ""))[:19].replace("T", " ")
-        res_by = inc.get("resolved_by")
-        res_notes = inc.get("resolution_notes")
-        lat = inc.get("location_lat")
-        lon = inc.get("location_lon")
-        photo = inc.get("photo_filename")
-        reporter = inc.get("reporter")
+    tab_cards, tab_log = st.tabs(["📑 Detailed Incident Dossier Cards", "📋 Solved & Acknowledged Incidents Registry Table"])
 
-        with st.container(border=True):
-            h_c1, h_c2 = st.columns([2.2, 1.2])
-            with h_c1:
-                badge_col = "#ff7070" if "Sentinel" in str(src_type) else "#f2c66d"
-                st.markdown(
-                    f"""
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <span style="background:rgba(255,255,255,0.06); color:{badge_col}; border:1px solid {badge_col}; border-radius:6px; padding:2px 8px; font-size:10px; font-weight:700;">{src_type}</span>
-                        <span style="font-size:15px; font-weight:800; color:#fff;">{th_cat}</span>
-                        <span style="font-family:monospace; font-size:11px; color:#73d9e8;">({inc_id})</span>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-                st.markdown(f"**Action Taken / Resolution Notes:** {res_notes}")
-                if reporter:
-                    st.caption(f"Source / Reporter: {reporter}")
+    with tab_log:
+        st.markdown("<div style='font-size:13px;font-weight:700;color:#7cf0b2;margin-bottom:8px;'>📜 Official Incident Resolution Registry (Audit Trail):</div>", unsafe_allow_html=True)
+        registry_rows = []
+        for inc in filtered:
+            o_t = str(inc.get("occurred_at", ""))[:19].replace("T", " ")
+            r_t = str(inc.get("resolved_at", ""))[:19].replace("T", " ")
+            a_b = inc.get("acknowledged_by") or "Direct Resolution"
+            a_t = str(inc.get("acknowledged_at", ""))[:19].replace("T", " ") if inc.get("acknowledged_at") else ""
+            ack_info = f"{a_b} ({a_t})" if a_t else a_b
+            r_b = inc.get("resolved_by") or "Field Ranger Unit"
+            lat_v = inc.get("location_lat")
+            lon_v = inc.get("location_lon")
+            loc_str = f"{float(lat_v):.4f}°N, {float(lon_v):.4f}°E" if lat_v and lon_v else "Sector 4"
+            registry_rows.append({
+                "INCIDENT ID": inc.get("incident_id"),
+                "SOURCE / THREAT": f"{inc.get('source_type', '')} - {inc.get('threat_category', '')}",
+                "DETECTED AT": o_t,
+                "ACKNOWLEDGED BY": ack_info,
+                "SOLVED BY (OFFICER)": r_b,
+                "RESOLVED AT": r_t,
+                "RESOLUTION & FIELD NOTES": inc.get("resolution_notes") or "Perimeter verified and clear",
+                "LOCATION": loc_str,
+            })
+        st.dataframe(registry_rows, use_container_width=True, hide_index=True)
 
-            with h_c2:
-                st.markdown(f"⏱️ **Occurred:** `{occ_time or 'N/A'}`")
-                st.markdown(f"✅ **Resolved:** `{res_time or 'N/A'}`")
-                st.markdown(f"🛡️ **Addressed By:** <span style='color:#7cf0b2;font-weight:700;'>{res_by}</span>", unsafe_allow_html=True)
-                if lat and lon:
-                    st.markdown(f"📍 **GPS:** [`{float(lat):.5f}°N, {float(lon):.5f}°E`](https://maps.google.com/?q={lat},{lon})")
+    with tab_cards:
+        for idx, inc in enumerate(filtered):
+            inc_id = inc.get("incident_id")
+            src_type = inc.get("source_type")
+            th_cat = inc.get("threat_category")
+            occ_time = str(inc.get("occurred_at", ""))[:19].replace("T", " ")
+            ack_time = str(inc.get("acknowledged_at", ""))[:19].replace("T", " ") if inc.get("acknowledged_at") else None
+            ack_by = inc.get("acknowledged_by")
+            res_time = str(inc.get("resolved_at", ""))[:19].replace("T", " ")
+            res_by = inc.get("resolved_by")
+            res_notes = inc.get("resolution_notes")
+            lat = inc.get("location_lat")
+            lon = inc.get("location_lon")
+            photo = inc.get("photo_filename")
+            reporter = inc.get("reporter")
 
-            if photo and photo != "no_photo.jpg":
-                if str(photo).startswith("data:image"):
-                    st.image(photo, caption=f"📸 Photo Evidence: {th_cat}", width=220)
-                elif os.path.exists(str(photo)):
-                    st.image(photo, caption=f"📸 Photo Evidence: {th_cat}", width=220)
+            with st.container(border=True):
+                h_c1, h_c2 = st.columns([2.2, 1.2])
+                with h_c1:
+                    badge_col = "#ff7070" if "Sentinel" in str(src_type) else "#f2c66d"
+                    st.markdown(
+                        f"""
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="background:rgba(255,255,255,0.06); color:{badge_col}; border:1px solid {badge_col}; border-radius:6px; padding:2px 8px; font-size:10px; font-weight:700;">{src_type}</span>
+                            <span style="font-size:15px; font-weight:800; color:#fff;">{th_cat}</span>
+                            <span style="font-family:monospace; font-size:11px; color:#73d9e8;">({inc_id})</span>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+                    st.markdown(f"**Action Taken / Field Resolution Notes:** {res_notes}")
+                    if reporter:
+                        st.caption(f"Source / Reporter: {reporter}")
+
+                with h_c2:
+                    st.markdown(f"⏱️ **Detected:** `{occ_time or 'N/A'}`")
+                    if ack_by:
+                        st.markdown(f"⚡ **Acknowledged:** <span style='color:#73d9e8;font-weight:600;'>{ack_by}</span> (`{ack_time or 'Logged'}`)", unsafe_allow_html=True)
+                    st.markdown(f"🛡️ **Solved By:** <span style='color:#7cf0b2;font-weight:700;'>{res_by}</span>", unsafe_allow_html=True)
+                    st.markdown(f"✅ **Resolved At:** `{res_time or 'N/A'}`")
+                    if lat and lon:
+                        st.markdown(f"📍 **GPS:** [`{float(lat):.5f}°N, {float(lon):.5f}°E`](https://maps.google.com/?q={lat},{lon})")
+
+                if photo and photo != "no_photo.jpg":
+                    if str(photo).startswith("data:image"):
+                        st.image(photo, caption=f"📸 Photo Evidence: {th_cat}", width=220)
+                    elif os.path.exists(str(photo)):
+                        st.image(photo, caption=f"📸 Photo Evidence: {th_cat}", width=220)
 
 # ============================================================
 # 👑 CHIEF RANGER VIEW HANDLERS
@@ -2900,14 +2932,20 @@ SMTP_SSL=false
 
         st.markdown("<div style='margin-top:14px;font-size:13px;font-weight:700;'>Alert Broadcast & Dispatch History Log:</div>", unsafe_allow_html=True)
         hist_rows = []
-        for a_item in db.get_emergency_alert_history(limit=15):
+        for a_item in db.get_emergency_alert_history(limit=25):
+            ack_p = a_item.get("acknowledged_by")
+            ack_t = str(a_item.get("acknowledged_at") or "")[:19].replace("T", " ")
+            ack_disp = f"{ack_p} ({ack_t})" if (ack_p and ack_t) else (ack_p or "—")
+            res_p = a_item.get("resolved_by")
+            res_t = str(a_item.get("resolved_at") or "")[:19].replace("T", " ")
+            res_disp = f"{res_p} ({res_t})" if (res_p and res_t) else (res_p or ("En Route" if ack_p else "Unassigned"))
             hist_rows.append({
                 "ALERT ID": a_item.get("alert_id"),
                 "THREAT": a_item.get("threat_type"),
                 "PRIORITY": a_item.get("risk_level"),
                 "STATUS": a_item.get("status"),
-                "RESPONDING RANGER": a_item.get("assigned_ranger_name") or "Awaiting Dispatch",
-                "ADDRESSED & RESOLVED BY": a_item.get("resolved_by") or ("En Route / Addressing" if a_item.get("assigned_ranger_name") else "Unassigned"),
+                "ACKNOWLEDGED BY": ack_disp,
+                "RESOLVED BY": res_disp,
                 "RESOLUTION NOTES": a_item.get("resolution_notes") or "—",
             })
         st.dataframe(hist_rows, use_container_width=True, hide_index=True)
