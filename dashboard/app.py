@@ -150,10 +150,9 @@ def format_display_label(raw_label: str) -> str:
         return "Ambient Forest"
     return raw_label.title() if raw_label else "Ambient Forest"
 
-# Auto-refresh only when logged in
-if st.session_state.get("authenticated", False):
-    if st_autorefresh is not None:
-        st_autorefresh(interval=3000, key="aura_live_refresh")
+# Real-time auto-refresh across all portals (Chief, Ranger, and Citizens)
+if st_autorefresh is not None:
+    st_autorefresh(interval=2500, key="aura_live_refresh")
 
 # ============================================================
 # DESIGN SYSTEM & MOBILE RESPONSIVE CSS
@@ -1367,18 +1366,32 @@ with st.sidebar:
         else:
             safe_nav_label = "⚠️ Safety Notices & Alerts"
 
-        nav_options = [
-            safe_nav_label,
-            "🌿 Forest Climate & Readings",
-            "📸 Report Illegal Activity",
-        ]
+        cit_keys = ["safety", "climate", "report"]
+        cit_label_map = {
+            "safety": safe_nav_label,
+            "climate": "🌿 Forest Climate & Readings",
+            "report": "📸 Report Illegal Activity",
+        }
+        # If siren or alerts active, ensure default lands on safety
+        default_cit_idx = 0 if (v_siren_nav or active_alerts) else 0
 
-    active_page = st.radio(
-        "Navigation",
-        options=nav_options,
-        key="sidebar_navigation_choice",
-        label_visibility="collapsed",
-    )
+        active_page_key = st.radio(
+            "Navigation",
+            options=cit_keys,
+            index=default_cit_idx,
+            format_func=lambda k: cit_label_map.get(k, k),
+            key="sidebar_navigation_choice_cit",
+            label_visibility="collapsed",
+        )
+        active_page = cit_label_map.get(active_page_key, "⚠️ Safety Notices & Alerts")
+
+    if current_role != "viewer":
+        active_page = st.radio(
+            "Navigation",
+            options=nav_options,
+            key="sidebar_navigation_choice",
+            label_visibility="collapsed",
+        )
 
     # 4. Live Sentinel Quick Stats
     batt_pct = safe_num(telemetry.get("battery_percent", 0.0))
@@ -1451,6 +1464,36 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+import io, math, struct
+
+@st.cache_data
+def get_emergency_siren_wav(duration_s: float = 2.0, sample_rate: int = 22050) -> bytes:
+    """Generate high-intensity emergency warble siren WAV audio bytes."""
+    num_samples = int(duration_s * sample_rate)
+    buf = io.BytesIO()
+    buf.write(b"RIFF")
+    buf.write(struct.pack("<I", 36 + num_samples * 2))
+    buf.write(b"WAVEfmt ")
+    buf.write(struct.pack("<I", 16))
+    buf.write(struct.pack("<H", 1))
+    buf.write(struct.pack("<H", 1))
+    buf.write(struct.pack("<I", sample_rate))
+    buf.write(struct.pack("<I", sample_rate * 2))
+    buf.write(struct.pack("<H", 2))
+    buf.write(struct.pack("<H", 16))
+    buf.write(b"data")
+    buf.write(struct.pack("<I", num_samples * 2))
+
+    phase = 0.0
+    for i in range(num_samples):
+        t = i / sample_rate
+        freq = 720.0 + 260.0 * math.sin(2.0 * math.pi * 2.5 * t)
+        phase += 2.0 * math.pi * freq / sample_rate
+        sample_val = int(14000 * math.sin(phase))
+        buf.write(struct.pack("<h", max(-32767, min(32767, sample_val))))
+
+    return buf.getvalue()
+
 def render_siren_audio_synthesizer(is_active: bool = True, threat_label: str = "Threat") -> None:
     """Audible sanctuary alert synthesizer (plays emergency alert chime in browser)."""
     if not is_active:
@@ -1495,13 +1538,13 @@ if active_siren:
 
     st.markdown(
         f'''
-        <div style="background:linear-gradient(135deg, rgba(239,68,68,0.30), rgba(185,28,28,0.44));border:2.5px solid #ef4444;border-radius:14px;padding:16px 20px;margin-bottom:18px;box-shadow:0 0 35px rgba(239,68,68,0.50);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div style="background:linear-gradient(135deg, rgba(239,68,68,0.35), rgba(185,28,28,0.48));border:2.5px solid #ef4444;border-radius:14px;padding:18px 22px;margin-bottom:12px;box-shadow:0 0 35px rgba(239,68,68,0.55);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
             <div style="display:flex;align-items:center;gap:14px;">
-                <span style="font-size:36px;">🚨</span>
+                <span style="font-size:38px;">🚨</span>
                 <div>
-                    <div style="font-size:16px;font-weight:800;color:#ef4444;letter-spacing:0.04em;">EMERGENCY PUBLIC WARNING SIREN BROADCASTING ACROSS ALL SECTORS</div>
-                    <div style="font-size:14px;font-weight:700;color:#ffffff;margin-top:2px;">REASON: {s_reason}</div>
-                    <div style="font-size:11px;color:#fca5a5;margin-top:2px;">Triggered at: <b>{s_time_str}</b> · Immediate Sanctuary-Wide Warning</div>
+                    <div style="font-size:18px;font-weight:800;color:#ef4444;letter-spacing:0.04em;">EMERGENCY PUBLIC WARNING SIREN BROADCASTING ACROSS ALL SECTORS</div>
+                    <div style="font-size:15px;font-weight:700;color:#ffffff;margin-top:2px;">REASON: {s_reason}</div>
+                    <div style="font-size:12px;color:#fca5a5;margin-top:2px;">Triggered at: <b>{s_time_str}</b> · Immediate Sanctuary-Wide Warning</div>
                     <div style="font-size:12px;color:#e2e8f0;margin-top:6px;background:rgba(0,0,0,0.35);padding:6px 12px;border-radius:6px;">
                         ⚠️ <b>INSTRUCTION:</b> Evacuate active trails immediately. Follow sector patrol rangers toward designated safe muster points.
                     </div>
@@ -1511,12 +1554,16 @@ if active_siren:
         ''',
         unsafe_allow_html=True
     )
-    render_siren_audio_synthesizer(is_active=True, threat_label="PUBLIC SIREN")
-    if current_role in ["admin", "ranger"]:
-        if st.button("🔕 Silence & Deactivate Public Emergency Siren", key="btn_silence_siren_top_global", use_container_width=True, type="primary"):
-            db.deactivate_public_siren(deactivated_by=user_display)
-            st.success("Public siren deactivated and silenced.")
-            st.rerun()
+    # Play real audible siren audio natively in browser
+    s_col1, s_col2 = st.columns([2.5, 1.2])
+    with s_col1:
+        st.audio(get_emergency_siren_wav(), format="audio/wav", autoplay=True, loop=True)
+    with s_col2:
+        if current_role in ["admin", "ranger"]:
+            if st.button("🔕 Silence & Deactivate Siren", key="btn_silence_siren_top_global", use_container_width=True, type="primary"):
+                db.deactivate_public_siren(deactivated_by=user_display)
+                st.success("Public siren deactivated and silenced.")
+                st.rerun()
 
 # Active alert notification banner
 if active_alerts:
@@ -3135,19 +3182,31 @@ SMTP_SSL=false
                 m_action = st.selectbox("Dispatch Action", ["DISPATCH_RANGERS", "INTERCEPT_VEHICLE", "INVESTIGATE_INTRUSION", "RECORD_EVIDENCE", "MONITOR"], key="adm_action_choice")
 
             clean_th = m_threat.split(" (")[0].replace("🔥 ", "").replace("🪚 ", "").replace("🚗 ", "").replace("👤 ", "").replace("🌿 ", "")
-            if st.button("🚨 Broadcast Emergency Alert Now", type="primary", use_container_width=True):
-                db.insert_emergency_alert({
-                    "alert_id": f"alert_man_{int(time.time())}",
-                    "device_id": device_id,
-                    "threat_type": clean_th,
-                    "risk_level": m_risk,
-                    "confidence": 0.98,
-                    "location_lat": sent_lat,
-                    "location_lon": sent_lon,
-                    "message": f"🚨 {m_risk}: {clean_th} alert dispatched by Chief Ranger Sharma.",
-                })
-                st.success("Emergency Alert broadcast to all field sentinels and ranger units!")
-                st.rerun()
+            bc_col1, bc_col2 = st.columns(2)
+            with bc_col1:
+                if st.button("🚨 Broadcast Sentinel Threat Alert", type="primary", use_container_width=True, key="btn_bcast_sentinel_alert"):
+                    db.insert_emergency_alert({
+                        "alert_id": f"alert_man_{int(time.time())}",
+                        "device_id": device_id,
+                        "threat_type": clean_th,
+                        "risk_level": m_risk,
+                        "confidence": 0.98,
+                        "location_lat": sent_lat,
+                        "location_lon": sent_lon,
+                        "message": f"🚨 {m_risk}: {clean_th} alert dispatched by Chief Ranger Sharma.",
+                    })
+                    st.success("Emergency Alert broadcast to all field sentinels and ranger units!")
+                    st.rerun()
+            with bc_col2:
+                if st.button("📢 SOUND PUBLIC WARNING SIREN TO ALL CITIZENS", type="primary", use_container_width=True, key="btn_bcast_siren_page"):
+                    db.activate_public_siren(
+                        reason=f"🚨 {clean_th.upper()} WARNING ({m_risk}): Evacuate affected trails immediately.",
+                        activated_by=user_display,
+                        location_lat=sent_lat,
+                        location_lon=sent_lon,
+                    )
+                    st.success("🚨 Public Warning Siren broadcast to all citizens and visitors!")
+                    st.rerun()
 
         st.markdown("<div style='margin-top:14px;font-size:13px;font-weight:700;'>Alert Broadcast & Dispatch History Log:</div>", unsafe_allow_html=True)
         hist_rows = []

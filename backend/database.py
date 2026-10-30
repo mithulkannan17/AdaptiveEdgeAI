@@ -2051,13 +2051,15 @@ class RuntimeDatabase:
     def get_active_public_siren(self) -> dict[str, Any] | None:
         """
         Return the active public siren alert if currently triggered and unresolved.
+        Matches alert_public_emergency_siren or any threat_type containing SIREN.
         """
         with self._connect() as connection:
             row = connection.execute(
                 """
                 SELECT * FROM emergency_alerts
-                WHERE alert_id = 'alert_public_emergency_siren'
+                WHERE (alert_id = 'alert_public_emergency_siren' OR threat_type = 'PUBLIC EMERGENCY SIREN' OR threat_type LIKE '%SIREN%')
                   AND status != 'RESOLVED'
+                ORDER BY timestamp DESC
                 LIMIT 1
                 """
             ).fetchone()
