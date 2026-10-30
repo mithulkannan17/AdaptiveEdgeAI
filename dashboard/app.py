@@ -2933,12 +2933,82 @@ SMTP_SSL=false
         render_incident_archive_page()
 
     elif active_page == "🔬 Unknown Sound Discovery":
-        st.markdown('<div class="section"><div class="section-title">Unknown Sound Discovery & Clustering</div><div class="section-meta">OPEN-SET REJECTION → DBSCAN CLUSTERS → HUMAN REVIEW</div></div>', unsafe_allow_html=True)
-        c1, c2 = st.columns(2)
-        with c1:
-            metric("Pending Unknown", str(safe_num(unknown.get("buffer_size", 0))), "samples", "awaiting batch", accent="cyan")
-        with c2:
-            metric("Discovered Clusters", "3", "classes", "DBSCAN clusters", accent="purple")
+        st.markdown('<div class="section"><div class="section-title">Unknown Sound Discovery & Clustering</div><div class="section-meta">OPEN-SET REJECTION → DBSCAN EMBEDDING CLUSTERS → BIOLOGIST & CHIEF REVIEW</div></div>', unsafe_allow_html=True)
+
+        unk_file = os.path.join("data", "unknown_discovery.json")
+        unk_data = {}
+        if os.path.exists(unk_file):
+            try:
+                with open(unk_file, "r", encoding="utf-8") as uf:
+                    unk_data = json.load(uf)
+            except Exception:
+                unk_data = {}
+
+        clusters = unk_data.get("clusters", [])
+        total_samples = unk_data.get("total_unknown_samples", 0)
+        unlabeled_count = len([c for c in clusters if str(c.get("status", "")).upper() != "LABELED"])
+
+        u_c1, u_c2, u_c3, u_c4 = st.columns(4)
+        with u_c1:
+            metric("Total Unknown Audios", str(total_samples), "samples", "open-set acoustic triggers", accent="cyan", icon="🎧")
+        with u_c2:
+            metric("Discovered Clusters", str(len(clusters)), "classes", "DBSCAN geometric clusters", accent="purple", icon="🔬")
+        with u_c3:
+            metric("Unlabeled Clusters", str(unlabeled_count), "pending", "awaiting human classification", accent="amber" if unlabeled_count > 0 else "emerald", icon="🏷️")
+        with u_c4:
+            metric("Buffer Size", str(safe_num(unknown.get("buffer_size", 0))), "samples", "in edge buffer", accent="emerald", icon="📦")
+
+        st.markdown("<div style='font-size:14px;font-weight:700;color:var(--text-primary);margin-top:20px;margin-bottom:10px;'>📊 Discovered Novel Acoustic Clusters:</div>", unsafe_allow_html=True)
+        if not clusters:
+            st.info("No novel acoustic clusters discovered yet. When the edge model detects unknown high-entropy bioacoustic signals, they are clustered here for taxonomy.")
+        else:
+            cl_rows = []
+            for cl in clusters:
+                c_id = cl.get("cluster_id")
+                c_cnt = cl.get("sample_count", 0)
+                c_stat = str(cl.get("status", "UNLABELED")).upper()
+                c_lbl = cl.get("label") or "Pending Classification"
+                c_notes = cl.get("notes") or ""
+                cl_rows.append({
+                    "CLUSTER ID": c_id,
+                    "STATUS": c_stat,
+                    "SAMPLE COUNT": f"{c_cnt} recordings",
+                    "ASSIGNED LABEL": c_lbl,
+                    "BIOLOGIST NOTES": c_notes,
+                })
+            st.dataframe(cl_rows, use_container_width=True, hide_index=True)
+
+            # Triage / Labeling Interface
+            st.markdown("<div style='font-size:14px;font-weight:700;color:#f2c66d;margin-top:24px;margin-bottom:10px;'>🏷️ Chief Ranger & Bioacoustic Classification Triage:</div>", unsafe_allow_html=True)
+            with st.container(border=True):
+                cl_choices = [c.get("cluster_id") for c in clusters]
+                sel_cl_id = st.selectbox("Select Cluster to Classify / Verify", cl_choices, key="sel_unk_cluster_id")
+                selected_cluster = next((c for c in clusters if c.get("cluster_id") == sel_cl_id), None)
+
+                if selected_cluster:
+                    curr_lbl = selected_cluster.get("label") or ""
+                    curr_notes = selected_cluster.get("notes") or ""
+                    tl_1, tl_2 = st.columns([2, 2.5])
+                    with tl_1:
+                        new_lbl = st.text_input("Taxonomic / Threat Label", value=curr_lbl, placeholder="e.g. Leopard Roar, Illegal Excavator, Heavy Rainfall", key=f"inp_unk_lbl_{sel_cl_id}")
+                    with tl_2:
+                        new_notes = st.text_input("Classification Notes & Corroboration", value=curr_notes, placeholder="e.g. Verified by camera trap at Sector 4 corridor.", key=f"inp_unk_not_{sel_cl_id}")
+
+                    if st.button("💾 Save Official Class Label", type="primary", use_container_width=True, key=f"btn_save_cl_{sel_cl_id}"):
+                        if new_lbl.strip():
+                            selected_cluster["label"] = new_lbl.strip()
+                            selected_cluster["notes"] = new_notes.strip()
+                            selected_cluster["status"] = "LABELED"
+                            selected_cluster["updated_at"] = time.time()
+                            try:
+                                with open(unk_file, "w", encoding="utf-8") as uf:
+                                    json.dump(unk_data, uf, indent=2)
+                                st.success(f"Cluster {sel_cl_id} officially labeled as '{new_lbl.strip()}'!")
+                                st.rerun()
+                            except Exception as ex:
+                                st.error(f"Failed to update cluster: {ex}")
+                        else:
+                            st.error("Please enter a valid label for this sound cluster.")
 
     elif active_page == "🔒 Security & Audit Log":
         st.markdown('<div class="section"><div class="section-title">Security & Authentication Audit Log</div><div class="section-meta">IMMUTABLE RECORD OF LOGINS, DISPATCHES, AND RANGER INCIDENT RESOLUTIONS</div></div>', unsafe_allow_html=True)

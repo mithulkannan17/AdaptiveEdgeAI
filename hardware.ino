@@ -1180,8 +1180,7 @@ void startWiFiPortal()
     WiFi.softAP("AuraForest-Node-Setup");
 
     IPAddress myIP = WiFi.softAPIP();
-    Serial.print("  Access Point SSID : AuraForest-Node-Setup
-");
+    Serial.println("  Access Point SSID : AuraForest-Node-Setup");
     Serial.print("  Configuration URL : http://");
     Serial.println(myIP);
     Serial.println("  ----------------------------------------------------------");
