@@ -1,15 +1,15 @@
 {
   "version": 2,
-  "total_unknown_samples": 350,
+  "total_unknown_samples": 358,
   "total_cluster_runs": 7,
   "last_cluster_at": 1793301728.7324483,
   "last_decision": {
     "is_unknown": true,
     "predicted_class": 10,
-    "confidence": 0.5668357014656067,
-    "margin": 0.13367506861686707,
+    "confidence": 0.5732753276824951,
+    "margin": 0.24543198943138123,
     "reason": "Low classification confidence.",
-    "audio_rms": 0.014359191060066223
+    "audio_rms": 0.00532835628837347
   },
   "clusters": [
     {

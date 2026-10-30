@@ -1335,6 +1335,9 @@ with st.sidebar:
     # 4. Role-Aware Sidebar Navigation (Replaces top navbar!)
     st.markdown('<div class="metric-label" style="margin-top:12px; margin-bottom:6px;">SIDEBAR NAVIGATION</div>', unsafe_allow_html=True)
 
+    pending_cit_count = len([c for c in db.get_citizen_reports() if str(c.get("status", "")).upper() != "RESOLVED"])
+    cit_nav_label = f"📨 Citizen Reports Inbox ({pending_cit_count})" if pending_cit_count > 0 else "📨 Citizen Reports Inbox"
+
     if current_role == "admin":
         nav_options = [
             "📡 Live Sentinel Overview",
@@ -1342,7 +1345,7 @@ with st.sidebar:
             "👥 Ranger & User Management",
             "📊 Acoustic AI & Spectrum",
             "🚨 Emergency Broadcast",
-            "📨 Citizen Reports Inbox",
+            cit_nav_label,
             "📜 Incident Archive & Resolution Logs",
             "🔬 Unknown Sound Discovery",
             "🔒 Security & Audit Log",
@@ -2163,6 +2166,26 @@ def render_incident_archive_page():
 
 if current_role == "admin":
     if active_page == "📡 Live Sentinel Overview":
+        # Notice for pending citizen tips
+        pending_cits_list = [c for c in db.get_citizen_reports() if str(c.get("status", "")).upper() != "RESOLVED"]
+        if pending_cits_list:
+            st.markdown(
+                f'''
+                <div style="background:rgba(242,198,109,0.12);border:1.5px solid #f2c66d;border-radius:12px;padding:12px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <span style="font-size:24px;">📸</span>
+                        <div>
+                            <div style="font-size:14px;font-weight:700;color:#f2c66d;letter-spacing:0.02em;">ACTION REQUIRED: {len(pending_cits_list)} PENDING CITIZEN FIELD REPORT(S)</div>
+                            <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">
+                                Public visitors have submitted geo-tagged field sighting(s) awaiting Chief review and Ranger dispatch.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                ''',
+                unsafe_allow_html=True
+            )
+
         dev_status = telemetry.get("device_status") if isinstance(telemetry.get("device_status"), dict) else {}
         gas_info = dev_status.get("gas_assessment") or telemetry.get("gas_assessment") or {}
         gas_status = str(gas_info.get("overall_status") or "NOMINAL").upper()
@@ -2857,7 +2880,7 @@ SMTP_SSL=false
             })
         st.dataframe(hist_rows, use_container_width=True, hide_index=True)
 
-    elif active_page == "📨 Citizen Reports Inbox":
+    elif "Citizen Reports Inbox" in active_page:
         st.markdown('<div class="section"><div class="section-title">Public Citizen Reports & Tips Inbox</div><div class="section-meta">CITIZEN TIPS · PHOTO EVIDENCE · TRIAGE & DISPATCH CONTROLS</div></div>', unsafe_allow_html=True)
         c_reports = db.get_citizen_reports()
         if not c_reports:
@@ -2940,58 +2963,150 @@ SMTP_SSL=false
 
 elif current_role == "ranger":
     if active_page == "🚨 Incident & Citizen Response":
-        st.markdown('<div class="section"><div class="section-title">Active Threats & Citizen Incidents Response</div><div class="section-meta">ON-SITE INVESTIGATION AND RESOLUTION</div></div>', unsafe_allow_html=True)
+        st.markdown('<div class="section"><div class="section-title">Active Threats & Citizen Incidents Response</div><div class="section-meta">LIVE SENTRY RADAR · FIELD PATROL DISPATCH · INCIDENT RESOLUTION</div></div>', unsafe_allow_html=True)
         render_geolocation_sentry("FIELD RANGER LIVE GPS TELEMETRY", auto_capture=True)
 
-        # 1. Edge Alerts
-        st.markdown("<div style='font-size:13px;font-weight:700;color:#ff7070;margin-bottom:8px;'>📡 Sentinel Edge AI Threat Alerts:</div>", unsafe_allow_html=True)
+        # ----------------------------------------------------
+        # 1. LIVE SENTINEL EDGE AI THREAT ALERTS
+        # ----------------------------------------------------
+        st.markdown("<div style='font-size:14px;font-weight:700;color:#ff7070;margin-top:4px;margin-bottom:8px;'>📡 Active Sentinel Edge AI Threat Alerts:</div>", unsafe_allow_html=True)
+        
+        # Test alert trigger button for field rangers to verify system anytime
+        rg_sim_c1, rg_sim_c2 = st.columns([3, 1.2])
+        with rg_sim_c2:
+            if st.button("🧪 Trigger Test Sentry Alert", use_container_width=True, type="secondary", key="btn_ranger_sim_alert"):
+                sim_threat = random.choice(["Chainsaw", "Fire", "Gunshot", "Vehicle Intrusion"])
+                now_sim_ts = time.time()
+                db.insert_emergency_alert({
+                    "alert_id": f"alert_field_test_{int(now_sim_ts)}",
+                    "device_id": "AURA_SENTRY_NODE_01",
+                    "threat_type": sim_threat,
+                    "risk_level": "CRITICAL" if sim_threat in ["Chainsaw", "Fire", "Gunshot"] else "HIGH",
+                    "confidence": 0.94,
+                    "location_lat": sent_lat + 0.0015,
+                    "location_lon": sent_lon + 0.0018,
+                    "message": f"🚨 Field verification alert: {sim_threat} simulated by Ranger {user_display}.",
+                    "status": "DISPATCHED",
+                })
+                st.success(f"Dispatched test alert: {sim_threat}!")
+                st.rerun()
+
         if not active_alerts:
             st.success("🟢 No unacknowledged Sentinel edge alerts in your sector.")
         else:
             for al in active_alerts:
                 al_id = al.get("alert_id")
+                al_threat = str(al.get("threat_type", "Threat")).upper()
+                al_conf = safe_num(al.get("confidence", 0.9)) * 100
+                al_stat = str(al.get("status", "DISPATCHED")).upper()
+                al_node = al.get("device_id", "AURA_SENTRY_01")
                 al_lat = float(safe_num(al.get("location_lat"), sent_lat))
                 al_lon = float(safe_num(al.get("location_lon"), sent_lon))
                 d_str = format_gps_distance(calculate_haversine_distance(sent_lat, sent_lon, al_lat, al_lon))
+                al_msg = al.get("message") or f"{al_threat} signature detected by {al_node}."
+
+                border_color = "#ef4444" if al_stat != "ACKNOWLEDGED" else "#7cf0b2"
+                stat_badge = f"<span style='background:rgba(239,68,68,0.2);color:#ef4444;border:1px solid #ef4444;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;'>🚨 {al_stat}</span>" if al_stat != "ACKNOWLEDGED" else f"<span style='background:rgba(124,240,178,0.2);color:#7cf0b2;border:1px solid #7cf0b2;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;'>✓ ACKNOWLEDGED</span>"
 
                 with st.container(border=True):
-                    st.markdown(f"**🚨 THREAT: {al.get('threat_type')}** ({safe_num(al.get('confidence'))*100:.1f}%) · Pinpoint: `{al_lat:.5f}°N, {al_lon:.5f}°E` · **{d_str}**")
+                    t_c1, t_c2 = st.columns([3, 1.2])
+                    with t_c1:
+                        st.markdown(f"<div style='font-size:16px;font-weight:800;color:#fff;'>🚨 THREAT: <span style='color:#ef4444;'>{al_threat}</span> ({al_conf:.1f}% Confidence) · {stat_badge}</div>", unsafe_allow_html=True)
+                        st.markdown(f"📍 Coordinates: [`{al_lat:.5f}°N, {al_lon:.5f}°E`](https://maps.google.com/?q={al_lat},{al_lon}) · Proximity from you: **{d_str}** · Node: `[{al_node}]`")
+                        st.caption(f"Details: {al_msg}")
+                    with t_c2:
+                        if al_stat != "ACKNOWLEDGED":
+                            if st.button("⚡ Acknowledge Alert", key=f"btn_ack_rng_{al_id}", use_container_width=True, type="secondary"):
+                                db.acknowledge_emergency_alert(al_id, acknowledged_by=user_display)
+                                st.success(f"Alert acknowledged by {user_display}!")
+                                st.rerun()
+
+                    st.markdown("<div style='margin-top:8px; border-top:1px dashed var(--line); padding-top:8px;'></div>", unsafe_allow_html=True)
                     r_c1, r_c2 = st.columns([2.5, 1])
                     with r_c1:
-                        notes_inp = st.text_input("Resolution Notes", value="Threat investigated and perimeter secured.", key=f"al_notes_{al_id}")
+                        notes_inp = st.text_input("Resolution & Field Investigation Notes", value="Threat investigated on-site, sector secured, no illegal activity present.", key=f"al_notes_{al_id}")
                     with r_c2:
                         st.write("")
-                        if st.button("✅ Mark as Solved", key=f"btn_res_{al_id}", use_container_width=True, type="primary"):
+                        if st.button("✅ Mark Threat as Solved", key=f"btn_res_{al_id}", use_container_width=True, type="primary"):
                             db.resolve_emergency_alert(al_id, resolved_by=user_display, resolution_notes=notes_inp)
-                            st.success("Alert resolved and recorded!")
+                            st.success("Alert marked as solved! Recorded permanently into Incident Archive.")
                             st.rerun()
 
-        # 2. Citizen Reports
-        st.markdown("<div style='font-size:13px;font-weight:700;color:#f2c66d;margin-top:16px;margin-bottom:8px;'>📸 Citizen-Reported Field Incidents:</div>", unsafe_allow_html=True)
+        # ----------------------------------------------------
+        # 2. CITIZEN-REPORTED FIELD INCIDENTS
+        # ----------------------------------------------------
+        st.markdown("<div style='font-size:14px;font-weight:700;color:#f2c66d;margin-top:22px;margin-bottom:8px;'>📸 Citizen-Reported Field Incidents:</div>", unsafe_allow_html=True)
         cit_unres = [c for c in db.get_citizen_reports() if str(c.get("status", "")).upper() != "RESOLVED"]
         if not cit_unres:
-            st.info("🟢 No pending citizen reports.")
+            st.info("🟢 No pending citizen reports awaiting investigation.")
         else:
             for rep in cit_unres:
                 c_id = rep.get("report_id")
+                c_cat = rep.get("threat_category", "Sighting")
+                c_rep = rep.get("reporter_name", "Public Visitor")
+                c_con = rep.get("contact_info", "Unspecified")
+                c_desc = rep.get("description", "No description provided.")
+                c_photo = rep.get("photo_filename")
+                c_stat = str(rep.get("status", "PENDING")).upper()
                 c_lat = float(safe_num(rep.get("location_lat"), sent_lat))
                 c_lon = float(safe_num(rep.get("location_lon"), sent_lon))
                 d_str = format_gps_distance(calculate_haversine_distance(sent_lat, sent_lon, c_lat, c_lon))
 
                 with st.container(border=True):
-                    st.markdown(f"**📸 Sighting: {rep.get('threat_category')}** (Reporter: {rep.get('reporter_name')}) · **{d_str}**")
-                    st.caption(f"Description: {rep.get('description')}")
-                    if rep.get("photo_filename") and rep.get("photo_filename").startswith("data:image"):
-                        st.image(rep.get("photo_filename"), width=200)
+                    cr_c1, cr_c2 = st.columns([1.2, 2.8])
+                    with cr_c1:
+                        if c_photo and c_photo != "no_photo.jpg":
+                            if c_photo.startswith("data:image"):
+                                st.image(c_photo, caption="📸 Evidence Photo", use_container_width=True)
+                            elif os.path.exists(c_photo):
+                                st.image(c_photo, caption="📸 Evidence Photo", use_container_width=True)
+                            else:
+                                st.markdown("<div style='padding:14px;background:rgba(255,255,255,0.04);border:1px dashed var(--line);border-radius:8px;text-align:center;'>📸 Photo Evidence Attached</div>", unsafe_allow_html=True)
+                        else:
+                            st.caption("📷 No photo attached")
+                    with cr_c2:
+                        st.markdown(f"**📸 Sighting: {c_cat}** · <span style='background:rgba(242,198,109,0.2);color:#f2c66d;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700;'>{c_stat}</span>", unsafe_allow_html=True)
+                        st.markdown(f"Report ID: `[{c_id}]` · Reporter: **{c_rep}** (📞 `{c_con}`)")
+                        st.markdown(f"📍 GPS Location: [`{c_lat:.5f}°N, {c_lon:.5f}°E`](https://maps.google.com/?q={c_lat},{c_lon}) · Distance: **{d_str}**")
+                        st.caption(f"Description: {c_desc}")
+
                     rc_1, rc_2 = st.columns([2.5, 1])
                     with rc_1:
-                        cit_notes = st.text_input("Action Notes", value="Inspected coordinates, area secured.", key=f"cit_res_n_{c_id}")
+                        cit_notes = st.text_input("Ranger Action & Verification Notes", value="Coordinates inspected on patrol. Area confirmed clear and safe.", key=f"cit_res_n_{c_id}")
                     with rc_2:
                         st.write("")
-                        if st.button("✅ Mark Solved", key=f"btn_cit_res_{c_id}", use_container_width=True, type="primary"):
+                        if st.button("✅ Mark Incident Solved", key=f"btn_cit_res_{c_id}", use_container_width=True, type="primary"):
                             db.resolve_citizen_report(c_id, resolved_by=user_display, resolution_notes=cit_notes)
-                            st.success(f"Incident marked as solved by {user_display}! Removed from live radar and recorded in Incident Archive.")
+                            st.success(f"Incident marked as solved by {user_display}! Archived in Incident Archive.")
                             st.rerun()
+
+        # ----------------------------------------------------
+        # 3. LIVE ACOUSTIC SENTRY PERCEPTION LOG (HARDWARE STREAM)
+        # ----------------------------------------------------
+        st.markdown("<div style='font-size:14px;font-weight:700;color:#73d9e8;margin-top:24px;margin-bottom:8px;'>📡 Live Sentinel Acoustic Perception Feed (Sensor Log):</div>", unsafe_allow_html=True)
+        recent_evs = db.get_recent_events(limit=8)
+        if not recent_evs:
+            st.caption("Awaiting incoming acoustic telemetry stream from Sentinel edge hardware...")
+        else:
+            ev_rows = []
+            for ev in recent_evs:
+                pred = ev.get("prediction") or {}
+                dec = ev.get("decision") or {}
+                ev_lbl = format_display_label(pred.get("label", "Ambient Forest"))
+                ev_conf = safe_num(pred.get("confidence", 0.0)) * 100
+                ev_risk = str(dec.get("risk_level", "LOW")).upper()
+                ev_act = dec.get("action", "MONITOR")
+                ev_ts = ev.get("timestamp", time.time())
+                ev_time_str = datetime.fromtimestamp(ev_ts).strftime("%H:%M:%S")
+                ev_rows.append({
+                    "TIMESTAMP": ev_time_str,
+                    "DETECTED SOUND": ev_lbl,
+                    "CONFIDENCE": f"{ev_conf:.1f}%",
+                    "RISK LEVEL": ev_risk,
+                    "CADIE ACTION": ev_act,
+                    "DEVICE": ev.get("device_id", "AURA_SENTRY_01")
+                })
+            st.dataframe(ev_rows, use_container_width=True, hide_index=True)
 
     elif active_page == "🗺️ Sector Map & Near Rangers":
         st.markdown('<div class="section"><div class="section-title">Tactical Sector Map & Near My Rangers Radar</div><div class="section-meta">LIVE PATROL BUDDY PROXIMITY · TARGET THREAT COORDINATES</div></div>', unsafe_allow_html=True)
@@ -3303,7 +3418,7 @@ elif current_role == "viewer":
                                 with open(disk_file, "wb") as pf:
                                     pf.write(file_bytes)
                             except Exception as pe:
-                                logger.error(f"Failed to process citizen image: {pe}")
+                                print(f"Failed to process citizen image: {pe}")
 
                         final_desc = cit_desc.strip() if cit_desc.strip() else f"Visual photo report of {cit_cat} submitted by visitor."
                         db.insert_citizen_report(
