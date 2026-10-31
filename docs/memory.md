@@ -87,6 +87,38 @@
 
 ---
 
+### ✅ Task 13: Enterprise Multi-Layer Security & Cyber-Defense Architecture
+- Created [`backend/security.py`](file:///d:/user/Workspace/Major%20project/AuraForest/AdaptiveEdgeAI/backend/security.py) and integrated across [`dashboard/app.py`](file:///d:/user/Workspace/Major%20project/AuraForest/AdaptiveEdgeAI/dashboard/app.py):
+  - **HMAC-SHA256 Cryptographic Session Management**: Replaced plaintext URL tokens with signed JWT-style tokens verifying `sub`, `role`, `name`, `dept`, and `exp`. Forged or expired tokens immediately trigger session termination and URL query parameter purging.
+  - **Progressive Brute-Force & Credential Stuffing Defense**: Implemented `LoginRateLimiter` enforcing a 300-second lockout penalty after 5 consecutive failed login attempts, showing live remaining seconds before retry.
+  - **Salted Password Hashing & Complexity**: Enforces salted SHA-256 storage and strict alphanumeric complexity requirements (min 8 characters, at least 1 letter and 1 digit). Insecure dictionary backdoors (`admin`, `chief`, `password`, `ranger`) have been completely removed.
+  - **Anti-XSS & SQL Injection Defense**: HTML-escapes all citizen reports and user notes; parameterizes all SQLite queries.
+  - **Chief Ranger Security Operations Center (SOC)**: Live shield status indicators, locked account counters, emergency unlock action buttons, and filterable authentication audit log.
+
+### ✅ Task 14: CADIE Voice-First Logging & Seismic Vibration Cross-Corroboration
+- Updated [`edge/decision/cadie.py`](file:///d:/user/Workspace/Major%20project/AuraForest/AdaptiveEdgeAI/edge/decision/cadie.py):
+  - Logging threats strictly require primary acoustic voice (chainsaw, drill, axe, felling).
+  - **Acoustic Voice + Seismic Vibration**: Ground shock accompanied by chainsaw/drill acoustic signatures confirms active tree cutting and equipment impact $\rightarrow$ elevated to `CRITICAL` risk with `TRANSMIT_IMMEDIATELY`.
+  - **Seismic Vibration Alone (No Logging Voice)**: Registered as `[SEISMIC VIBRATION] Environmental ground vibration` (possible minor tectonic tremor, animal movement, or high-wind tree sway). Suppresses false logging alarms.
+  - Corroborates smoke and combustible gas readings (MQ-2 and MQ-135 ADC voltages) with acoustic fire crackle for canopy fire triage.
+  - Sanitized all factor strings to standard ASCII to maintain compatibility across Windows `cp1252` and Linux `UTF-8` terminals.
+
+### ✅ Task 15: Sanctuary Public Siren Broadcast & Web Audio Synthesizer
+- Built public safety broadcast controls in [`dashboard/app.py`](file:///d:/user/Workspace/Major%20project/AuraForest/AdaptiveEdgeAI/dashboard/app.py):
+  - Field Rangers and Chief Rangers can activate the sanctuary-wide public siren (`🚨 Broadcast Siren to Public`) with instant visual and audible dispatch.
+  - One-click silence button (`🔕 Silence & Deactivate Siren`) deactivates the broadcast across all connected terminals.
+  - Web Audio API dual-oscillator synthesizer generates an audible emergency warble chime directly in the browser with individual user mute controls.
+  - Public Citizen portal displays active safety advisories and emergency evacuation notifications during active fires or intrusions.
+
+### ✅ Task 16: Audio Ingestion Resiliency & Dynamic Hotspot Setup
+- Hardened [`backend/audio_service.py`](file:///d:/user/Workspace/Major%20project/AuraForest/AdaptiveEdgeAI/backend/audio_service.py) and [`hardware.ino`](file:///d:/user/Workspace/Major%20project/AuraForest/AdaptiveEdgeAI/hardware.ino):
+  - Replaced loose 2-byte MP3 check with strict 4-byte MPEG sync validation and second-frame boundary checks, eliminating false-positive MP3 classifications triggered by raw PCM16 negative ambient noise (`0xFFFF`).
+  - Added resilient fallback: if compressed decoders fail on an even-aligned audio stream, it safely falls back to raw signed PCM16 processing without returning a 500 server error to the edge node.
+  - Implemented mobile hotspot stability in firmware via `WiFi.setSleep(false)`.
+  - Created dynamic captive portal Access Point (`AuraForest-Node-Setup` at `http://192.168.4.1`) backed by ESP32 NVS `Preferences` flash memory for on-site Wi-Fi reconfiguration.
+
+---
+
 ## 3. Test Coverage Summary
 
 - **Total Test Cases**: **253 Passed / 0 Failed (100%)**

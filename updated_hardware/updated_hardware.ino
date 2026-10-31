@@ -42,9 +42,11 @@
 #include <FS.h>
 
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
 #include <WebServer.h>
 #include <Preferences.h>
-#include <HTTPClient.h>
+#include <DNSServer.h>
 
 #include <ArduinoJson.h>
 #include <DHT.h>
@@ -57,38 +59,64 @@
 // ============================================================
 
 #define DEVICE_ID "edge_node_telemetry_001"
+#define DEVICE_API_KEY "aura_sentry_sec_key_99"
 
 // ============================================================
 // WIFI CONFIGURATION
 // ============================================================
 
-// Network configuration is stored in ESP32 NVS.
-// On first boot, or after a reset, the node creates a phone setup hotspot.
-const char *DEFAULT_SERVER_IP = "192.168.29.244";
-const uint16_t DEFAULT_SERVER_PORT = 8000;
+// Hardcoded fallback credentials (can also be updated via Web Portal at http://192.168.4.1)
+const char *WIFI_SSID = "HomeFiber";
+const char *WIFI_PASSWORD = "kannan17";
 
-String wifiSSID = "";
-String wifiPassword = "";
-String serverIP = DEFAULT_SERVER_IP;
-uint16_t serverPort = DEFAULT_SERVER_PORT;
+// ============================================================
+// BACKEND CONFIGURATION
+// ============================================================
 
-const char *CONFIG_AP_PASSWORD = "auraforest";
-String configAPName;
-WebServer configServer(80);
-Preferences preferences;
-bool configPortalActive = false;
+// Set USE_CLOUD_BACKEND to 1 to post directly to your deployed Cloud backend (Render/Koyeb)
+// Set to 0 to post to your local PC IP (sub-second local network response)
+#define USE_CLOUD_BACKEND 0
+
+// Local Station PC IP & Port
+const char *LOCAL_SERVER_IP = "192.168.29.244";
+const uint16_t LOCAL_SERVER_PORT = 8000;
+
+// Deployed Cloud Backend URL (Render / Koyeb / Railway)
+// Replace with your live Render URL once created (e.g. "https://auraforest-backend.onrender.com")
+const char *CLOUD_BACKEND_URL = "https://auraforest-backend.onrender.com";
 
 const char *API_PATH =
     "/api/v1/edge/telemetry";
 
-/*
-  IMPORTANT:
-
-  Change this ONLY if your FastAPI audio route
-  has a different path.
-*/
 const char *AUDIO_API_PATH =
     "/api/v1/edge/audio";
+
+// ============================================================
+// DYNAMIC NVS WIFI & PORTAL CONFIGURATION
+// ============================================================
+Preferences preferences;
+WebServer configServer(80);
+DNSServer dnsServer;
+
+String activeWiFiSSID = "HomeFiber";
+String activeWiFiPassword = "kannan17";
+String activeServerIP = "192.168.29.244";
+uint16_t activeServerPort = 8000;
+bool wifiPortalActive = false;
+
+String getBaseURL()
+{
+#if USE_CLOUD_BACKEND
+    String base = String(CLOUD_BACKEND_URL);
+    while (base.endsWith("/"))
+    {
+        base.remove(base.length() - 1);
+    }
+    return base;
+#else
+    return "http://" + activeServerIP + ":" + String(activeServerPort);
+#endif
+}
 
 // ============================================================
 // DEMO LOCATION FALLBACK
@@ -191,20 +219,20 @@ i2s_config_t i2sConfig = {
         AUDIO_SAMPLE_RATE,
 
     .bits_per_sample =
-        I2S_BITS_PER_SAMPLE_32BIT,
+        I2S_BITS_PER_SAMPLE_32BIT, // INMP441 sends 24-bit inside 32-bit slot
 
     .channel_format =
         I2S_CHANNEL_FMT_ONLY_LEFT,
 
     .communication_format =
-        I2S_COMM_FORMAT_I2S,
+        (i2s_comm_format_t)(I2S_COMM_FORMAT_STAND_I2S), // Philips standard I2S protocol
 
     .intr_alloc_flags =
         ESP_INTR_FLAG_LEVEL1,
 
     .dma_buf_count = 4,
 
-    .dma_buf_len = 256,
+    .dma_buf_len = 512, // 512 buffer size prevents DMA under-runs and static pops
 
     .use_apll = false,
 
@@ -725,7 +753,7 @@ bool captureAudio()
 
     size_t samplesCaptured = 0;
 
-    int32_t rawSamples[256];
+    int32_t rawSamples[512];
 
     uint32_t startTime = millis();
 
@@ -768,12 +796,14 @@ bool captureAudio()
         {
             /*
               INMP441 delivers 24-bit audio
-              inside a 32-bit I2S word.
+              inside a 32-bit I2S word (left-aligned).
 
-              Shift down to obtain a usable
-              signed PCM16 representation.
+              Shift down by 15 to obtain a balanced,
+              high-dynamic-range signed PCM16 representation
+              without premature saturation or excessive noise.
             */
 
+            // Convert 32-bit (24-bit data) down to standard 16-bit PCM (amplify and truncate)
             int32_t sample =
                 rawSamples[i] >> 14;
 
@@ -950,271 +980,265 @@ void readGPS()
 }
 
 // ============================================================
-// WIFI CONFIGURATION / PHONE SETUP PORTAL
+// WIFI
 // ============================================================
 
-void loadNetworkConfiguration()
+// ============================================================
+// NVS PREFERENCES & WEB CONFIGURATION PORTAL (http://192.168.4.1)
+// ============================================================
+
+void loadWiFiPreferences()
 {
-    preferences.begin("network", true);
-    wifiSSID = preferences.getString("ssid", "");
-    wifiPassword = preferences.getString("password", "");
-    serverIP = preferences.getString("server_ip", DEFAULT_SERVER_IP);
-    serverPort = preferences.getUShort("server_port", DEFAULT_SERVER_PORT);
+    preferences.begin("auracfg", true);
+    String s_ssid = preferences.getString("ssid", "");
+    String s_pass = preferences.getString("pass", "");
+    String s_ip = preferences.getString("srv_ip", "");
+    uint16_t s_port = preferences.getUShort("srv_port", 0);
     preferences.end();
 
-    if (serverIP.length() == 0)
-        serverIP = DEFAULT_SERVER_IP;
-
-    if (serverPort == 0)
-        serverPort = DEFAULT_SERVER_PORT;
-}
-
-void saveNetworkConfiguration(
-    const String &ssid,
-    const String &password,
-    const String &backendIP,
-    uint16_t backendPort)
-{
-    preferences.begin("network", false);
-    preferences.putString("ssid", ssid);
-    preferences.putString("password", password);
-    preferences.putString("server_ip", backendIP);
-    preferences.putUShort("server_port", backendPort);
-    preferences.end();
-
-    wifiSSID = ssid;
-    wifiPassword = password;
-    serverIP = backendIP;
-    serverPort = backendPort;
-}
-
-void handleConfigRoot()
-{
-    int networkCount = WiFi.scanNetworks(false, true);
-    String options;
-
-    for (int i = 0; i < networkCount; i++)
+    if (s_ssid.length() > 0)
     {
-        String ssid = WiFi.SSID(i);
-        if (ssid.length() == 0)
-            continue;
-
-        options += "<option value=\"";
-        options += ssid;
-        options += "\">";
-        options += ssid;
-        options += " (";
-        options += String(WiFi.RSSI(i));
-        options += " dBm)</option>";
+        activeWiFiSSID = s_ssid;
+        activeWiFiPassword = s_pass;
+        Serial.print("Loaded stored Wi-Fi from NVS: ");
+        Serial.println(activeWiFiSSID);
+    }
+    else
+    {
+        activeWiFiSSID = String(WIFI_SSID);
+        activeWiFiPassword = String(WIFI_PASSWORD);
+        Serial.println("Using default hardcoded Wi-Fi credentials.");
     }
 
-    WiFi.scanDelete();
+    if (s_ip.length() > 0)
+    {
+        activeServerIP = s_ip;
+    }
+    else
+    {
+        activeServerIP = String(LOCAL_SERVER_IP);
+    }
 
-    String html = R"rawliteral(
-<!DOCTYPE html>
+    if (s_port > 0)
+    {
+        activeServerPort = s_port;
+    }
+    else
+    {
+        activeServerPort = LOCAL_SERVER_PORT;
+    }
+}
+
+void saveWiFiPreferences(const String& ssid, const String& pass, const String& srv_ip, uint16_t srv_port)
+{
+    preferences.begin("auracfg", false);
+    preferences.putString("ssid", ssid);
+    preferences.putString("pass", pass);
+    if (srv_ip.length() > 0)
+    {
+        preferences.putString("srv_ip", srv_ip);
+    }
+    if (srv_port > 0)
+    {
+        preferences.putUShort("srv_port", srv_port);
+    }
+    preferences.end();
+    Serial.println("Saved new Wi-Fi credentials to NVS flash permanently.");
+}
+
+void handlePortalRoot()
+{
+    // Scan networks
+    int n = WiFi.scanNetworks();
+    String netOptions = "";
+    for (int i = 0; i < n; ++i)
+    {
+        String ssid_item = WiFi.SSID(i);
+        int32_t rssi_item = WiFi.RSSI(i);
+        netOptions += "<option value='" + ssid_item + "'>" + ssid_item + " (" + String(rssi_item) + " dBm)</option>";
+    }
+
+    String html = R"rawliteral(<!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AuraForest Edge Node Setup</title>
-<style>
-body{font-family:Arial,sans-serif;background:#101614;color:#eef5f0;margin:0;padding:24px}
-.card{max-width:520px;margin:auto;background:#19221f;border-radius:18px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.35)}
-h1{margin-top:0;font-size:26px}p{color:#b9c8c0}
-label{display:block;margin-top:16px;margin-bottom:6px;font-weight:bold}
-input,select{width:100%;box-sizing:border-box;padding:13px;border-radius:10px;border:1px solid #42534b;background:#0e1412;color:#fff;font-size:16px}
-button{width:100%;margin-top:24px;padding:14px;border:0;border-radius:10px;background:#75d69a;color:#07110b;font-size:17px;font-weight:bold}
-.small{font-size:13px;color:#91a29a;margin-top:16px}
-</style>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+  <title>AuraForest Node Setup</title>
+  <style>
+    body { background-color: #0b1411; color: #edf6f3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; }
+    .card { max-width: 440px; margin: 0 auto; background: #13221d; border: 1px solid #1e362e; border-radius: 12px; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    h2 { color: #7cf0b2; margin-top: 0; font-size: 20px; display: flex; align-items: center; gap: 8px; }
+    p { font-size: 13px; color: #8ba29a; line-height: 1.5; margin-bottom: 20px; }
+    label { font-size: 12px; font-weight: 600; color: #edf6f3; display: block; margin-top: 14px; margin-bottom: 6px; }
+    input, select { width: 100%; box-sizing: border-box; padding: 10px 12px; background: #080f0c; border: 1px solid #234237; border-radius: 6px; color: #fff; font-size: 14px; outline: none; }
+    input:focus, select:focus { border-color: #7cf0b2; }
+    .hint { font-size: 11px; color: #6f857e; margin-top: 4px; }
+    .btn { width: 100%; background: #1b8a5a; color: #fff; border: none; padding: 12px; border-radius: 6px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 22px; transition: background 0.2s; }
+    .btn:hover { background: #22a86e; }
+    .hotspot-box { background: rgba(242,198,109,0.08); border: 1px solid rgba(242,198,109,0.3); border-radius: 6px; padding: 10px 12px; font-size: 12px; color: #f2c66d; margin-top: 16px; }
+  </style>
+  <script>
+    function pickSSID(val) {
+      if (val) document.getElementById('ssid_inp').value = val;
+    }
+  </script>
 </head>
 <body>
-<div class="card">
-<h1>AuraForest Edge Node</h1>
-<p>Configure Wi-Fi and the AuraForest backend.</p>
-<form action="/save" method="POST">
-<label>Nearby Wi-Fi Networks</label>
-<select onchange="document.getElementById('ssid').value=this.value">
-<option value="">Select a network</option>
+  <div class='card'>
+    <h2>🌲 AuraForest Sentinel</h2>
+    <p>Configure the Wi-Fi or Mobile Hotspot credentials for this ESP32-S3 edge node.</p>
+
+    <form method='POST' action='/save'>
+      <label>Discovered Networks (Scan):</label>
+      <select onchange='pickSSID(this.value)'>
+        <option value=''>-- Tap to choose nearby network --</option>
 )rawliteral";
 
-    html += options;
+    html += netOptions;
 
     html += R"rawliteral(
-</select>
-<input id="ssid" name="ssid" placeholder="Wi-Fi name (SSID)" required>
-<label>Wi-Fi Password</label>
-<input name="password" type="password" placeholder="Wi-Fi password">
-<label>AuraForest Server IP / Host</label>
-<input name="server_ip" value=")rawliteral";
-    html += serverIP;
-    html += R"rawliteral(" required>
-<label>Backend Port</label>
-<input name="server_port" type="number" min="1" max="65535" value=")rawliteral";
-    html += String(serverPort);
-    html += R"rawliteral(" required>
-<button type="submit">SAVE &amp; CONNECT</button>
-</form>
-<p class="small">After saving, the node will restart and connect automatically.</p>
-</div>
+      </select>
+
+      <label>Wi-Fi / Hotspot Name (SSID):</label>
+      <input type='text' id='ssid_inp' name='ssid' value=')rawliteral";
+    html += activeWiFiSSID;
+    html += R"rawliteral(' required placeholder='e.g. MyMobileHotspot or HomeFiber'>
+
+      <label>Wi-Fi Password:</label>
+      <input type='password' name='pass' value=')rawliteral";
+    html += activeWiFiPassword;
+    html += R"rawliteral(' placeholder='Enter Wi-Fi password'>
+
+      <label>Backend Server IP Address:</label>
+      <input type='text' name='ip' value=')rawliteral";
+    html += activeServerIP;
+    html += R"rawliteral(' placeholder='e.g. 192.168.43.150 or PC IP'>
+      <div class='hint'>If using a mobile hotspot, enter your laptop's hotspot IP address.</div>
+
+      <label>Backend Port:</label>
+      <input type='number' name='port' value=')rawliteral";
+    html += String(activeServerPort);
+    html += R"rawliteral('>
+
+      <div class='hotspot-box'>
+        📱 <b>Mobile Hotspot Tip:</b> On iPhone, enable <i>'Maximize Compatibility'</i>. On Android, select <i>'2.4 GHz Band'</i> (ESP32 only supports 2.4 GHz).
+      </div>
+
+      <button type='submit' class='btn'>💾 Save Credentials & Connect</button>
+    </form>
+  </div>
 </body>
-</html>
-)rawliteral";
+</html>)rawliteral";
 
     configServer.send(200, "text/html", html);
 }
 
-void handleConfigSave()
+void handlePortalSave()
 {
-    String ssid = configServer.arg("ssid");
-    String password = configServer.arg("password");
-    String backendIP = configServer.arg("server_ip");
-    String portText = configServer.arg("server_port");
+    String new_ssid = configServer.arg("ssid");
+    String new_pass = configServer.arg("pass");
+    String new_ip = configServer.arg("ip");
+    String new_port_str = configServer.arg("port");
+    uint16_t new_port = new_port_str.length() > 0 ? (uint16_t)new_port_str.toInt() : activeServerPort;
 
-    ssid.trim();
-    backendIP.trim();
-    portText.trim();
-
-    long parsedPort = portText.toInt();
-
-    if (ssid.length() == 0 ||
-        backendIP.length() == 0 ||
-        parsedPort < 1 ||
-        parsedPort > 65535)
+    if (new_ssid.length() > 0)
     {
-        configServer.send(
-            400,
-            "text/plain",
-            "Invalid configuration. Check SSID, server and port.");
-        return;
+        activeWiFiSSID = new_ssid;
+        activeWiFiPassword = new_pass;
+        if (new_ip.length() > 0) activeServerIP = new_ip;
+        if (new_port > 0) activeServerPort = new_port;
+
+        saveWiFiPreferences(activeWiFiSSID, activeWiFiPassword, activeServerIP, activeServerPort);
+
+        String resp = R"rawliteral(<!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>
+<style>body{background:#0b1411;color:#edf6f3;font-family:sans-serif;text-align:center;padding:40px;}.box{max-width:380px;margin:0 auto;background:#13221d;border:1px solid #7cf0b2;border-radius:12px;padding:24px;}</style>
+</head><body><div class='box'><h2 style='color:#7cf0b2;'>✅ Credentials Saved!</h2>
+<p>Connecting to <b>)rawliteral" + activeWiFiSSID + R"rawliteral(</b>...</p>
+<p style='color:#8ba29a;font-size:13px;'>The node is restarting now and will join your Wi-Fi network.</p></div>
+<script>setTimeout(function(){window.location.href='/';}, 8000);</script>
+</body></html>)rawliteral";
+
+        configServer.send(200, "text/html", resp);
+        delay(1500);
+        ESP.restart();
     }
-
-    saveNetworkConfiguration(
-        ssid,
-        password,
-        backendIP,
-        (uint16_t)parsedPort);
-
-    configServer.send(
-        200,
-        "text/html",
-        "<html><body style='font-family:Arial;padding:30px'>"
-        "<h2>Configuration saved</h2>"
-        "<p>AuraForest will restart and connect automatically.</p>"
-        "<p>You can close this page.</p></body></html>");
-
-    delay(1200);
-    ESP.restart();
+    else
+    {
+        configServer.send(400, "text/plain", "SSID cannot be empty.");
+    }
 }
 
-void handleConfigNotFound()
+void startWiFiPortal()
 {
-    configServer.sendHeader("Location", "/", true);
-    configServer.send(302, "text/plain", "Redirecting...");
-}
-
-void startConfigurationPortal()
-{
-    configPortalActive = true;
-
-    uint64_t chipID = ESP.getEfuseMac();
-    char apName[32];
-    snprintf(
-        apName,
-        sizeof(apName),
-        "AuraForest-%04X",
-        (unsigned int)(chipID & 0xFFFF));
-
-    configAPName = apName;
+    Serial.println();
+    Serial.println("============================================================");
+    Serial.println(" [WIFI SETUP PORTAL READY]");
+    Serial.println("============================================================");
 
     WiFi.mode(WIFI_AP_STA);
-    WiFi.softAP(
-        configAPName.c_str(),
-        CONFIG_AP_PASSWORD);
+    WiFi.setSleep(false);
+    WiFi.softAP("AuraForest-Node-Setup");
 
-    configServer.on("/", HTTP_GET, handleConfigRoot);
-    configServer.on("/save", HTTP_POST, handleConfigSave);
-    configServer.onNotFound(handleConfigNotFound);
+    IPAddress myIP = WiFi.softAPIP();
+    Serial.println("  Access Point SSID : AuraForest-Node-Setup");
+    Serial.print("  Configuration URL : http://");
+    Serial.println(myIP);
+    Serial.println("  ----------------------------------------------------------");
+    Serial.println("  STEPS TO CONFIGURE:");
+    Serial.println("  1. Connect your phone or laptop to Wi-Fi: 'AuraForest-Node-Setup'");
+    Serial.println("  2. Open any web browser and go to: http://192.168.4.1");
+    Serial.println("  3. Pick your Mobile Hotspot or Wi-Fi, enter password, and save!");
+    Serial.println("============================================================");
+
+    dnsServer.start(53, "*", myIP);
+
+    configServer.on("/", handlePortalRoot);
+    configServer.on("/save", HTTP_POST, handlePortalSave);
+    configServer.on("/hotspot-detect.html", handlePortalRoot);
+    configServer.on("/generate_204", handlePortalRoot);
+    configServer.onNotFound(handlePortalRoot);
+
     configServer.begin();
-
-    Serial.println();
-    Serial.println("============================================================");
-    Serial.println("              AURAForest Wi-Fi SETUP MODE");
-    Serial.println("============================================================");
-    Serial.print("Setup Wi-Fi : ");
-    Serial.println(configAPName);
-    Serial.print("Password    : ");
-    Serial.println(CONFIG_AP_PASSWORD);
-    Serial.print("Setup page  : http://");
-    Serial.println(WiFi.softAPIP());
-    Serial.println();
-    Serial.println("Connect your phone to the setup Wi-Fi and open the setup page.");
-    Serial.println("============================================================");
+    wifiPortalActive = true;
 }
 
-bool connectConfiguredWiFi()
+void connectWiFi()
 {
-    if (wifiSSID.length() == 0)
-        return false;
+    loadWiFiPreferences();
 
     Serial.println();
-    Serial.println("Connecting to configured WiFi...");
-    Serial.print("SSID: ");
-    Serial.println(wifiSSID);
+    Serial.print("Connecting to Wi-Fi: ");
+    Serial.println(activeWiFiSSID);
 
     WiFi.mode(WIFI_STA);
-    WiFi.begin(
-        wifiSSID.c_str(),
-        wifiPassword.c_str());
+    WiFi.setSleep(false); // Essential for mobile hotspot stability
+
+    WiFi.begin(activeWiFiSSID.c_str(), activeWiFiPassword.c_str());
 
     uint32_t start = millis();
-
-    while (
-        WiFi.status() != WL_CONNECTED &&
-        millis() - start < 15000)
+    while (WiFi.status() != WL_CONNECTED && millis() - start < 15000)
     {
         delay(500);
         Serial.print(".");
     }
-
     Serial.println();
 
     if (WiFi.status() == WL_CONNECTED)
     {
         wifiOK = true;
-        Serial.println("WiFi connected.");
+        wifiPortalActive = false;
+        Serial.println("WiFi connected successfully!");
         Serial.print("ESP32 IP: ");
         Serial.println(WiFi.localIP());
-        Serial.print("Gateway: ");
+        Serial.print("Gateway : ");
         Serial.println(WiFi.gatewayIP());
-        Serial.print("AuraForest Server: ");
-        Serial.print(serverIP);
-        Serial.print(":");
-        Serial.println(serverPort);
-        return true;
     }
-
-    wifiOK = false;
-    Serial.println("WiFi connection failed.");
-    return false;
-}
-
-void connectWiFi()
-{
-    loadNetworkConfiguration();
-
-    if (wifiSSID.length() == 0)
+    else
     {
-        Serial.println();
-        Serial.println("No saved WiFi configuration found.");
-        startConfigurationPortal();
-        return;
-    }
-
-    if (!connectConfiguredWiFi())
-    {
-        Serial.println();
-        Serial.println("Unable to connect using saved credentials.");
-        Serial.println("Starting phone configuration portal...");
-        startConfigurationPortal();
+        wifiOK = false;
+        Serial.println("WiFi connection failed or network not found.");
+        Serial.println("Automatically launching Web Configuration Portal...");
+        startWiFiPortal();
     }
 }
 
@@ -1224,58 +1248,41 @@ void connectWiFi()
 
 void maintainWiFi()
 {
-    if (configPortalActive)
-    {
-        configServer.handleClient();
-        return;
-    }
-
-    if (WiFi.status() == WL_CONNECTED)
+    if (
+        WiFi.status() ==
+        WL_CONNECTED)
     {
         wifiOK = true;
+
         return;
     }
 
     wifiOK = false;
+
     telemetryBackendOK = false;
+
     audioBackendOK = false;
 
     static uint32_t lastAttempt = 0;
 
-    if (millis() - lastAttempt < 10000)
+    if (
+        millis() - lastAttempt <
+        10000)
+    {
         return;
+    }
 
-    lastAttempt = millis();
+    lastAttempt =
+        millis();
 
-    Serial.println("WiFi disconnected. Reconnecting...");
+    Serial.println(
+        "WiFi disconnected. Reconnecting...");
 
     WiFi.disconnect();
+
     WiFi.begin(
-        wifiSSID.c_str(),
-        wifiPassword.c_str());
-}
-
-// ============================================================
-// WIFI CONFIGURATION RESET
-// ============================================================
-
-void resetNetworkConfiguration()
-{
-    preferences.begin("network", false);
-    preferences.clear();
-    preferences.end();
-
-    wifiSSID = "";
-    wifiPassword = "";
-    serverIP = DEFAULT_SERVER_IP;
-    serverPort = DEFAULT_SERVER_PORT;
-
-    Serial.println();
-    Serial.println("Saved network configuration cleared.");
-    Serial.println("Restarting into Wi-Fi setup mode...");
-
-    delay(500);
-    ESP.restart();
+        WIFI_SSID,
+        WIFI_PASSWORD);
 }
 
 // ============================================================
@@ -1649,11 +1656,7 @@ bool testBackendConnection()
     }
 
     String healthURL =
-        "http://" +
-        serverIP +
-        ":" +
-        String(serverPort) +
-        "/health";
+        getBaseURL() + "/health";
 
     Serial.println();
 
@@ -1665,11 +1668,21 @@ bool testBackendConnection()
 
     HTTPClient http;
 
-    http.setTimeout(5000);
+    http.setTimeout(10000);
+    http.setReuse(false);
 
-    bool beginResult =
-        http.begin(
-            healthURL);
+    WiFiClientSecure client;
+    bool beginResult = false;
+    if (healthURL.startsWith("https://"))
+    {
+        client.setInsecure();
+        client.setTimeout(10);
+        beginResult = http.begin(client, healthURL);
+    }
+    else
+    {
+        beginResult = http.begin(healthURL);
+    }
 
     if (!beginResult)
     {
@@ -1721,18 +1734,25 @@ bool sendToBackend(
     wifiOK = true;
 
     String url =
-        "http://" +
-        serverIP +
-        ":" +
-        String(serverPort) +
-        String(API_PATH);
+        getBaseURL() + String(API_PATH);
 
     HTTPClient http;
 
-    http.setTimeout(5000);
+    http.setTimeout(10000);
+    http.setReuse(false);
 
-    bool beginResult =
-        http.begin(url);
+    WiFiClientSecure client;
+    bool beginResult = false;
+    if (url.startsWith("https://"))
+    {
+        client.setInsecure();
+        client.setTimeout(10);
+        beginResult = http.begin(client, url);
+    }
+    else
+    {
+        beginResult = http.begin(url);
+    }
 
     if (!beginResult)
     {
@@ -1750,6 +1770,14 @@ bool sendToBackend(
     http.addHeader(
         "Accept",
         "application/json");
+
+    http.addHeader(
+        "X-Device-Token",
+        DEVICE_API_KEY);
+
+    http.addHeader(
+        "X-API-Key",
+        DEVICE_API_KEY);
 
     int responseCode =
         http.POST(json);
@@ -1915,6 +1943,26 @@ void parseInferenceResponse(
     }
 
     /*
+      Local Emergency Alert Notification
+    */
+    JsonObject emergencyAlert =
+        inference["emergency_alert"];
+
+    bool localAlertActive = false;
+    String alertThreat = "";
+    String alertId = "";
+
+    if (!emergencyAlert.isNull())
+    {
+        localAlertActive = emergencyAlert["triggered"] | false;
+        if (localAlertActive)
+        {
+            alertThreat = emergencyAlert["threat_type"] | "THREAT";
+            alertId = emergencyAlert["alert_id"] | "N/A";
+        }
+    }
+
+    /*
       Print result
     */
 
@@ -1989,6 +2037,31 @@ void parseInferenceResponse(
             ? "YES"
             : "NO");
 
+    if (localAlertActive)
+    {
+        Serial.println(
+            "---------------- EMERGENCY ALERT TRIGGERED -----------------");
+        Serial.print(
+            "Alert Threat        : ");
+        Serial.println(
+            alertThreat);
+        Serial.print(
+            "Alert ID            : ");
+        Serial.println(
+            alertId);
+        Serial.println(
+            "Action              : Activating local strobe/alarm indicator...");
+        
+        // Fast triple-pulse visual strobe indicator on RED LED
+        for (int i = 0; i < 3; i++)
+        {
+            digitalWrite(RED_LED, HIGH);
+            delay(120);
+            digitalWrite(RED_LED, LOW);
+            delay(80);
+        }
+    }
+
     Serial.println(
         "============================================================");
 }
@@ -2038,10 +2111,7 @@ bool sendAudioToBackend()
             3);
 
     String url =
-        "http://" +
-        serverIP +
-        ":" +
-        String(serverPort) +
+        getBaseURL() +
         String(AUDIO_API_PATH) +
         "?device_id=" +
         DEVICE_ID +
@@ -2069,10 +2139,30 @@ bool sendAudioToBackend()
 
     HTTPClient http;
 
-    http.setTimeout(30000);
+    http.setTimeout(45000);
+    http.setReuse(false);
 
-    bool beginResult =
-        http.begin(url);
+    Serial.print(
+        "Free heap before audio upload: ");
+
+    Serial.print(
+        ESP.getFreeHeap());
+
+    Serial.println(
+        " bytes");
+
+    WiFiClientSecure audioClient;
+    bool beginResult = false;
+    if (url.startsWith("https://"))
+    {
+        audioClient.setInsecure();
+        audioClient.setTimeout(45);
+        beginResult = http.begin(audioClient, url);
+    }
+    else
+    {
+        beginResult = http.begin(url);
+    }
 
     if (!beginResult)
     {
@@ -2122,6 +2212,14 @@ bool sendAudioToBackend()
     http.addHeader(
         "X-Bit-Depth",
         "16");
+
+    http.addHeader(
+        "X-Device-Token",
+        DEVICE_API_KEY);
+
+    http.addHeader(
+        "X-API-Key",
+        DEVICE_API_KEY);
 
     Serial.print(
         "Device ID: ");
@@ -2245,23 +2343,43 @@ bool performAudioInference()
 
     /*
       Allocate the 5-second PCM buffer.
-
-      80,000 samples x 2 bytes
-      = 160,000 bytes
+      80,000 samples x 2 bytes = 160,000 bytes
     */
-
     if (audioBuffer == nullptr)
     {
-        audioBuffer =
-            (int16_t *)
-                malloc(
-                    AUDIO_BUFFER_BYTES);
+        if (psramFound())
+        {
+            audioBuffer =
+                (int16_t *)
+                    ps_malloc(
+                        AUDIO_BUFFER_BYTES);
+
+            if (audioBuffer != nullptr)
+            {
+                Serial.println(
+                    "Allocated 160 KB audio buffer in PSRAM.");
+            }
+        }
+
+        if (audioBuffer == nullptr)
+        {
+            audioBuffer =
+                (int16_t *)
+                    malloc(
+                        AUDIO_BUFFER_BYTES);
+
+            if (audioBuffer != nullptr)
+            {
+                Serial.println(
+                    "Allocated 160 KB audio buffer in SRAM.");
+            }
+        }
     }
 
     if (audioBuffer == nullptr)
     {
         Serial.println(
-            "ERROR: Unable to allocate 160 KB audio buffer.");
+            "ERROR: Unable to allocate 160 KB audio buffer (out of heap).");
 
         return false;
     }
@@ -2684,14 +2802,6 @@ void processSerialCommands()
     }
 
     if (
-        command == 'w' ||
-        command == 'W')
-    {
-        resetNetworkConfiguration();
-        return;
-    }
-
-    if (
         command == 'r' ||
         command == 'R')
     {
@@ -2701,6 +2811,18 @@ void processSerialCommands()
         delay(500);
 
         ESP.restart();
+    }
+
+    if (
+        command == 'w' ||
+        command == 'W')
+    {
+        Serial.println(
+            "Starting Web Configuration Portal...");
+
+        startWiFiPortal();
+
+        return;
     }
 }
 
@@ -2725,8 +2847,30 @@ void setup()
     Serial.println(
         " ESP32-S3 EDGE NODE");
 
-    Serial.println(
-        "================================================");
+    // Pre-allocate 5-second 160 KB audio buffer immediately before heap fragments
+    if (psramFound())
+    {
+        audioBuffer = (int16_t *)ps_malloc(AUDIO_BUFFER_BYTES);
+    }
+    if (audioBuffer == nullptr)
+    {
+        audioBuffer = (int16_t *)heap_caps_malloc(AUDIO_BUFFER_BYTES, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+    }
+    if (audioBuffer == nullptr)
+    {
+        audioBuffer = (int16_t *)malloc(AUDIO_BUFFER_BYTES);
+    }
+
+    if (audioBuffer != nullptr)
+    {
+        Serial.print("Audio buffer allocated successfully: ");
+        Serial.print(AUDIO_BUFFER_BYTES / 1024);
+        Serial.println(" KB (5-second 16kHz PCM)");
+    }
+    else
+    {
+        Serial.println("WARNING: Audio buffer heap allocation deferred.");
+    }
 
     // ----------------------------------------------------------
     // GPIO / ADC
@@ -2819,6 +2963,8 @@ void setup()
     microphoneOK =
         initMicrophone();
 
+    // (audioBuffer already allocated at boot)
+
     // ----------------------------------------------------------
     // MICROSD
     // ----------------------------------------------------------
@@ -2898,10 +3044,10 @@ void setup()
         "  S = Print telemetry");
 
     Serial.println(
-        "  W = Reset Wi-Fi/backend configuration");
+        "  R = Restart ESP32");
 
     Serial.println(
-        "  R = Restart ESP32");
+        "  W = Open Wi-Fi / Hotspot Web Setup Portal (http://192.168.4.1)");
 
     Serial.println(
         "============================================================");
@@ -2913,6 +3059,12 @@ void setup()
 
 void loop()
 {
+    if (wifiPortalActive)
+    {
+        dnsServer.processNextRequest();
+        configServer.handleClient();
+    }
+
     uint32_t now =
         millis();
 
@@ -2933,17 +3085,6 @@ void loop()
     // ----------------------------------------------------------
 
     maintainWiFi();
-
-    // ----------------------------------------------------------
-    // WIFI SETUP PORTAL MODE
-    // ----------------------------------------------------------
-
-    if (configPortalActive)
-    {
-        configServer.handleClient();
-        delay(10);
-        return;
-    }
 
     // ----------------------------------------------------------
     // AUTOMATIC CONTINUOUS AUDIO AI DETECTION
@@ -3037,6 +3178,8 @@ void loop()
         readBattery();
 
         readVibration();
+
+        readGasSensors();
 
         microphoneLevel =
             readMicrophone();

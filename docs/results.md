@@ -200,3 +200,36 @@ All experimental requirements have been validated:
 2. The **Noise-Robust Preprocessor** maintains threat identification under heavy wind, rain, and machinery interference.
 3. The **Distance Attenuation Matrix** provides a scientifically grounded basis for node deployment spacing ($50\text{m}–80\text{m}$ grid intervals in temperate forests).
 4. The **CADIE Engine** successfully eliminates false alarms via multimodal gas and seismic sensor corroboration.
+
+---
+
+## 6. Enterprise Security & Rate Limiting Verification Audit
+
+Evaluates the cryptographic integrity, anti-tamper mechanisms, and progressive brute-force defense implemented in `backend/security.py`:
+
+| Security Mechanism | Test Scenario | Expected Outcome | Observed Result | Status |
+| :--- | :--- | :--- | :--- | :---: |
+| **HMAC-SHA256 Session Signing** | Genuine token generated with secret key | Verified with claims (`sub`, `role`, `dept`) | Profile decoded and authenticated | ✅ PASSED |
+| **Tampered Token Payload** | Injected altered username into payload base64 | Signature mismatch detection | Token immediately rejected (`None`) | ✅ PASSED |
+| **Forged Signature Detection** | Random 256-bit signature appended to payload | HMAC comparison failure | Token immediately rejected (`None`) | ✅ PASSED |
+| **Session Expiration** | Expired timestamp (`exp < now`) | Expiration boundary check | Token rejected (`None`), params cleared | ✅ PASSED |
+| **Brute-Force Rate Limiting** | 4 consecutive failed login attempts | Attempts decremented (remaining attempts shown) | 4 attempts counted, account remains open | ✅ PASSED |
+| **Progressive Lockout** | 5th consecutive failed login attempt | Threshold exceeded | Account locked for 300 seconds | ✅ PASSED |
+| **Lockout Enforcement** | 6th attempt while locked | Immediate rejection with remaining seconds | Access denied (`LOCKOUT_BLOCKED`) | ✅ PASSED |
+| **Emergency Unlock** | Chief Ranger one-click unlock | Reset all lockout tables | Account unlocked immediately | ✅ PASSED |
+| **Password Complexity Gate** | Passwords $<8$ chars or missing alphanumeric mix | Validation failure with user-friendly error | Rejected with complexity guidance | ✅ PASSED |
+| **Insecure Backdoor Purge** | Attempt login with `admin` or `chief` password | Dictionary check against database | Access denied (`Invalid credentials`) | ✅ PASSED |
+
+---
+
+## 7. CADIE Voice-First Logging & Seismic Vibration Verification
+
+Evaluates CADIE's multi-sensor cross-triage logic under varying acoustic and seismic combinations:
+
+| Acoustic Input | SW-420 Seismic Sensor | MQ-2 / MQ-135 Gas | CADIE Risk Output | Recommended Action | Operational Classification |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **Chainsaw (88%)** | **VIBRATION DETECTED** | Nominal | **CRITICAL** | `TRANSMIT_IMMEDIATELY / DISPATCH_RANGERS` | ✅ **Confirmed Illegal Logging (Voice + Vibration)** |
+| **Chainsaw (85%)** | Nominal (No Vibration) | Nominal | **HIGH** | `RECORD_EVIDENCE` | ✅ **Logging Suspected (Acoustic Only)** |
+| **Ambient Forest (92%)** | **VIBRATION DETECTED** | Nominal | **LOW** | `MONITOR` | ✅ **Seismic Ground Tremor / Tree Sway (No Logging)** |
+| **Fire Crackle (84%)** | Nominal | **SMOKE SPIKE (1.85V)** | **CRITICAL** | `DISPATCH_RANGERS` | ✅ **Canopy Combustion / Active Wildfire** |
+| **Gunshot (91%)** | Nominal | Nominal | **CRITICAL** | `TRANSMIT_IMMEDIATELY / DISPATCH_RANGERS` | ✅ **Poaching Weapon Discharge** |

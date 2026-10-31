@@ -105,6 +105,27 @@ Real-world outdoor monitoring poses critical technical challenges:
 
 ---
 
+
+### 3.8. Multi-Layer Enterprise Security & Zero-Trust Authentication
+- **HMAC-SHA256 Cryptographic Session Tokens**: Replaces plain URL parameters with signed tokens preventing parameter tampering, spoofing, and privilege escalation.
+- **Brute-Force & Credential Stuffing Guard**: Automatically enforces a 300-second lockout penalty upon 5 consecutive failed login attempts, logging all security events to the persistent audit trail.
+- **Salted Password Hashing & Complexity**: Enforces salted SHA-256 storage and strict alphanumeric complexity requirements (minimum 8 characters, at least one letter and one number).
+- **Chief Security Operations Center (SOC)**: Live monitoring of active security shields, locked accounts, rate-limiting counters, and emergency system-wide account unlock actions.
+
+### 3.9. Sanctuary Public Emergency Siren Broadcast Subsystem
+- **Field & Chief Siren Trigger**: Allows Field Rangers and Chief Rangers to broadcast an emergency evacuation siren across the sanctuary.
+- **Web Audio API Synthesizer**: Generates continuous emergency warble chimes in the browser without requiring external plugins, with individual user mute controls.
+- **Citizen Safety & Advisory Hub**: Automatically alerts public visitors and citizen observers during active wildfires or high-priority threats.
+
+### 3.10. Edge Audio Ingestion Resiliency & Dynamic Hotspot Firmware
+- **MPEG Header Strict Validation**: Eliminates false-positive MP3 detection on raw negative PCM16 samples (`0xFFFF`) via 4-byte MPEG header parsing and second-frame boundary checks.
+- **Graceful Decoder Fallback**: Guarantees zero 500-error crashes during audio streaming by falling back to raw PCM16 if compressed decoders fail.
+- **Mobile Hotspot & Captive Portal Setup**:
+  - Disables Wi-Fi modem sleep (`WiFi.setSleep(false)`) for continuous transmission over mobile hotspots.
+  - Provides a fallback captive portal (`AuraForest-Node-Setup` at `http://192.168.4.1`) backed by ESP32 NVS flash storage for on-site Wi-Fi reconfiguration.
+
+---
+
 ## 4. Non-Functional Requirements
 
 | Metric | Target Requirement |

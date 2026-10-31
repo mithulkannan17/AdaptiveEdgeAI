@@ -99,20 +99,26 @@ graph TD
 ---
 
 ### 2.3. Multimodal Decision Engine (CADIE)
-CADIE (*Context-Aware Decision Intelligence Engine*) implements **Confidence-Driven Primacy** with **Multimodal Sensor Corroboration**:
+CADIE (*Context-Aware Decision Intelligence Engine*) implements **Confidence-Driven Primacy** with **Multimodal Sensor Corroboration**, **Voice-First Logging Validation**, and **Seismic vs. Acoustic Cross-Triage**:
 
 - **Confidence Primacy Principle**:
   Acoustic prediction confidence ($C \ge 0.85$ for high-priority threats like `Chainsaw`, `Gunshot`, `Fire`) directly anchors the decision score and triggers emergency alerts autonomously. Nominal or idle hardware readings **NEVER** suppress or bottleneck high-confidence acoustic detections.
-- **Additive Multimodal Corroboration**:
-  Physical sensors (MQ-2 smoke, MQ-135 CO, SW-420 seismic shock) act as additive context enrichers to corroborate and elevate borderline or moderate confidence acoustic events ($0.55 \le C < 0.85$) into critical triage.
+- **Voice-First Logging & Acoustic Validation**:
+  Illegal logging detection strictly requires the acoustic voice of logging machinery (chainsaw, power drill, jackhammer, mechanical saw, or tree felling). Vibration alone is never mistaken for logging.
+- **Seismic Vibration vs. Logging Cross-Triage**:
+  - **Acoustic Voice + Seismic Vibration**: Ground shock accompanied by chainsaw/drill acoustic signatures confirms active tree cutting and heavy equipment impact. CADIE elevates this to `CRITICAL` risk with `TRANSMIT_IMMEDIATELY` and `DISPATCH_RANGERS`.
+  - **Seismic Vibration Alone (No Logging Voice)**: Registered as `[SEISMIC VIBRATION] Environmental ground vibration` (possible minor tectonic tremor, animal herd stampede, or high-wind tree sway). Suppresses false logging alerts while recording the vibration telemetry.
+- **Multimodal Smoke & Fire Corroboration**:
+  MQ-2 (flammable gas / smoke) and MQ-135 (air quality / combustion index) sensors actively corroborate acoustic fire crackling. Significant ADC spikes ($\ge 400$ on MQ-2 or $\ge 800$ on MQ-135) or voltage deltas ($\ge 0.50\text{ V}$) trigger immediate `CRITICAL EMERGENCY` fire alerts across Chief and Ranger terminals.
 
 $$\text{Decision Score} = \max\left(C_{\text{threat}}, \; 0.52 \cdot C + 0.22 \cdot P_{\text{event}} + 0.12 \cdot E_{\text{env}} + 0.09 \cdot S_{\text{sens}} + 0.06 \cdot \Delta_{\text{gas}} + 0.08 \cdot V_{\text{latch}}\right)$$
 
 - **Decision Matrix**:
-  - `High Confidence Threat (>=85%) + Any Hardware State` $\rightarrow$ `CRITICAL (TRANSMIT_IMMEDIATELY / DISPATCH_RANGERS)`
-  - `Moderate Confidence Fire (70%) + Smoke Anomaly Spike` $\rightarrow$ `CRITICAL (DISPATCH_RANGERS)`
-  - `Moderate Confidence Chainsaw (70%) + Vibration Latch` $\rightarrow$ `CRITICAL (DISPATCH_RANGERS)`
-  - `Moderate Confidence Fire (70%) + Nominal Gas` $\rightarrow$ `ELEVATED / HIGH (RECORD_EVIDENCE)`
+  - `Chainsaw / Drill Voice + Vibration Latch` $\rightarrow$ `CRITICAL (CONFIRMED LOGGING - DISPATCH_RANGERS)`
+  - `Chainsaw / Drill Voice Alone (>=75%)` $\rightarrow$ `HIGH (LOGGING SUSPECTED - RECORD_EVIDENCE)`
+  - `Vibration Latch Alone (No Logging Voice)` $\rightarrow$ `LOW (SEISMIC TREMOR / ENVIRONMENTAL SWAY - MONITOR)`
+  - `Fire Crackle Voice + Smoke Sensor Spike` $\rightarrow$ `CRITICAL (CANOPY COMBUSTION - DISPATCH_RANGERS)`
+  - `Gunshot Acoustic Signature (>=80%)` $\rightarrow$ `CRITICAL (POACHING INTRUSION - TRANSMIT_IMMEDIATELY)`
   - `Ambiguous Sound + Storm Noise` $\rightarrow$ `ELEVATED (CONFIRM_NEXT_CYCLE)`
 
 ---
@@ -173,5 +179,58 @@ SQLite 3 database located at `data/runtime.db` structured with relational schema
     5. **Mobile Phone Status Bar Push**: Instant push notifications to Android / iOS notification bars via `ntfy.sh` with custom haptic vibration and synthesized siren sound.
     6. **SMTP Email Delivery**: Automated HTML email dispatches with direct links to [https://auraforest-sentinel.streamlit.app/](https://auraforest-sentinel.streamlit.app/).
 
+---
 
+### 2.8. Multi-Layer Enterprise Security Architecture (`backend/security.py`)
+A comprehensive, zero-trust cyber-defense architecture secures all API endpoints, edge devices, and operator sessions:
 
+```mermaid
+graph TD
+    Client["Client / Browser / Edge Node"] --> RateLimiter["LoginRateLimiter (Brute-Force Guard)"]
+    RateLimiter -->|Attempts < 5| AuthEngine["Authentication & Hash Verification"]
+    RateLimiter -->|Attempts >= 5| Lockout["300-Second Security Lockout"]
+    AuthEngine -->|Salted SHA-256 Match| TokenMgr["SessionTokenManager (HMAC-SHA256)"]
+    TokenMgr --> SignedToken["Cryptographic Signed JWT Token (Payload.Signature)"]
+    SignedToken --> RBACGuard["Role-Based Access Control (Admin / Ranger / Viewer)"]
+    RBACGuard --> ProtectedResources["Sanctuary Command & Operational API"]
+```
+
+1. **Cryptographic HMAC-SHA256 Session Management (`SessionTokenManager`)**:
+   - Replaces insecure plaintext URL parameters with tamper-proof HMAC-SHA256 signed session tokens containing `username`, `role`, `display_name`, `department`, `iat`, and `exp`.
+   - On page refresh or deep link navigation, tokens are cryptographically verified against server secret keys.
+   - Any signature tampering, forged username, or expired timestamp immediately terminates the session and purges browser query parameters.
+2. **Progressive Brute-Force & Credential Stuffing Defense (`LoginRateLimiter`)**:
+   - Tracks failed authentication attempts per username and client IP within a rolling 300-second window.
+   - Enforces an automatic **300-second (5-minute) security lockout** upon reaching 5 failed attempts.
+   - Displays live remaining cooldown countdown to legitimate users and logs all `LOGIN_FAILED`, `ACCOUNT_LOCKED`, and `LOCKOUT_BLOCKED` events in the database audit table.
+3. **Password Security & Complexity Enforcement (`validate_password_strength`)**:
+   - Enforces a minimum of 8 characters with required alphanumeric mix (at least one letter and one numerical digit) for all new Citizen registrations and Field Ranger credentials.
+   - Hardcoded dictionary fallbacks (`admin`, `chief`, `password`, `ranger`) have been completely purged from the codebase.
+4. **Input Sanitization & Injection Defense (`sanitize_xss`)**:
+   - HTML-escapes all citizen report text, user notes, and ranger callsigns prior to rendering in Streamlit markdown components to prevent Cross-Site Scripting (XSS).
+   - Strict SQLite parameterized queries (`?`) prevent SQL injection across all database interactions.
+5. **Cyber-Defense & Security Operations Center (SOC)**:
+   - Dedicated Chief Ranger dashboard tab providing real-time security shield status (`HMAC-SHA256`, `BRUTE-FORCE SHIELD`, `TELEMETRY BOUNDS`, `DATABASE HASHING`).
+   - One-click emergency actions: **Unlock All Locked Accounts & IPs** and **Flush Rate Limiter**.
+   - Filterable, immutable security audit trail logging every system authentication event.
+
+---
+
+### 2.9. Edge Audio Ingestion Resiliency & Dynamic Hotspot Firmware
+1. **Audio Ingestion Resiliency**:
+   - **Strict 4-Byte MPEG Header Validation**: Requires complete version, layer, bitrate, and sampling rate validation plus second-frame boundary verification before flagging incoming bytes as MP3. Eliminates false-positive MP3 classifications triggered by raw PCM16 negative ambient noise (`0xFFFF`).
+   - **Resilient Fallback**: If compressed decoding ever encounters an error, the pipeline gracefully falls back to raw signed PCM16 processing without returning a 500 server error to the field node.
+   - **16-Bit Alignment**: Auto-aligns odd-length incoming audio buffers to even 16-bit boundaries.
+2. **Mobile Hotspot & Dynamic Captive Portal**:
+   - **Mobile Hotspot Support**: Disables Wi-Fi modem sleep (`WiFi.setSleep(false)`) in `hardware.ino` to prevent mobile hotspot dropouts and packet throttling on 2.4 GHz bands.
+   - **Autonomous Captive Portal AP (`AuraForest-Node-Setup`)**: If previously stored Wi-Fi credentials are unreachable, the ESP32-S3 automatically launches an Access Point at `http://192.168.4.1` with a captive DNS server. Operators can configure new Wi-Fi credentials and server IPs on-the-fly, persisted directly to non-volatile storage (`Preferences` / NVS flash).
+
+---
+
+### 2.10. Audible Sanctuary Public Siren Synthesizer
+- **Web Audio API Emergency Synthesizer**:
+  - Implements an audible sanctuary siren chime directly in the operator and citizen browser using dual Web Audio API oscillators (sawtooth carrier frequency modulated by a 2.2 Hz low-frequency oscillator).
+  - Silenced cleanly and completely when muted or deactivated via audio context shutdown.
+- **Ranger & Chief Siren Broadcast Controls**:
+  - Field Rangers and Chief Rangers can activate the sanctuary-wide public siren (`🚨 Broadcast Siren to Public`) with instant visual and audible dispatch.
+  - One-click silence button (`🔕 Silence & Deactivate Siren`) deactivates the broadcast across all connected clients.

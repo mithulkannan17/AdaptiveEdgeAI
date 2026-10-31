@@ -156,3 +156,40 @@ AuraForest's user interface is built to evoke an **executive-grade, bioacoustic 
 }
 ```
 
+---
+
+## 6. Role-Based Multi-Tier Interface Design
+
+The console dynamically tailors its visual layout and capabilities based on the authenticated operator role:
+
+| Interface Tier | Target Persona | Accent Theme | Core Views & Responsibilities |
+| :--- | :--- | :--- | :--- |
+| **👑 Chief Command** | Chief Forest Officer / Sanctuary Admin | **Emerald Glow** (`#7cf0b2`) | Full reserve telemetry, 3D tactical dispatch map, ranger credential generation, unknown sound discovery, emergency broadcast, and Cyber-Defense SOC. |
+| **🛡️ Field Operations** | Active Patrol Rangers / Mobile Units | **Cyber Cyan** (`#73d9e8`) | Incident resolution radar, CADIE voice/vibration cross-triage, GPS tracking, and Public Siren activation/silencing. |
+| **👁️ Community Observatory** | Local Citizens / Visiting Researchers | **Warning Amber** (`#f2c66d`) | Forest environmental readings, safety notices & emergency siren alerts, and geotagged illegal activity reporting with photo attachment. |
+
+---
+
+## 7. Audible Sanctuary Siren Synthesizer (Web Audio API)
+
+To alert operators and citizens immediately without requiring external audio plugins:
+- **Dual-Oscillator Synthesis Engine**:
+  - **Carrier Oscillator**: Sawtooth wave set to 750 Hz base frequency.
+  - **Low-Frequency Oscillator (LFO)**: 2.2 Hz frequency modulating the carrier through a gain node ($\pm 250\text{ Hz}$ warble).
+- **Graceful Lifecycle & Mute**:
+  - Completely stops and closes `AudioContext` when muted or silenced by the operator.
+  - State persisted across page reruns via `st.session_state["citizen_siren_muted"]`.
+
+---
+
+## 8. Cyber-Defense & Security Operations Center (SOC) Design
+
+The Chief Ranger interface includes a military-grade security dashboard:
+- **Status Tiles**:
+  - `SESSION ENCRYPTION`: Displays active `HMAC-SHA256` token protection.
+  - `BRUTE-FORCE SHIELD`: Real-time locked account count with 5-attempt/300s window indicators.
+  - `TELEMETRY BOUNDS`: Real-time anti-spoofing verification indicator.
+  - `DATABASE HASHING`: Salted SHA-256 storage indicator.
+- **Emergency Action Controls**:
+  - High-visibility action buttons for **Unlock All Accounts** and **Flush Rate Limiter**.
+- **Immutable Audit Trail Dataframe**: Clean, tabular view of timestamps, actors, security actions, and official audit statements.

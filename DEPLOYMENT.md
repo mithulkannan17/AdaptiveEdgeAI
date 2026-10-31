@@ -212,3 +212,32 @@ sudo certbot --nginx -d sentinel.yourdomain.com
 | **Public Citizen** | Self Sign-Up | Self Chosen | Eco-Observer & Tip Reporter |
 
 *(Passwords can be changed at any time under **👥 Ranger & User Management** -> **Directory & Edit**)*.
+
+---
+
+## 📡 Hardware Edge Node & Mobile Hotspot Field Deployment
+
+The ESP32-S3 Edge Node supports direct local Wi-Fi, mobile hotspot tethering, and captive portal setup:
+
+### Mobile Hotspot Configuration:
+1. **Enable 2.4 GHz Band**:
+   - **Android**: Under Hotspot Settings, ensure **AP Band** is set to **2.4 GHz** (do not use "5 GHz only").
+   - **iOS / iPhone**: In Personal Hotspot settings, enable **"Maximize Compatibility"** (enables 2.4 GHz radio).
+2. **Find Your PC / Server Local IP**:
+   - In terminal / PowerShell on the host PC: `ipconfig`
+   - Note the **IPv4 Address** (e.g. `192.168.43.105`).
+
+### 2 Ways to Connect the Hardware:
+- **Option 1: Autonomous Web Captive Portal (No Code Re-upload Needed)**:
+  1. Turn on your mobile hotspot and power on the ESP32.
+  2. If the previous Wi-Fi network is not found, the ESP32 broadcasts its own setup network: `AuraForest-Node-Setup`.
+  3. Connect your phone or laptop to `AuraForest-Node-Setup`.
+  4. Open any browser to: **`http://192.168.4.1`**.
+  5. Select your mobile hotspot, enter the password and your server's IP, and click **Save**. The configuration is saved permanently to ESP32 NVS flash memory.
+- **Option 2: Direct Code Configuration**:
+  - Edit lines 69–82 in `hardware.ino`:
+    ```cpp
+    const char *WIFI_SSID = "Your_Hotspot_SSID";
+    const char *WIFI_PASSWORD = "Your_Hotspot_Password";
+    const char *LOCAL_SERVER_IP = "192.168.43.xxx"; // Your PC's hotspot IP
+    ```
