@@ -15,15 +15,45 @@ Features:
 from __future__ import annotations
 
 import os
+import re
 import sys
 import time
 import signal
+import shutil
+import threading
 import subprocess
 from pathlib import Path
 from urllib.request import urlopen
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 PYTHON_EXE = sys.executable
+
+def free_port(port: int | str) -> None:
+    """Safely terminate any lingering zombie process holding a port on Windows/Linux."""
+    if sys.platform == "win32":
+        try:
+            cmd = f"netstat -ano | findstr :{port}"
+            res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            for line in res.stdout.strip().splitlines():
+                if "LISTENING" in line:
+                    parts = line.strip().split()
+                    pid = parts[-1]
+                    if pid != str(os.getpid()) and pid != "0":
+                        subprocess.run(f"taskkill /F /PID {pid}", shell=True, capture_output=True)
+        except Exception:
+            pass
+
+def find_cloudflared() -> str | None:
+    """Detect if Cloudflare Tunnel CLI is available."""
+    candidates = [
+        r"C:\Program Files (x86)\cloudflared\cloudflared.exe",
+        r"C:\Program Files\cloudflared\cloudflared.exe",
+        "cloudflared",
+    ]
+    for c in candidates:
+        if shutil.which(c) or os.path.exists(c):
+            return c
+    return None
 
 def check_backend_health(port: int | str = 8000, timeout: float = 1.0) -> bool:
     """Check if FastAPI backend is healthy and responding."""
@@ -50,6 +80,10 @@ def main() -> None:
 
     backend_port = os.environ.get("BACKEND_PORT", "8000")
     dashboard_port = os.environ.get("PORT", os.environ.get("STREAMLIT_PORT", "8501"))
+
+    # Free any leftover sockets from previous crashed runs
+    free_port(backend_port)
+    free_port(dashboard_port)
 
     os.environ["PYTHONPATH"] = str(PROJECT_ROOT)
     os.environ["AURAFOREST_API_URL"] = f"http://127.0.0.1:{backend_port}"
@@ -95,6 +129,36 @@ def main() -> None:
     print(f"\n[2/2] 🚀 Starting Streamlit Command Dashboard on http://0.0.0.0:{dashboard_port} ...")
     dashboard_proc = subprocess.Popen(dashboard_cmd, cwd=str(PROJECT_ROOT))
 
+    # Automatic Cloudflare Tunnel Launcher
+    cloudflared_proc = None
+    cf_bin = find_cloudflared()
+    if cf_bin:
+        print(f"\n[3/3] 🌐 Launching Cloudflare Public Cloud Bridge...")
+        try:
+            cloudflared_proc = subprocess.Popen(
+                [cf_bin, "tunnel", "--url", f"http://localhost:{backend_port}"],
+                stderr=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                text=True,
+                bufsize=1,
+            )
+            def monitor_cf():
+                for line in iter(cloudflared_proc.stderr.readline, ""):
+                    match = re.search(r"https://[a-zA-Z0-9\-]+\.trycloudflare\.com", line)
+                    if match:
+                        url = match.group(0)
+                        print("\n" + "#" * 65)
+                        print("   🌐 CLOUD TUNNEL ACTIVE (FOR STREAMLIT CLOUD)")
+                        print("#" * 65)
+                        print(f"   👉 URL: {url}")
+                        print("   Paste this into Streamlit Cloud App Settings -> Secrets:")
+                        print(f'   AURAFOREST_API_URL = "{url}"')
+                        print("#" * 65 + "\n")
+                        break
+            threading.Thread(target=monitor_cf, daemon=True).start()
+        except Exception as e:
+            print(f"      [!] Cloudflare tunnel start skipped: {e}")
+
     print("\n" + "=" * 65)
     print("   🟢 AURAFOREST SYSTEM SUCCESSFULLY DEPLOYED & ARMED")
     print("=" * 65)
@@ -106,6 +170,11 @@ def main() -> None:
 
     def handle_signal(sig, frame):
         print("\n[!] Initiating graceful shutdown of all AuraForest services...")
+        if cloudflared_proc:
+            try:
+                cloudflared_proc.terminate()
+            except Exception:
+                pass
         try:
             dashboard_proc.terminate()
             backend_proc.terminate()
