@@ -885,6 +885,7 @@ def health():
 # ==========================================================
 UPSTREAM_CLOUD_URL = os.getenv("UPSTREAM_CLOUD_URL", "https://auraforest-backend.onrender.com").rstrip("/")
 ENABLE_CLOUD_RELAY = os.getenv("ENABLE_CLOUD_RELAY", "1").lower() in ("1", "true", "yes")
+AURA_CLOUD_BROKER_URL = os.getenv("AURA_CLOUD_BROKER_URL", "https://ntfy.sh/auraforest_telemetry_mithul").rstrip("/")
 
 def is_cloud_relay_active() -> bool:
     if not ENABLE_CLOUD_RELAY or not UPSTREAM_CLOUD_URL:
@@ -897,6 +898,22 @@ def is_cloud_relay_active() -> bool:
     return True
 
 async def sync_telemetry_to_cloud(telemetry_dict: dict, auth_token: str | None = None) -> None:
+    # 1. Forward directly from local station to permanent 24/7 cloud broker for deployed Streamlit dashboard
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            await client.post(
+                AURA_CLOUD_BROKER_URL,
+                content=json.dumps(telemetry_dict),
+                headers={
+                    "Title": "telemetry",
+                    "Priority": "1",
+                    "Tags": "satellite,antenna",
+                },
+            )
+    except Exception:
+        pass
+
+    # 2. Secondary upstream REST API sync (if Render or upstream is online)
     if not is_cloud_relay_active():
         return
     try:
@@ -904,7 +921,7 @@ async def sync_telemetry_to_cloud(telemetry_dict: dict, auth_token: str | None =
             "Content-Type": "application/json",
             "x-device-token": auth_token or "aura_sentry_sec_key_99",
         }
-        async with httpx.AsyncClient(timeout=4.0) as client:
+        async with httpx.AsyncClient(timeout=3.0) as client:
             await client.post(
                 f"{UPSTREAM_CLOUD_URL}/api/v1/edge/telemetry",
                 json=telemetry_dict,
@@ -914,11 +931,27 @@ async def sync_telemetry_to_cloud(telemetry_dict: dict, auth_token: str | None =
         pass
 
 async def sync_event_to_cloud(runtime_message: dict) -> None:
+    # 1. Forward live AI audio inference event to permanent 24/7 cloud broker
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            await client.post(
+                AURA_CLOUD_BROKER_URL,
+                content=json.dumps(runtime_message),
+                headers={
+                    "Title": "event",
+                    "Priority": "2",
+                    "Tags": "loudspeaker,warning",
+                },
+            )
+    except Exception:
+        pass
+
+    # 2. Secondary upstream REST API sync
     if not is_cloud_relay_active():
         return
     try:
         headers = {"Content-Type": "application/json"}
-        async with httpx.AsyncClient(timeout=4.0) as client:
+        async with httpx.AsyncClient(timeout=3.0) as client:
             await client.post(
                 f"{UPSTREAM_CLOUD_URL}/api/v1/edge/events",
                 json=runtime_message,
@@ -928,6 +961,22 @@ async def sync_event_to_cloud(runtime_message: dict) -> None:
         pass
 
 async def sync_alert_to_cloud(alert_payload: dict) -> None:
+    # 1. Forward emergency alert to permanent 24/7 cloud broker
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            await client.post(
+                AURA_CLOUD_BROKER_URL,
+                content=json.dumps(alert_payload),
+                headers={
+                    "Title": "alert",
+                    "Priority": "5",
+                    "Tags": "rotating_light,fire",
+                },
+            )
+    except Exception:
+        pass
+
+    # 2. Secondary upstream REST API sync
     if not is_cloud_relay_active():
         return
     try:
@@ -944,7 +993,7 @@ async def sync_alert_to_cloud(alert_payload: dict) -> None:
             "contributing_factors": dec.get("contributing_factors") or [],
         }
         headers = {"Content-Type": "application/json"}
-        async with httpx.AsyncClient(timeout=4.0) as client:
+        async with httpx.AsyncClient(timeout=3.0) as client:
             await client.post(
                 f"{UPSTREAM_CLOUD_URL}/api/v1/edge/alerts/dispatch",
                 json=alert_body,
@@ -1128,9 +1177,16 @@ def receive_telemetry(
     # ------------------------------------------------------
     # Upstream Cloud Relay (Non-blocking background sync)
     # ------------------------------------------------------
+    telemetry_payload = {
+        "device_id": device_id,
+        "timestamp": timestamp,
+        "device_status": device_status,
+        "location": location,
+        "hardware_health": hardware_health,
+    }
     background_tasks.add_task(
         sync_telemetry_to_cloud,
-        telemetry.model_dump(),
+        telemetry_payload,
         auth_token,
     )
 

@@ -114,10 +114,12 @@ def get_configured_api_url() -> str:
         return env_val.strip().rstrip("/")
     return "http://127.0.0.1:8000"
 
-@st.cache_resource
 def get_source() -> RuntimeDataSource:
     url = get_configured_api_url()
-    return RuntimeDataSource(api_url=url)
+    if "runtime_data_source" not in st.session_state or st.session_state.get("_cached_api_url") != url:
+        st.session_state["runtime_data_source"] = RuntimeDataSource(api_url=url)
+        st.session_state["_cached_api_url"] = url
+    return st.session_state["runtime_data_source"]
 
 source = get_source()
 AURA_API_URL = get_configured_api_url()

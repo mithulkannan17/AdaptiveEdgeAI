@@ -119,7 +119,7 @@ class RuntimeDataSource:
     # ==========================================================
 
     def _poll_cloud_relay(self) -> dict[str, Any] | None:
-        """Poll autonomous 24/7 cloud relay for direct live telemetry from hardware."""
+        """Poll autonomous 24/7 cloud relay for direct live telemetry and events."""
         try:
             req = Request(
                 "https://ntfy.sh/auraforest_telemetry_mithul/json?poll=1",
@@ -128,24 +128,53 @@ class RuntimeDataSource:
                     "User-Agent": "AuraForestSentinel/1.0",
                 },
             )
-            with urlopen(req, timeout=1.8) as resp:
+            with urlopen(req, timeout=3.0) as resp:
                 raw = resp.read().decode("utf-8").strip()
                 if not raw:
                     return None
-                last_line = raw.splitlines()[-1]
-                outer = json.loads(last_line)
-                inner_raw = outer.get("message")
-                if inner_raw:
-                    data = json.loads(inner_raw)
-                    if isinstance(data, dict) and "device_status" in data:
-                        return data
+                lines = raw.splitlines()
+
+                latest_telemetry: dict[str, Any] | None = None
+                latest_event: dict[str, Any] | None = None
+                events_list: list[dict[str, Any]] = []
+
+                for line in reversed(lines):
+                    try:
+                        outer = json.loads(line)
+                        inner_raw = outer.get("message")
+                        if not inner_raw:
+                            continue
+                        data = json.loads(inner_raw) if isinstance(inner_raw, str) else inner_raw
+                        if not isinstance(data, dict):
+                            continue
+
+                        if latest_telemetry is None and ("device_status" in data or "battery_percent" in data or "hardware_health" in data):
+                            latest_telemetry = data
+
+                        if "prediction" in data or "event" in data or "threat_type" in data:
+                            if latest_event is None:
+                                latest_event = data
+                            if len(events_list) < self.event_history_limit:
+                                events_list.append(data)
+
+                        if latest_telemetry is not None and latest_event is not None and len(events_list) >= 5:
+                            break
+                    except Exception:
+                        continue
+
+                if latest_telemetry is not None or latest_event is not None:
+                    return {
+                        "telemetry": latest_telemetry,
+                        "event": latest_event,
+                        "history": events_list,
+                    }
         except Exception:
             pass
         return None
 
     def tick(self) -> dict[str, Any]:
         """
-        Fetch a completely fresh dashboard snapshot from FastAPI.
+        Fetch a completely fresh dashboard snapshot from FastAPI or cloud relay.
         """
         import time as _t
         self._last_error = None
@@ -156,24 +185,23 @@ class RuntimeDataSource:
             health = None
         else:
             health = self._get_json("/health")
-            if health is None and "127.0.0.1" in self.api_url:
-                # Back off for 20 seconds to prevent blocking UI execution loops
-                self._api_offline_until = now + 20.0
+            if health is None:
+                # Back off for 15 seconds to prevent blocking UI execution loops
+                self._api_offline_until = now + 15.0
         
-        # If /health check failed or timed out, do NOT waste time cascading
-        # 3 additional blocking timeouts on every refresh cycle.
+        # If /health check failed or timed out, autonomously poll 24/7 cloud relay
         if health is None:
-            cloud_record = self._poll_cloud_relay()
-            if cloud_record:
+            cloud_bundle = self._poll_cloud_relay()
+            if cloud_bundle and (cloud_bundle.get("telemetry") or cloud_bundle.get("event")):
                 state = self._build_state(
-                    latest_event=None,
-                    telemetry_record=cloud_record,
-                    history_records=[],
+                    latest_event=cloud_bundle.get("event"),
+                    telemetry_record=cloud_bundle.get("telemetry"),
+                    history_records=cloud_bundle.get("history") or [],
                     health={"status": "ONLINE", "mode": "AUTONOMOUS_CLOUD_SYNC"},
                 )
                 state["connection"] = {
                     "online": True,
-                    "status": "LIVE HARDWARE CLOUD SYNC",
+                    "status": "LIVE STATION CLOUD SYNC",
                     "error": None,
                     "api_url": "https://ntfy.sh/auraforest_telemetry_mithul",
                     "device_id": self.device_id,
@@ -564,9 +592,9 @@ class RuntimeDataSource:
                 "hardware_health": {},
             }
 
-        device_status = telemetry_record.get("device_status") or {}
-        location = telemetry_record.get("location") or {}
-        hardware_health = telemetry_record.get("hardware_health") or {}
+        device_status = telemetry_record.get("device_status") if isinstance(telemetry_record.get("device_status"), dict) else telemetry_record
+        location = telemetry_record.get("location") if isinstance(telemetry_record.get("location"), dict) else telemetry_record
+        hardware_health = telemetry_record.get("hardware_health") if isinstance(telemetry_record.get("hardware_health"), dict) else (telemetry_record.get("hardware_health") or {})
 
         return {
             "battery_percent": device_status.get("battery_percent"),
