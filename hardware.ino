@@ -75,7 +75,7 @@ const char *WIFI_PASSWORD = "kannan17";
 
 // Set USE_CLOUD_BACKEND to 1 to post directly to your deployed Cloud backend (Render/Koyeb)
 // Set to 0 to post to your local PC IP (sub-second local network response)
-#define USE_CLOUD_BACKEND 0
+#define USE_CLOUD_BACKEND 1
 
 // Local Station PC IP & Port
 const char *LOCAL_SERVER_IP = "10.106.227.65";
@@ -1232,6 +1232,11 @@ void connectWiFi()
         Serial.println(WiFi.localIP());
         Serial.print("Hotspot Gateway : ");
         Serial.println(WiFi.gatewayIP());
+#if USE_CLOUD_BACKEND
+        Serial.print("Target Backend  : CLOUD (");
+        Serial.print(getBaseURL());
+        Serial.println(")");
+#else
         Serial.print("Target PC Server: http://");
         Serial.print(activeServerIP);
         Serial.print(":");
@@ -1255,6 +1260,7 @@ void connectWiFi()
                 Serial.println("************************************************************");
             }
         }
+#endif
     }
     else
     {
@@ -1834,6 +1840,7 @@ bool testBackendConnection()
     http.end();
 
     bool ok = (code >= 200 && code < 300);
+#if !USE_CLOUD_BACKEND
     if (!ok)
     {
         // Automatically attempt local subnet discovery if initial connection failed
@@ -1842,6 +1849,7 @@ bool testBackendConnection()
             return true;
         }
     }
+#endif
 
     return ok;
 }
