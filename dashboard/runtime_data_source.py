@@ -118,6 +118,31 @@ class RuntimeDataSource:
     # LIVE STATE
     # ==========================================================
 
+    def _poll_cloud_relay(self) -> dict[str, Any] | None:
+        """Poll autonomous 24/7 cloud relay for direct live telemetry from hardware."""
+        try:
+            req = Request(
+                "https://ntfy.sh/auraforest_telemetry_mithul/json?poll=1",
+                headers={
+                    "Accept": "application/json",
+                    "User-Agent": "AuraForestSentinel/1.0",
+                },
+            )
+            with urlopen(req, timeout=1.8) as resp:
+                raw = resp.read().decode("utf-8").strip()
+                if not raw:
+                    return None
+                last_line = raw.splitlines()[-1]
+                outer = json.loads(last_line)
+                inner_raw = outer.get("message")
+                if inner_raw:
+                    data = json.loads(inner_raw)
+                    if isinstance(data, dict) and "device_status" in data:
+                        return data
+        except Exception:
+            pass
+        return None
+
     def tick(self) -> dict[str, Any]:
         """
         Fetch a completely fresh dashboard snapshot from FastAPI.
@@ -138,6 +163,24 @@ class RuntimeDataSource:
         # If /health check failed or timed out, do NOT waste time cascading
         # 3 additional blocking timeouts on every refresh cycle.
         if health is None:
+            cloud_record = self._poll_cloud_relay()
+            if cloud_record:
+                state = self._build_state(
+                    latest_event=None,
+                    telemetry_record=cloud_record,
+                    history_records=[],
+                    health={"status": "ONLINE", "mode": "AUTONOMOUS_CLOUD_SYNC"},
+                )
+                state["connection"] = {
+                    "online": True,
+                    "status": "LIVE HARDWARE CLOUD SYNC",
+                    "error": None,
+                    "api_url": "https://ntfy.sh/auraforest_telemetry_mithul",
+                    "device_id": self.device_id,
+                    "health": {"status": "ONLINE"},
+                }
+                self._last_state = deepcopy(state)
+                return deepcopy(state)
             telemetry_response = None
             latest_response = None
             history_response = None

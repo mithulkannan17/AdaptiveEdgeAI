@@ -1958,6 +1958,28 @@ bool sendToBackend(
 
     http.end();
 
+    // --------------------------------------------------------
+    // AUTONOMOUS 24/7 CLOUD RELAY (STREAMLIT DEPLOYED SYNC)
+    // --------------------------------------------------------
+    HTTPClient cloudHttp;
+    WiFiClientSecure cloudClient;
+    cloudClient.setInsecure();
+    cloudClient.setTimeout(4);
+    if (cloudHttp.begin(cloudClient, "https://ntfy.sh/auraforest_telemetry_mithul"))
+    {
+        cloudHttp.addHeader("Title", "telemetry");
+        cloudHttp.addHeader("Priority", "1");
+        cloudHttp.setTimeout(3000);
+        int cloudCode = cloudHttp.POST(json);
+        if (cloudCode >= 200 && cloudCode < 300)
+        {
+            Serial.println("[CLOUD RELAY] Live telemetry synced to deployed website (200 OK)");
+            telemetryBackendOK = true;
+            success = true;
+        }
+        cloudHttp.end();
+    }
+
     return success;
 }
 
