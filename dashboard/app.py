@@ -99,16 +99,28 @@ if not st.session_state.get("authenticated", False) and auth_param_user and auth
             if "auth_token" in st.query_params:
                 del st.query_params["auth_token"]
 
+def get_configured_api_url() -> str:
+    """Resolve backend API URL from Streamlit Cloud secrets or environment variables."""
+    try:
+        if hasattr(st, "secrets") and "AURAFOREST_API_URL" in st.secrets:
+            val = str(st.secrets["AURAFOREST_API_URL"]).strip().rstrip("/")
+            if val:
+                os.environ["AURAFOREST_API_URL"] = val
+                return val
+    except Exception:
+        pass
+    env_val = os.getenv("AURAFOREST_API_URL")
+    if env_val and env_val.strip():
+        return env_val.strip().rstrip("/")
+    return "http://127.0.0.1:8000"
+
 @st.cache_resource
 def get_source() -> RuntimeDataSource:
-    return RuntimeDataSource()
+    url = get_configured_api_url()
+    return RuntimeDataSource(api_url=url)
 
 source = get_source()
-
-AURA_API_URL = os.getenv(
-    "AURAFOREST_API_URL",
-    "http://127.0.0.1:8000",
-).rstrip("/")
+AURA_API_URL = get_configured_api_url()
 
 def format_display_label(raw_label: str) -> str:
     """
