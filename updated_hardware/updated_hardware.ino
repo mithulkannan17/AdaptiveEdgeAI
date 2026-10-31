@@ -48,6 +48,12 @@
 #include <Preferences.h>
 #include <DNSServer.h>
 
+// BLE (Bluetooth Low Energy) for ESP32-S3
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
+
 #include <ArduinoJson.h>
 #include <DHT.h>
 #include <TinyGPSPlus.h>
@@ -94,6 +100,135 @@ const char *AUDIO_API_PATH =
 // ============================================================
 // DYNAMIC NVS WIFI & PORTAL CONFIGURATION
 // ============================================================
+
+// ============================================================
+// BLUETOOTH LOW ENERGY (BLE) TELEMETRY & COMMANDS (ESP32-S3)
+// ============================================================
+
+#define BLE_DEVICE_NAME        "AuraForest-Sentinel-BLE"
+#define SERVICE_UUID           "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
+#define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
+#define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+
+BLEServer *pBleServer = nullptr;
+BLECharacteristic *pBleTxCharacteristic = nullptr;
+BLECharacteristic *pBleRxCharacteristic = nullptr;
+bool bleClientConnected = false;
+
+// Forward declarations
+String createPayload();
+void printTelemetry();
+bool performAudioInference();
+void startWiFiPortal();
+void sendBLETelemetry(const String &json);
+
+class AuraBLEServerCallbacks : public BLEServerCallbacks
+{
+    void onConnect(BLEServer *pServer) override
+    {
+        bleClientConnected = true;
+        Serial.println("[BLE] 📱 Mobile/PC Client connected to AuraForest Sentinel!");
+    }
+
+    void onDisconnect(BLEServer *pServer) override
+    {
+        bleClientConnected = false;
+        Serial.println("[BLE] 🔌 Client disconnected. Re-advertising...");
+        pServer->startAdvertising();
+    }
+};
+
+class AuraBLERxCallbacks : public BLECharacteristicCallbacks
+{
+    void onWrite(BLECharacteristic *pCharacteristic) override
+    {
+        String rxValue = pCharacteristic->getValue().c_str();
+        if (rxValue.length() > 0)
+        {
+            Serial.print("[BLE Command Received]: ");
+            Serial.println(rxValue);
+            rxValue.trim();
+
+            if (rxValue.equalsIgnoreCase("A"))
+            {
+                performAudioInference();
+            }
+            else if (rxValue.equalsIgnoreCase("S"))
+            {
+                printTelemetry();
+                String p = createPayload();
+                sendBLETelemetry(p);
+            }
+            else if (rxValue.equalsIgnoreCase("W"))
+            {
+                startWiFiPortal();
+            }
+            else if (rxValue.equalsIgnoreCase("R"))
+            {
+                ESP.restart();
+            }
+        }
+    }
+};
+
+void initBLE()
+{
+    Serial.println("[BLE] Initializing Bluetooth Low Energy (BLE)...");
+    BLEDevice::init(BLE_DEVICE_NAME);
+    BLEDevice::setMTU(512);
+
+    pBleServer = BLEDevice::createServer();
+    pBleServer->setCallbacks(new AuraBLEServerCallbacks());
+
+    BLEService *pService = pBleServer->createService(SERVICE_UUID);
+
+    pBleTxCharacteristic = pService->createCharacteristic(
+        CHARACTERISTIC_UUID_TX,
+        BLECharacteristic::PROPERTY_NOTIFY
+    );
+    pBleTxCharacteristic->addDescriptor(new BLE2902());
+
+    pBleRxCharacteristic = pService->createCharacteristic(
+        CHARACTERISTIC_UUID_RX,
+        BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR
+    );
+    pBleRxCharacteristic->setCallbacks(new AuraBLERxCallbacks());
+
+    pService->start();
+
+    BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+    pAdvertising->addServiceUUID(SERVICE_UUID);
+    pAdvertising->setScanResponse(true);
+    pAdvertising->setMinPreferred(0x06);
+    pAdvertising->setMinPreferred(0x12);
+    BLEDevice::startAdvertising();
+
+    Serial.println("[BLE] 📶 BLE Advertising active! Device Name: 'AuraForest-Sentinel-BLE'");
+}
+
+void sendBLETelemetry(const String &json)
+{
+    if (!bleClientConnected || pBleTxCharacteristic == nullptr)
+    {
+        return;
+    }
+
+    const int chunkSize = 128;
+    int len = json.length();
+    for (int i = 0; i < len; i += chunkSize)
+    {
+        int end = (i + chunkSize < len) ? i + chunkSize : len;
+        String chunk = json.substring(i, end);
+        pBleTxCharacteristic->setValue((uint8_t *)chunk.c_str(), chunk.length());
+        pBleTxCharacteristic->notify();
+        delay(12);
+    }
+    String term = "\n";
+    pBleTxCharacteristic->setValue((uint8_t *)term.c_str(), 1);
+    pBleTxCharacteristic->notify();
+    Serial.println("[BLE] 📡 Telemetry payload dispatched over Bluetooth BLE!");
+}
+
 Preferences preferences;
 WebServer configServer(80);
 DNSServer dnsServer;
@@ -2824,6 +2959,15 @@ void processSerialCommands()
 
         return;
     }
+
+    if (
+        command == 'b' ||
+        command == 'B')
+    {
+        Serial.println("[BLE] Re-advertising Bluetooth BLE ('AuraForest-Sentinel-BLE')...");
+        BLEDevice::startAdvertising();
+        return;
+    }
 }
 
 // ============================================================
@@ -3026,6 +3170,11 @@ void setup()
     }
 
     // ----------------------------------------------------------
+    // BLUETOOTH LOW ENERGY (BLE) INITIALIZATION
+    // ----------------------------------------------------------
+    initBLE();
+
+    // ----------------------------------------------------------
     // SERIAL COMMAND HELP
     // ----------------------------------------------------------
 
@@ -3048,6 +3197,9 @@ void setup()
 
     Serial.println(
         "  W = Open Wi-Fi / Hotspot Web Setup Portal (http://192.168.4.1)");
+
+    Serial.println(
+        "  B = Re-advertise Bluetooth BLE ('AuraForest-Sentinel-BLE')");
 
     Serial.println(
         "============================================================");
@@ -3217,6 +3369,11 @@ void loop()
         bool backendSuccess =
             sendToBackend(
                 json);
+
+        // --------------------------------------------------------
+        // BLUETOOTH LOW ENERGY (BLE) TELEMETRY DISPATCH
+        // --------------------------------------------------------
+        sendBLETelemetry(json);
 
         // --------------------------------------------------------
         // MICROSD FALLBACK
