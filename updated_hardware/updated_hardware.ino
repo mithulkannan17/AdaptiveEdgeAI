@@ -48,21 +48,6 @@
 #include <Preferences.h>
 #include <DNSServer.h>
 
-// ============================================================
-// FEATURE FLAGS
-// ============================================================
-// Set ENABLE_BLE to 1 to enable Bluetooth Low Energy telemetry streaming
-// (Requires Tools -> Partition Scheme -> "Huge APP (3MB)" in Arduino IDE)
-// Set to 0 if using the default 1.2MB partition scheme to save flash space.
-#define ENABLE_BLE 1
-
-#if ENABLE_BLE
-#include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLEUtils.h>
-#include <BLE2902.h>
-#endif
-
 #include <ArduinoJson.h>
 #include <DHT.h>
 #include <TinyGPSPlus.h>
@@ -93,7 +78,7 @@ const char *WIFI_PASSWORD = "kannan17";
 #define USE_CLOUD_BACKEND 0
 
 // Local Station PC IP & Port
-const char *LOCAL_SERVER_IP = "192.168.29.244";
+const char *LOCAL_SERVER_IP = "10.106.227.65";
 const uint16_t LOCAL_SERVER_PORT = 8000;
 
 // Deployed Cloud Backend URL (Render / Koyeb / Railway)
@@ -109,148 +94,13 @@ const char *AUDIO_API_PATH =
 // ============================================================
 // DYNAMIC NVS WIFI & PORTAL CONFIGURATION
 // ============================================================
-
-#if ENABLE_BLE
-// ============================================================
-// BLUETOOTH LOW ENERGY (BLE) TELEMETRY & COMMANDS (ESP32-S3)
-// ============================================================
-
-#define BLE_DEVICE_NAME        "AuraForest-Sentinel-BLE"
-#define SERVICE_UUID           "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
-#define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
-#define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
-
-BLEServer *pBleServer = nullptr;
-BLECharacteristic *pBleTxCharacteristic = nullptr;
-BLECharacteristic *pBleRxCharacteristic = nullptr;
-bool bleClientConnected = false;
-
-// Forward declarations
-String createPayload();
-void printTelemetry();
-bool performAudioInference();
-void startWiFiPortal();
-void sendBLETelemetry(const String &json);
-
-class AuraBLEServerCallbacks : public BLEServerCallbacks
-{
-    void onConnect(BLEServer *pServer) override
-    {
-        bleClientConnected = true;
-        Serial.println("[BLE] 📱 Mobile/PC Client connected to AuraForest Sentinel!");
-    }
-
-    void onDisconnect(BLEServer *pServer) override
-    {
-        bleClientConnected = false;
-        Serial.println("[BLE] 🔌 Client disconnected. Re-advertising...");
-        pServer->startAdvertising();
-    }
-};
-
-class AuraBLERxCallbacks : public BLECharacteristicCallbacks
-{
-    void onWrite(BLECharacteristic *pCharacteristic) override
-    {
-        String rxValue = pCharacteristic->getValue().c_str();
-        if (rxValue.length() > 0)
-        {
-            Serial.print("[BLE Command Received]: ");
-            Serial.println(rxValue);
-            rxValue.trim();
-
-            if (rxValue.equalsIgnoreCase("A"))
-            {
-                performAudioInference();
-            }
-            else if (rxValue.equalsIgnoreCase("S"))
-            {
-                printTelemetry();
-                String p = createPayload();
-                sendBLETelemetry(p);
-            }
-            else if (rxValue.equalsIgnoreCase("W"))
-            {
-                startWiFiPortal();
-            }
-            else if (rxValue.equalsIgnoreCase("R"))
-            {
-                ESP.restart();
-            }
-        }
-    }
-};
-
-void initBLE()
-{
-    Serial.println("[BLE] Initializing Bluetooth Low Energy (BLE)...");
-    BLEDevice::init(BLE_DEVICE_NAME);
-    BLEDevice::setMTU(512);
-
-    pBleServer = BLEDevice::createServer();
-    pBleServer->setCallbacks(new AuraBLEServerCallbacks());
-
-    BLEService *pService = pBleServer->createService(SERVICE_UUID);
-
-    pBleTxCharacteristic = pService->createCharacteristic(
-        CHARACTERISTIC_UUID_TX,
-        BLECharacteristic::PROPERTY_NOTIFY
-    );
-    pBleTxCharacteristic->addDescriptor(new BLE2902());
-
-    pBleRxCharacteristic = pService->createCharacteristic(
-        CHARACTERISTIC_UUID_RX,
-        BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR
-    );
-    pBleRxCharacteristic->setCallbacks(new AuraBLERxCallbacks());
-
-    pService->start();
-
-    BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
-    pAdvertising->addServiceUUID(SERVICE_UUID);
-    pAdvertising->setScanResponse(true);
-    pAdvertising->setMinPreferred(0x06);
-    pAdvertising->setMinPreferred(0x12);
-    BLEDevice::startAdvertising();
-
-    Serial.println("[BLE] 📶 BLE Advertising active! Device Name: 'AuraForest-Sentinel-BLE'");
-}
-
-void sendBLETelemetry(const String &json)
-{
-    if (!bleClientConnected || pBleTxCharacteristic == nullptr)
-    {
-        return;
-    }
-
-    const int chunkSize = 128;
-    int len = json.length();
-    for (int i = 0; i < len; i += chunkSize)
-    {
-        int end = (i + chunkSize < len) ? i + chunkSize : len;
-        String chunk = json.substring(i, end);
-        pBleTxCharacteristic->setValue((uint8_t *)chunk.c_str(), chunk.length());
-        pBleTxCharacteristic->notify();
-        delay(12);
-    }
-    String term = "\n";
-    pBleTxCharacteristic->setValue((uint8_t *)term.c_str(), 1);
-    pBleTxCharacteristic->notify();
-    Serial.println("[BLE] 📡 Telemetry payload dispatched over Bluetooth BLE!");
-}
-#else
-// Minimal stubs when BLE is disabled to save flash space
-inline void initBLE() {}
-inline void sendBLETelemetry(const String &) {}
-#endif
-
 Preferences preferences;
 WebServer configServer(80);
 DNSServer dnsServer;
 
 String activeWiFiSSID = "HomeFiber";
 String activeWiFiPassword = "kannan17";
-String activeServerIP = "192.168.29.244";
+String activeServerIP = "10.106.227.65";
 uint16_t activeServerPort = 8000;
 bool wifiPortalActive = false;
 
@@ -499,16 +349,16 @@ uint32_t lastAudioInference = 0;
 // Automatically capture 5 seconds of audio, send it to the
 // FastAPI AI backend, receive the inference, and repeat.
 
+// Periodic automatic audio inference (runs every 10 seconds to leave bandwidth for snappy telemetry)
 bool automaticAudioDetection = true;
 
-// Small gap between completed inference cycles.
-const uint32_t AUDIO_INFERENCE_INTERVAL = 1000;
+const uint32_t AUDIO_INFERENCE_INTERVAL = 10000; // 10s gap between automatic audio scans
 
 uint32_t nextAudioInference = 0;
 
-const uint32_t SENSOR_INTERVAL = 2000;
+const uint32_t SENSOR_INTERVAL = 1000; // Read sensors every 1 second
 
-const uint32_t POST_INTERVAL = 5000;
+const uint32_t POST_INTERVAL = 2000; // Transmit live telemetry every 2 seconds (snappy real-time data)
 
 // ============================================================
 // AUDIO BUFFER
@@ -1378,10 +1228,33 @@ void connectWiFi()
         wifiOK = true;
         wifiPortalActive = false;
         Serial.println("WiFi connected successfully!");
-        Serial.print("ESP32 IP: ");
+        Serial.print("ESP32 IP        : ");
         Serial.println(WiFi.localIP());
-        Serial.print("Gateway : ");
+        Serial.print("Hotspot Gateway : ");
         Serial.println(WiFi.gatewayIP());
+        Serial.print("Target PC Server: http://");
+        Serial.print(activeServerIP);
+        Serial.print(":");
+        Serial.println(activeServerPort);
+
+        IPAddress localIP = WiFi.localIP();
+        IPAddress srvIP;
+        if (srvIP.fromString(activeServerIP))
+        {
+            if (localIP[0] != srvIP[0] || localIP[1] != srvIP[1] || localIP[2] != srvIP[2])
+            {
+                Serial.println();
+                Serial.println("************************************************************");
+                Serial.println("⚠️  [CRITICAL: SUBNET MISMATCH DETECTED]");
+                Serial.print  ("   ESP32 is at     : "); Serial.println(localIP);
+                Serial.print  ("   Target Server at: "); Serial.println(activeServerIP);
+                Serial.println("   --> The ESP32 and PC are on DIFFERENT network subnets!");
+                Serial.println("   --> Telemetry POST will fail until Server IP is updated.");
+                Serial.println("   QUICK FIX: In Serial Monitor, type: IP=<Your_PC_IP>");
+                Serial.println("              (e.g., IP=192.168.43.150)");
+                Serial.println("************************************************************");
+            }
+        }
     }
     else
     {
@@ -1431,8 +1304,8 @@ void maintainWiFi()
     WiFi.disconnect();
 
     WiFi.begin(
-        WIFI_SSID,
-        WIFI_PASSWORD);
+        activeWiFiSSID.c_str(),
+        activeWiFiPassword.c_str());
 }
 
 // ============================================================
@@ -1794,8 +1667,101 @@ String createPayload()
 }
 
 // ============================================================
-// BACKEND CONNECTION TEST
+// UNIVERSAL IP AUTO-DISCOVERY & CONNECTION TEST
 // ============================================================
+
+bool checkIPHealth(const String &ip, uint16_t port)
+{
+    WiFiClient client;
+    client.setTimeout(300);
+    if (!client.connect(ip.c_str(), port))
+    {
+        return false;
+    }
+    client.print("GET /health HTTP/1.1\r\nHost: " + ip + "\r\nConnection: close\r\n\r\n");
+    uint32_t start = millis();
+    while (client.connected() && !client.available() && millis() - start < 500)
+    {
+        delay(10);
+    }
+    if (client.available())
+    {
+        String response = client.readString();
+        client.stop();
+        if (response.indexOf("200 OK") >= 0 || response.indexOf("auraforest") >= 0 || response.indexOf("healthy") >= 0)
+        {
+            return true;
+        }
+    }
+    client.stop();
+    return false;
+}
+
+bool autoDiscoverBackend()
+{
+    if (WiFi.status() != WL_CONNECTED)
+    {
+        return false;
+    }
+
+    Serial.println();
+    Serial.println("============================================================");
+    Serial.println(" [UNIVERSAL IP AUTO-DISCOVERY] Scanning local network...");
+    Serial.println("============================================================");
+
+    IPAddress local = WiFi.localIP();
+    IPAddress gw = WiFi.gatewayIP();
+
+    // 1. Probe the Gateway (e.g. mobile hotspot host)
+    if (gw != IPAddress(0, 0, 0, 0))
+    {
+        String gwStr = gw.toString();
+        Serial.print("  Probing gateway: "); Serial.println(gwStr);
+        if (checkIPHealth(gwStr, activeServerPort))
+        {
+            activeServerIP = gwStr;
+            saveWiFiPreferences(activeWiFiSSID, activeWiFiPassword, activeServerIP, activeServerPort);
+            Serial.println("  🎉 Found backend server at Gateway IP: " + activeServerIP);
+            return true;
+        }
+    }
+
+    // 2. Scan likely IP offsets on the local subnet (Hotspots & Home LANs)
+    int myLast = local[3];
+    int candidateList[] = {
+        65, 244, 100, 101, 102, 103, 104, 105, 2, 3, 4, 5, 10, 20, 50, 150, 200,
+        myLast - 1, myLast + 1, myLast - 2, myLast + 2
+    };
+
+    int numCandidates = sizeof(candidateList) / sizeof(candidateList[0]);
+    for (int i = 0; i < numCandidates; i++)
+    {
+        int octet = candidateList[i];
+        if (octet <= 0 || octet >= 255 || octet == myLast) continue;
+
+        IPAddress candidate(local[0], local[1], local[2], octet);
+        String candStr = candidate.toString();
+        if (candStr == activeServerIP) continue;
+
+        Serial.print("  Scanning IP: "); Serial.println(candStr);
+        if (checkIPHealth(candStr, activeServerPort))
+        {
+            activeServerIP = candStr;
+            saveWiFiPreferences(activeWiFiSSID, activeWiFiPassword, activeServerIP, activeServerPort);
+            Serial.println();
+            Serial.println("============================================================");
+            Serial.println("  🎉 MATCH FOUND! Backend IP: " + activeServerIP);
+            Serial.println("  Saved permanently to NVS flash.");
+            Serial.println("============================================================");
+            return true;
+        }
+    }
+
+    Serial.println("  [AUTO-DISCOVERY] Completed. No backend responded on port " + String(activeServerPort));
+    Serial.println("  Tip: Ensure run_system.py is running on your PC.");
+    Serial.println("============================================================");
+    return false;
+}
 
 bool testBackendConnection()
 {
@@ -1856,12 +1822,28 @@ bool testBackendConnection()
         Serial.println(
             response);
     }
+    else
+    {
+        Serial.print("[BACKEND ERROR] Could not reach ");
+        Serial.println(healthURL);
+        Serial.print("HTTP Client Error: ");
+        Serial.println(http.errorToString(code));
+        Serial.println("Hint: Make sure your PC is connected to the same hotspot and run_system.py is active.");
+    }
 
     http.end();
 
-    return (
-        code >= 200 &&
-        code < 300);
+    bool ok = (code >= 200 && code < 300);
+    if (!ok)
+    {
+        // Automatically attempt local subnet discovery if initial connection failed
+        if (autoDiscoverBackend())
+        {
+            return true;
+        }
+    }
+
+    return ok;
 }
 
 // ============================================================
@@ -1949,6 +1931,14 @@ bool sendToBackend(
 
         Serial.println(
             response);
+    }
+    else
+    {
+        Serial.print("[HTTP ERROR] Failed connecting to: ");
+        Serial.println(url);
+        Serial.print("Reason: ");
+        Serial.println(http.errorToString(responseCode));
+        Serial.println("Type 'I' for network info or 'IP=<PC_IP>' to update server address.");
     }
 
     bool success =
@@ -2925,8 +2915,39 @@ void processSerialCommands()
         return;
     }
 
-    char command =
-        Serial.read();
+    String input = Serial.readStringUntil('\n');
+    input.trim();
+    if (input.length() == 0)
+    {
+        return;
+    }
+
+    // Allow setting target PC backend IP directly from Serial Monitor without reflashing!
+    // Example: "IP=192.168.43.150"
+    if (input.startsWith("IP=") || input.startsWith("ip=") || input.startsWith("SET_IP="))
+    {
+        int eqIdx = input.indexOf('=');
+        String newIP = input.substring(eqIdx + 1);
+        newIP.trim();
+        if (newIP.length() > 6)
+        {
+            activeServerIP = newIP;
+            saveWiFiPreferences(activeWiFiSSID, activeWiFiPassword, activeServerIP, activeServerPort);
+            Serial.println();
+            Serial.println("============================================================");
+            Serial.print("  [SUCCESS] PC Server IP updated to: ");
+            Serial.println(activeServerIP);
+            Serial.println("  Saved to NVS flash permanently.");
+            Serial.println("  Testing live connection to backend now...");
+            Serial.println("============================================================");
+            bool ok = testBackendConnection();
+            telemetryBackendOK = ok;
+            updateLEDs(ok);
+        }
+        return;
+    }
+
+    char command = input.charAt(0);
 
     if (
         command == 'a' ||
@@ -2948,6 +2969,46 @@ void processSerialCommands()
     {
         printTelemetry();
 
+        return;
+    }
+
+    if (
+        command == 't' ||
+        command == 'T')
+    {
+        Serial.println("\nTesting backend connection on demand...");
+        bool ok = testBackendConnection();
+        telemetryBackendOK = ok;
+        updateLEDs(ok);
+        return;
+    }
+
+    if (
+        command == 'f' ||
+        command == 'F')
+    {
+        Serial.println("\nStarting universal auto-discovery scan on local network...");
+        bool found = autoDiscoverBackend();
+        telemetryBackendOK = found;
+        updateLEDs(found);
+        return;
+    }
+
+    if (
+        command == 'i' ||
+        command == 'I')
+    {
+        Serial.println();
+        Serial.println("================ NETWORK STATUS ================");
+        Serial.print("Wi-Fi SSID       : "); Serial.println(activeWiFiSSID);
+        Serial.print("ESP32 Local IP   : "); Serial.println(WiFi.localIP());
+        Serial.print("Hotspot Gateway  : "); Serial.println(WiFi.gatewayIP());
+        Serial.print("Subnet Mask      : "); Serial.println(WiFi.subnetMask());
+        Serial.print("Target Server IP : "); Serial.println(activeServerIP);
+        Serial.print("Target Port      : "); Serial.println(activeServerPort);
+        Serial.print("Target URL       : "); Serial.println(getBaseURL());
+        Serial.print("Telemetry Backend: "); Serial.println(telemetryBackendOK ? "ONLINE (200 OK)" : "OFFLINE / UNREACHABLE");
+        Serial.println("================================================");
         return;
     }
 
@@ -2974,17 +3035,6 @@ void processSerialCommands()
 
         return;
     }
-
-#if ENABLE_BLE
-    if (
-        command == 'b' ||
-        command == 'B')
-    {
-        Serial.println("[BLE] Re-advertising Bluetooth BLE ('AuraForest-Sentinel-BLE')...");
-        BLEDevice::startAdvertising();
-        return;
-    }
-#endif
 }
 
 // ============================================================
@@ -3187,11 +3237,6 @@ void setup()
     }
 
     // ----------------------------------------------------------
-    // BLUETOOTH LOW ENERGY (BLE) INITIALIZATION
-    // ----------------------------------------------------------
-    initBLE();
-
-    // ----------------------------------------------------------
     // SERIAL COMMAND HELP
     // ----------------------------------------------------------
 
@@ -3204,19 +3249,28 @@ void setup()
         "COMMANDS");
 
     Serial.println(
-        "  A = Manual 5s audio + AI inference");
+        "  A           = Manual 5s audio + AI inference");
 
     Serial.println(
-        "  S = Print telemetry");
+        "  S           = Print telemetry");
 
     Serial.println(
-        "  R = Restart ESP32");
+        "  T           = Test backend connection");
 
     Serial.println(
-        "  W = Open Wi-Fi / Hotspot Web Setup Portal (http://192.168.4.1)");
+        "  F           = Universal Auto-Discover backend on any local network");
 
     Serial.println(
-        "  B = Re-advertise Bluetooth BLE ('AuraForest-Sentinel-BLE')");
+        "  I           = Show network status and IPs");
+
+    Serial.println(
+        "  IP=x.x.x.x  = Set PC backend IP directly (e.g. IP=192.168.43.150)");
+
+    Serial.println(
+        "  W           = Open Wi-Fi / Hotspot Web Setup Portal (http://192.168.4.1)");
+
+    Serial.println(
+        "  R           = Restart ESP32");
 
     Serial.println(
         "============================================================");
@@ -3386,11 +3440,6 @@ void loop()
         bool backendSuccess =
             sendToBackend(
                 json);
-
-        // --------------------------------------------------------
-        // BLUETOOTH LOW ENERGY (BLE) TELEMETRY DISPATCH
-        // --------------------------------------------------------
-        sendBLETelemetry(json);
 
         // --------------------------------------------------------
         // MICROSD FALLBACK

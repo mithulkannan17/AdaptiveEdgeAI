@@ -606,12 +606,13 @@ class RuntimeDatabase:
 
             connection.commit()
 
-        # Seed initial system users, patrol rangers, demo alerts, and citizen reports
+        # Seed initial system users, patrol rangers, demo alerts, citizen reports, and sentinel telemetry
         try:
             self._seed_default_users()
             self._seed_default_rangers()
             self._seed_default_alerts()
             self._seed_default_citizen_reports()
+            self._seed_default_telemetry()
         except Exception:
             pass
 
@@ -2832,6 +2833,92 @@ class RuntimeDatabase:
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     r,
+                )
+            connection.commit()
+
+    def _seed_default_telemetry(self) -> None:
+        """Seed initial sentinel telemetry and baseline audio event if table is blank."""
+        now_ts = time.time()
+        with self._connect() as connection:
+            row = connection.execute("SELECT COUNT(*) as c FROM device_telemetry").fetchone()
+            if not row or row["c"] == 0:
+                initial_status = {
+                    "battery_percent": 88.5,
+                    "battery_voltage": 4.12,
+                    "temperature": 27.4,
+                    "humidity": 58.2,
+                    "light_level": 420.0,
+                    "vibration_detected": False,
+                    "mq2_raw": 115,
+                    "mq2_adc_voltage": 0.092,
+                    "mq135_raw": 195,
+                    "mq135_adc_voltage": 0.157,
+                }
+                initial_location = {
+                    "latitude": 12.2958,
+                    "longitude": 76.6394,
+                    "altitude": 770.0,
+                    "accuracy": 4.5,
+                    "source": "GPS_ARMED",
+                    "city": "Mysore",
+                    "state": "Karnataka",
+                    "country": "India",
+                }
+                initial_health = {
+                    "INMP441": "WORKING",
+                    "BH1750": "WORKING",
+                    "MAX17048": "WORKING",
+                    "DHT11": "WORKING",
+                    "SW-420": "WORKING",
+                    "NEO-6M": "WORKING",
+                    "MicroSD": "WORKING",
+                    "WiFi": "WORKING",
+                    "Telemetry_Backend": "WORKING",
+                    "MQ-2": "READABLE",
+                    "MQ-135": "READABLE",
+                    "Overall_Hardware": "WORKING",
+                }
+                connection.execute(
+                    """
+                    INSERT INTO device_telemetry (
+                        device_id, timestamp, device_status_json, location_json, hardware_health_json, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        "edge_node_telemetry_001",
+                        now_ts,
+                        json.dumps(initial_status),
+                        json.dumps(initial_location),
+                        json.dumps(initial_health),
+                        now_ts,
+                        now_ts,
+                    ),
+                )
+
+            ev_row = connection.execute("SELECT COUNT(*) as c FROM edge_events").fetchone()
+            if not ev_row or ev_row["c"] == 0:
+                connection.execute(
+                    """
+                    INSERT INTO edge_events (
+                        device_id, timestamp, prediction_json, environment_json, created_at
+                    ) VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        "edge_node_telemetry_001",
+                        now_ts,
+                        json.dumps({
+                            "class_id": 0,
+                            "label": "natural_ambient",
+                            "confidence": 0.965,
+                            "probabilities": [0.965, 0.01, 0.01, 0.005, 0.005, 0.005],
+                        }),
+                        json.dumps({
+                            "environment": "CALM_CANOPY",
+                            "risk_level": "LOW",
+                            "ambient_noise_level": "NORMAL",
+                        }),
+                        now_ts,
+                    ),
                 )
             connection.commit()
 
