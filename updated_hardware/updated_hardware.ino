@@ -48,11 +48,20 @@
 #include <Preferences.h>
 #include <DNSServer.h>
 
-// BLE (Bluetooth Low Energy) for ESP32-S3
+// ============================================================
+// FEATURE FLAGS
+// ============================================================
+// Set ENABLE_BLE to 1 to enable Bluetooth Low Energy telemetry streaming
+// (Requires Tools -> Partition Scheme -> "Huge APP (3MB)" in Arduino IDE)
+// Set to 0 if using the default 1.2MB partition scheme to save flash space.
+#define ENABLE_BLE 1
+
+#if ENABLE_BLE
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
+#endif
 
 #include <ArduinoJson.h>
 #include <DHT.h>
@@ -101,6 +110,7 @@ const char *AUDIO_API_PATH =
 // DYNAMIC NVS WIFI & PORTAL CONFIGURATION
 // ============================================================
 
+#if ENABLE_BLE
 // ============================================================
 // BLUETOOTH LOW ENERGY (BLE) TELEMETRY & COMMANDS (ESP32-S3)
 // ============================================================
@@ -228,6 +238,11 @@ void sendBLETelemetry(const String &json)
     pBleTxCharacteristic->notify();
     Serial.println("[BLE] 📡 Telemetry payload dispatched over Bluetooth BLE!");
 }
+#else
+// Minimal stubs when BLE is disabled to save flash space
+inline void initBLE() {}
+inline void sendBLETelemetry(const String &) {}
+#endif
 
 Preferences preferences;
 WebServer configServer(80);
@@ -2960,6 +2975,7 @@ void processSerialCommands()
         return;
     }
 
+#if ENABLE_BLE
     if (
         command == 'b' ||
         command == 'B')
@@ -2968,6 +2984,7 @@ void processSerialCommands()
         BLEDevice::startAdvertising();
         return;
     }
+#endif
 }
 
 // ============================================================
