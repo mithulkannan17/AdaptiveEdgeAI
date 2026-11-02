@@ -119,7 +119,13 @@ class RuntimeDataSource:
     # ==========================================================
 
     def _poll_cloud_relay(self) -> dict[str, Any] | None:
-        """Poll autonomous 24/7 cloud relay for direct live telemetry and events."""
+        """Poll autonomous 24/7 cloud relay for direct live telemetry and events with fast in-memory caching."""
+        import time as _t
+        now = _t.time()
+        # Fast 1.5s cache to ensure silky-smooth UI rendering without blocking HTTP roundtrips on rapid reruns
+        if hasattr(self, "_cloud_cache") and (now - getattr(self, "_cloud_cache_time", 0.0)) < 1.5:
+            return self._cloud_cache
+
         try:
             req = Request(
                 "https://ntfy.sh/auraforest_telemetry_mithul/json?poll=1",
@@ -128,10 +134,10 @@ class RuntimeDataSource:
                     "User-Agent": "AuraForestSentinel/1.0",
                 },
             )
-            with urlopen(req, timeout=3.0) as resp:
+            with urlopen(req, timeout=2.0) as resp:
                 raw = resp.read().decode("utf-8").strip()
                 if not raw:
-                    return None
+                    return getattr(self, "_cloud_cache", None)
                 lines = raw.splitlines()
 
                 latest_telemetry: dict[str, Any] | None = None
@@ -163,14 +169,17 @@ class RuntimeDataSource:
                         continue
 
                 if latest_telemetry is not None or latest_event is not None:
-                    return {
+                    res = {
                         "telemetry": latest_telemetry,
                         "event": latest_event,
                         "history": events_list,
                     }
+                    self._cloud_cache = res
+                    self._cloud_cache_time = now
+                    return res
         except Exception:
             pass
-        return None
+        return getattr(self, "_cloud_cache", None)
 
     def tick(self) -> dict[str, Any]:
         """

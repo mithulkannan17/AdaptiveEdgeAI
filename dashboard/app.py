@@ -184,9 +184,9 @@ def is_citizen_danger_threat(threat_type: str) -> bool:
         return True
     return False
 
-# Real-time auto-refresh across all portals (Chief, Ranger, and Citizens) - 1.8s snappy refresh
+# Real-time auto-refresh across all portals (Chief, Ranger, and Citizens) - smooth 2.5s cadence
 if st_autorefresh is not None:
-    st_autorefresh(interval=1800, key="aura_live_refresh")
+    st_autorefresh(interval=2500, key="aura_live_refresh")
 
 # ============================================================
 # DESIGN SYSTEM & MOBILE RESPONSIVE CSS
