@@ -97,7 +97,8 @@ def main() -> None:
         "0.0.0.0",
         "--port",
         str(backend_port),
-        "--reload",
+        "--workers",
+        "1",
     ]
 
     dashboard_cmd = [
@@ -190,11 +191,11 @@ def main() -> None:
 
     try:
         while True:
-            time.sleep(1.0)
-            if backend_proc.poll() is not None:
+            time.sleep(2.0)
+            if backend_proc.poll() is not None and not check_backend_health(port=backend_port):
                 print("[!] Backend server exited unexpectedly.")
                 break
-            if dashboard_proc.poll() is not None:
+            if dashboard_proc.poll() is not None and not check_dashboard_health(port=dashboard_port):
                 print("[!] Dashboard server exited unexpectedly.")
                 break
     except KeyboardInterrupt:
