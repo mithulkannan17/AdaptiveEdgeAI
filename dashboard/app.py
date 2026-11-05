@@ -1626,7 +1626,7 @@ def render_siren_audio_synthesizer(is_active: bool = True, threat_label: str = "
         })();
         </script>
         """
-        components.html(kill_html, height=0)
+        st.iframe(kill_html, height=0)
         return
 
     siren_html = """
@@ -1681,7 +1681,7 @@ def render_siren_audio_synthesizer(is_active: bool = True, threat_label: str = "
     })();
     </script>
     """
-    components.html(siren_html, height=0)
+    st.iframe(siren_html, height=0)
 
 # 🚨 SANCTUARY-WIDE PUBLIC EMERGENCY SIREN (BROADCAST ACROSS ALL ROLES & PAGES)
 active_siren = db.get_active_public_siren()
@@ -1986,7 +1986,7 @@ def render_geolocation_sentry(title: str = "LIVE DEVICE GPS SENTRY", auto_captur
     }}
     </script>
     """
-    components.html(geo_html, height=64)
+    st.iframe(geo_html, height=64)
 
 # Build map dataframe with rich hover metadata, color-coded markers, and nodes/alerts/responding units
 def build_map_data() -> tuple[pd.DataFrame, list[dict[str, Any]]]:
