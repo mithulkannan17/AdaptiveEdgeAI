@@ -21,6 +21,7 @@ import httpx
 from fastapi import BackgroundTasks, Body, Header, Request
 from fastapi import FastAPI
 from fastapi import HTTPException
+from starlette.requests import ClientDisconnect
 from pydantic import BaseModel, ConfigDict
 from pathlib import Path
 import anyio
@@ -1625,7 +1626,14 @@ async def receive_edge_audio(
     x_device_token: str | None = Header(None),
     x_api_key: str | None = Header(None),
 ):
-    audio: bytes = await request.body()
+    try:
+        audio: bytes = await request.body()
+    except ClientDisconnect:
+        return {
+            "success": False,
+            "status": "DISCONNECTED",
+            "detail": "Client disconnected before audio body was fully received.",
+        }
     # Align audio bytes to even 16-bit boundaries
     if audio and len(audio) % 2 != 0:
         audio = audio[:-1]

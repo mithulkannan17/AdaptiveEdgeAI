@@ -35,6 +35,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import streamlit as st
 import streamlit.components.v1 as components
+import warnings
+warnings.filterwarnings("ignore", message=".*st.components.v1.html.*")
 
 # Data sources and database
 try:
