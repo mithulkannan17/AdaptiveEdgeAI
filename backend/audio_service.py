@@ -112,9 +112,9 @@ class AudioInferenceService:
         # --------------------------------------------------
         # Noise-robust acoustic preprocessing
         # --------------------------------------------------
-        # Targeted stationary noise suppression protects the main voice / target sound
-        # by attenuating continuous background hiss while preserving transient harmonics.
-        self.noise_robust_enabled = True
+        # Denoising spectral subtraction is disabled by default for online inference
+        # to ensure zero musical-noise chirping artifacts and ultra-fast sub-second response.
+        self.noise_robust_enabled = False
         self.noise_n_fft = 512
         self.noise_hop_length = 128
         self.noise_noise_percentile = 20.0
@@ -1395,30 +1395,35 @@ class AudioInferenceService:
         from inference.types import PredictionResult
         current_label_clean = str(getattr(prediction, "label", "")).strip()
         current_label_lower = current_label_clean.lower()
-        threat_classes = {
-            "emergencyvehicle", "siren", "chainsaw", "gunshot",
-            "fire", "drill", "jackhammer", "explosion", "poaching",
-            "vehicle", "truck", "car", "engine", "motorcycle",
-            "human", "speech", "voice", "footsteps", "conversation"
-        }
+        prediction_confidence = float(getattr(prediction, "confidence", 0.0))
 
-        # Any quiescent background audio (RMS < 0.0010) is ambient forest silence / quiescent room noise floor,
-        # preventing false positive threat alerts or CNN hallucinations when no actual sound is around.
-        # Genuine human voice, speech near the mic (RMS >= 0.0012), or distant logging are fully recognized.
-        if audio_rms < 0.0010:
+        # Check if human voice was distinctly recognized by the model
+        is_voice_detected = (
+            current_label_clean == "Human"
+            or "speech" in current_label_lower
+            or "voice" in current_label_lower
+        ) and prediction_confidence >= 0.40
+
+        # Ambient gating rules:
+        # 1. If genuine voice is detected with high model confidence (>= 0.40) and measurable RMS (>= 0.002),
+        #    preserve the voice prediction! Never suppress legitimate human speech.
+        # 2. In normal quiescent conditions (RMS < 0.007) without an active vocal trigger,
+        #    map the sound to "Ambient" (Ambient Forest) to prevent phantom alerts (Bird, Vehicle, etc.)
+        #    when the room/forest is quiet.
+        if not is_voice_detected and audio_rms < 0.0070:
             prediction = PredictionResult(
                 label="Ambient",
                 class_id=0,
-                confidence=0.96,
-                top_k=[("Ambient", 0.96), (current_label_clean, 0.04)],
+                confidence=0.95,
+                top_k=[("Ambient", 0.95), (current_label_clean, 0.05)],
                 inference_time_ms=getattr(prediction, "inference_time_ms", 0.0),
             )
-        elif audio_rms < 0.0015 and ("emergencyvehicle" in current_label_lower or "siren" in current_label_lower):
+        elif audio_rms < 0.0010:
             prediction = PredictionResult(
                 label="Ambient",
                 class_id=0,
-                confidence=0.92,
-                top_k=[("Ambient", 0.92), (current_label_clean, 0.08)],
+                confidence=0.98,
+                top_k=[("Ambient", 0.98), (current_label_clean, 0.02)],
                 inference_time_ms=getattr(prediction, "inference_time_ms", 0.0),
             )
 

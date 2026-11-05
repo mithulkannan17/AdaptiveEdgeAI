@@ -312,10 +312,10 @@ class PreProcessor:
         )
         peak_val = float(peak.item())
 
-        # Soft noise-floor threshold: Allows real voice/speech signals (peak >= 0.003)
+        # Soft noise-floor threshold: Allows real voice/speech signals (peak >= 0.015)
         # to be properly normalized to 1.0 (matching training distribution), while protecting
         # dead electrical sensor hiss from artificial magnification.
-        min_noise_floor_peak = 0.003
+        min_noise_floor_peak = 0.015
         if peak_val >= min_noise_floor_peak:
             waveform = waveform / peak_val
         elif peak_val > 0.0:

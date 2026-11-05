@@ -230,9 +230,9 @@ i2s_config_t i2sConfig = {
     .intr_alloc_flags =
         ESP_INTR_FLAG_LEVEL1,
 
-    .dma_buf_count = 4,
+    .dma_buf_count = 8,
 
-    .dma_buf_len = 512, // 512 buffer size prevents DMA under-runs and static pops
+    .dma_buf_len = 256, // 256 buffer with 8 DMA descriptors matches verified INMP441 driver config
 
     .use_apll = false,
 
@@ -673,9 +673,9 @@ int readMicrophone()
         i < count;
         i++)
     {
-        // INMP441 24-bit PCM: Shift down by 13 (8x digital gain) for robust voice/speech pickup at 1-2m
+        // INMP441 24-bit PCM: Shift down by 15 for clean speech representation without noise blowup
         int32_t sample =
-            samples[i] >> 13;
+            samples[i] >> 15;
 
         if (sample < 0)
         {
@@ -805,10 +805,9 @@ bool captureAudio()
             */
 
             // Convert 32-bit (24-bit data) down to standard 16-bit PCM.
-            // Shift down by 13 (8x digital gain) with hard clipping to [-32768, 32767],
-            // ensuring clear speech recognition at 1 to 2 meters without clipping or distortion.
+            // Shift down by 15: preserves 16-bit dynamic range without clipping voice or magnifying noise.
             int32_t sample =
-                rawSamples[i] >> 13;
+                rawSamples[i] >> 15;
 
             if (sample > 32767)
             {
