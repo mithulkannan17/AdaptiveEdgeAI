@@ -186,12 +186,12 @@ def is_citizen_danger_threat(threat_type: str) -> bool:
         return True
     return False
 
-# Real-time auto-refresh across live operational portals - stable 2.5s cadence for cloud synchronization
+# Real-time auto-refresh across live operational portals - stable 5.0s cadence for cloud synchronization
 # Avoid continuous auto-refresh on static historical archives to prevent infinite render loops and allow quiet reading
 _current_nav = st.session_state.get("sidebar_navigation_choice") or ""
 _is_archive_page = any(k in str(_current_nav) for k in ["Archive", "Resolution Logs", "Security", "Audit Log"])
 if st_autorefresh is not None and not _is_archive_page:
-    st_autorefresh(interval=2500, key="aura_live_refresh")
+    st_autorefresh(interval=5000, key="aura_live_refresh")
 
 # ============================================================
 # DESIGN SYSTEM & MOBILE RESPONSIVE CSS

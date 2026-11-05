@@ -124,8 +124,8 @@ class RuntimeDataSource:
         """Poll autonomous 24/7 cloud relay for direct live telemetry and events with fast in-memory caching."""
         import time as _t
         now = _t.time()
-        # High-speed 0.4s cache to ensure near-instant live UI rendering
-        if hasattr(self, "_cloud_cache") and (now - getattr(self, "_cloud_cache_time", 0.0)) < 0.4:
+        # Fast 3.0s cache to guarantee smooth, instant UI rendering without network lag
+        if hasattr(self, "_cloud_cache") and (now - getattr(self, "_cloud_cache_time", 0.0)) < 3.0:
             return self._cloud_cache
 
         try:
@@ -136,7 +136,7 @@ class RuntimeDataSource:
                     "User-Agent": "AuraForestSentinel/1.0",
                 },
             )
-            with urlopen(req, timeout=2.0) as resp:
+            with urlopen(req, timeout=1.0) as resp:
                 raw = resp.read().decode("utf-8").strip()
                 if not raw:
                     return getattr(self, "_cloud_cache", None)
@@ -154,12 +154,14 @@ class RuntimeDataSource:
 
                         # Support both direct JSON string messages and large attachment JSON files
                         if outer.get("attachment") and outer["attachment"].get("url") and "You received a file" in str(inner_raw or ""):
-                            try:
-                                att_url = outer["attachment"]["url"]
-                                with urlopen(att_url, timeout=2.5) as att_resp:
-                                    data = json.loads(att_resp.read().decode("utf-8"))
-                            except Exception:
-                                data = None
+                            # Only fetch at most ONE attachment for the latest event to prevent blocking UI loops
+                            if latest_event is None:
+                                try:
+                                    att_url = outer["attachment"]["url"]
+                                    with urlopen(att_url, timeout=1.0) as att_resp:
+                                        data = json.loads(att_resp.read().decode("utf-8"))
+                                except Exception:
+                                    data = None
                         elif inner_raw:
                             try:
                                 data = json.loads(inner_raw) if isinstance(inner_raw, str) else inner_raw
