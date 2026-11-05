@@ -190,13 +190,15 @@ def main() -> None:
 
     try:
         while True:
-            time.sleep(2.0)
+            time.sleep(3.0)
             if backend_proc.poll() is not None and not check_backend_health(port=backend_port):
-                print("[!] Backend server exited unexpectedly.")
-                break
+                print("[!] Backend process exited. Auto-reviving FastAPI backend...")
+                backend_proc = subprocess.Popen(backend_cmd, cwd=str(PROJECT_ROOT))
             if dashboard_proc.poll() is not None and not check_dashboard_health(port=dashboard_port):
-                print("[!] Dashboard server exited unexpectedly.")
-                break
+                try:
+                    dashboard_proc = subprocess.Popen(dashboard_cmd, cwd=str(PROJECT_ROOT))
+                except Exception:
+                    pass
     except KeyboardInterrupt:
         handle_signal(None, None)
 
