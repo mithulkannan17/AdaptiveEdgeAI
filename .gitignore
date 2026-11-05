@@ -37,3 +37,6 @@ Thumbs.db
 
 datasets/
 cloudflared.exe
+data/fontlist*.json
+data/citizen_reports/*
+!data/citizen_reports/.gitkeep

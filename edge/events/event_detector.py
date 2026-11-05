@@ -181,6 +181,22 @@ class EventDetector:
 
             )
 
+        effective_threshold = (
+            policy.effective_threshold_for(label)
+            if hasattr(policy, "effective_threshold_for")
+            else float(policy.detection_threshold / max(0.01, sensitivity))
+        )
+        formula_info = (
+            policy.formula_breakdown(label)
+            if hasattr(policy, "formula_breakdown")
+            else {}
+        )
+        event_metadata = {
+            "effective_threshold": round(effective_threshold, 4),
+            "threat_multiplier": round(sensitivity, 4),
+            "threshold_formula": formula_info,
+        }
+
         return Event(
 
             label=label,
@@ -210,5 +226,7 @@ class EventDetector:
             inference_time_ms=(
                 prediction.inference_time_ms
             ),
+
+            metadata=event_metadata,
 
         )

@@ -27,9 +27,11 @@ class PostProcessor:
 
         inference_config = ConfigManager().inference()
 
+        # Align default unknown threshold with the edge controller's adaptive Day/Night policy (0.45 - 0.55)
+        # so genuine voice detections are not prematurely masked as Unknown.
         self.unknown_threshold = inference_config.get(
             "unknown_threshold",
-            0.60
+            0.45
         )
 
     def process(

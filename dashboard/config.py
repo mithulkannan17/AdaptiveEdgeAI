@@ -227,7 +227,7 @@ ACOUSTIC_CLASSES = {
 # ==========================================================
 
 MODEL_NAME = (
-    "MobileNetV3Small"
+    "CNN-based Acoustic Classifier"
 )
 
 SAMPLE_RATE = 16000

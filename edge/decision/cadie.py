@@ -539,6 +539,21 @@ class CADIE:
         fire_multimodal_confirmed = False
         chainsaw_multimodal_confirmed = False
 
+        # Day / Night context from BH1750 ambient light sensor & policy
+        light_lux_raw = device_status.get("light_level", device_status.get("light_lux"))
+        is_night = False
+        lux_val = None
+        if light_lux_raw is not None:
+            try:
+                lux_val = float(light_lux_raw)
+                is_night = (lux_val < 15.0)
+            except (TypeError, ValueError):
+                pass
+        elif getattr(adaptive_policy, "is_night", False):
+            is_night = True
+        elif "is_night" in device_status:
+            is_night = bool(device_status["is_night"])
+
         # Fire Cross-Corroboration:
         if any(k in lbl_lower for k in ["fire", "wildfire", "smoke", "burn", "flame"]):
             has_smoke = mq2_val >= 500 or mq2_v >= 0.70 or (gas_factor >= 0.35)
@@ -588,6 +603,15 @@ class CADIE:
             # Vibration alone does NOT confirm logging (indicative of earthquake tremor or wind).
             # Keep score steady without elevating threat to logging alert.
             pass
+
+        # Nocturnal threat escalation:
+        # Anthropogenic intrusion, vehicle incursion, or chainsaws at night in a protected canopy
+        # indicate high probability of illegal poaching or illicit logging.
+        is_anthropogenic_threat = is_logging_voice or any(k in lbl_lower for k in ["gunshot", "vehicle", "human", "footsteps"])
+        if is_night and is_anthropogenic_threat and event.detected:
+            score = min(1.0, score + 0.14)
+            if confidence >= 0.70:
+                score = max(score, 0.78)
 
         # --------------------------------------------------
         # Confidence-First Guarantee:
@@ -676,11 +700,21 @@ class CADIE:
                 "Environmental context increases event significance."
             )
 
+        lux_str = f"{lux_val:.1f} lx" if lux_val is not None else ("nocturnal hours" if is_night else "diurnal baseline")
+        if is_night:
+            factors.append(
+                f"[NIGHT MONITORING REGIME] Nocturnal context active (BH1750 ambient light: {lux_str}). Anthropogenic noise at night exhibits elevated threat probability."
+            )
+        elif lux_val is not None:
+            factors.append(
+                f"[DAY MONITORING REGIME] Diurnal context active (BH1750 ambient light: {lux_str}). Standard noise suppression threshold active."
+            )
+
         if has_smoke:
             factors.append(f"[SMOKE ALERT] MQ-2 physical sensor alert: MQ-2 sensor detected active smoke/combustible gas ({int(mq2_val)} ADC / {mq2_v:.3f}V).")
         if fire_multimodal_confirmed:
             factors.append(f"[FIRE] Multimodal Corroboration: Fire crackle acoustics verified with DHT11 ({temp_val:.1f}C, {humidity_val:.1f}% RH) & MQ-2/MQ-135 Gas/Smoke ({mq2_v:.2f}V).")
-        elif is_gas_active and gas_summary:
+        if is_gas_active and gas_summary:
             factors.append(f"Hardware corroboration: {gas_summary}")
 
         if chainsaw_multimodal_confirmed:

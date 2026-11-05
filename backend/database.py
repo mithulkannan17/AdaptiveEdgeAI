@@ -2254,6 +2254,30 @@ class RuntimeDatabase:
         )
         return cursor.rowcount > 0
 
+    def update_citizen_report_status(
+        self,
+        report_id: str,
+        status: str,
+        notes: str = "",
+    ) -> bool:
+        """
+        Update the status and notes of a citizen report.
+        """
+        now_iso = datetime.now(timezone.utc).isoformat()
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE citizen_reports
+                SET status = ?,
+                    status_notes = ?,
+                    updated_at = ?
+                WHERE report_id = ?
+                """,
+                (status.strip().upper(), notes.strip(), now_iso, report_id.strip()),
+            )
+            connection.commit()
+            return cursor.rowcount > 0
+
     def resolve_citizen_report(
         self,
         report_id: str,
@@ -2704,7 +2728,7 @@ class RuntimeDatabase:
             for u in default_users:
                 connection.execute(
                     """
-                    INSERT OR REPLACE INTO users (
+                    INSERT OR IGNORE INTO users (
                         username, password_hash, role, full_name, email_or_phone,
                         callsign, rank, sector, created_by, created_at
                     )

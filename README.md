@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11-3776ab?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![Hardware](https://img.shields.io/badge/Hardware-ESP32--S3%20%7C%20Octal%20PSRAM-E7352C?style=for-the-badge&logo=espressif&logoColor=white)](https://www.espressif.com/)
-[![Tests](https://img.shields.io/badge/Tests-253%20Passed%20(100%25)-brightgreen?style=for-the-badge&logo=pytest&logoColor=white)](docs/results.md)
+[![Tests](https://img.shields.io/badge/Tests-268%20Passed%20(100%25)-brightgreen?style=for-the-badge&logo=pytest&logoColor=white)](docs/results.md)
 
 > **Autonomous Multimodal Edge AI Sentinel for Real-Time Bioacoustic Threat Classification, Gas Anomaly Corroboration, Open-Set Species Discovery, and Tactical Field Ranger Incident Response.**
 
@@ -116,7 +116,13 @@ graph TD
 - **High-Pass Filtering**: 4th-order Butterworth filter at 80 Hz strips low-frequency wind turbulence and vehicle rumble.
 - **Stationary Spectral Subtraction**: Dynamic noise floor estimation removes persistent ambient forest rain and stream noise.
 - **Log-Mel Feature Extraction**: 64-band Mel filterbanks (20 Hz–8,000 Hz) with 32 ms FFT window and 10 ms hop size.
-- **Deep Acoustic Classifier**: Lightweight MobileNetV3 architecture delivering class probabilities $P(C)$ and 128D latent embeddings with sub-85ms latency.
+- **Deep Acoustic Classifier**: Lightweight CNN acoustic model delivering class probabilities $P(C)$ and 128D latent embeddings with sub-85ms latency.
+- **Dynamic Context & Noise-Adaptive Effective Threshold**:
+  Detection thresholds dynamically adapt to ambient noise and Day/Night light levels via BH1750 optical lux telemetry:
+  $$\text{Threshold}_{\text{effective}} = \frac{\text{Base} \times \text{Noise} \times \text{Context}}{\text{Multiplier}}$$
+  - **Night Regime ($\text{Lux} < 15\text{ lx}$)**: Context factor $0.82 \implies \text{Threshold} \approx 0.45$ (heightened nocturnal vigilance for illegal tree cutting and poaching).
+  - **Bright Daylight ($\text{Lux} > 1500\text{ lx}$)**: Context factor $1.10 \implies \text{Threshold} \approx 0.60$ (diurnal noise suppression against canopy birds and insects).
+  - **Natural Canopy ($15 - 1500\text{ lx}$)**: Context factor $1.00 \implies \text{Threshold} = 0.55$.
 
 ### 2. CADIE Multimodal Decision Intelligence
 CADIE (*Context-Aware Decision Intelligence Engine*) implements **Confidence-First Primacy** combined with **Multimodal Sensor Corroboration**:
@@ -275,20 +281,15 @@ The AuraForest codebase maintains a **100% test pass rate** across all subsystem
 
 ```text
 ============================= test session starts =============================
-collected 253 items
+platform win32 -- Python 3.11.6, pytest-9.1.1, pluggy-1.6.0
+rootdir: D:\user\Workspace\Major project\AuraForest\AdaptiveEdgeAI
+configfile: pytest.ini
 
-tests/test_security.py .....................                             [  8%]
-tests/backend/test_api.py ......                                         [ 10%]
-tests/backend/test_database.py ..                                        [ 11%]
-tests/backend/test_emergency_alerts.py ........                          [ 14%]
-tests/dashboard/test_spectrum_visualizer.py ...                          [ 15%]
-tests/edge/decision/test_cadie.py ...........                            [ 19%]
-tests/edge/sensors/test_gas_interpreter.py .......                       [ 22%]
-tests/edge/unknown/test_clusterer.py ...........                         [ 26%]
-tests/edge/test_noise_robustness.py .............                        [ 31%]
-tests/hardware/test_dummy_sensors.py ........                            [ 34%]
-...
-======================= 253 passed in 124.52s (100%) =======================
+........................................................................ [ 26%]
+........................................................................ [ 53%]
+........................................................................ [ 80%]
+....................................................                     [100%]
+============================= 268 passed in 51.70s =============================
 ```
 
 | Benchmark Metric | Empirical Result | Target | Status |
@@ -297,7 +298,7 @@ tests/hardware/test_dummy_sensors.py ........                            [ 34%]
 | **Chainsaw Detection Distance** | **$75\text{ m (82.1\% Conf)}$** | $\ge 40\text{ m}$ | ✅ PASSED |
 | **False Alarm Reduction** | **$> 88.5\%\text{ Rejection}$** | $> 80\%$ | ✅ PASSED |
 | **End-to-End Edge Latency** | **$86.0\text{ ms}$** | $< 250\text{ ms}$ | ✅ PASSED |
-| **Software Test Suite** | **$253 / 253\text{ (100\%)}$** | $100\%$ | ✅ PASSED |
+| **Software Test Suite** | **$268 / 268\text{ (100\%)}$** | $100\%$ | ✅ PASSED |
 
 ---
 

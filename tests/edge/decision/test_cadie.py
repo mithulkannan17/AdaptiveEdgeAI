@@ -383,3 +383,42 @@ def test_hardware_sensor_corroborates_moderate_confidence():
 
     assert result_multimodal.decision_score > result_solo.decision_score
     assert any("Atmospheric smoke" in f for f in result_multimodal.contributing_factors)
+
+def test_day_night_cadie_escalation():
+    """
+    Validates that nocturnal anthropogenic events (chainsaw, human intrusion)
+    receive heightened threat scoring and nocturnal regime factors compared to daytime.
+    """
+    cadie = CADIE()
+    prediction = create_prediction(
+        confidence=0.76,
+        label="Chainsaw",
+    )
+    profile = create_profile("Natural")
+    policy = create_policy(1.0)
+    event = create_event(
+        detected=True,
+        priority=5,
+    )
+
+    # 1. Daytime decision (500 lux from BH1750)
+    day_result = cadie.evaluate(
+        prediction=prediction,
+        environment_profile=profile,
+        adaptive_policy=policy,
+        event=event,
+        device_status={"light_level": 500.0},
+    )
+
+    # 2. Nighttime decision (2.5 lux from BH1750)
+    night_result = cadie.evaluate(
+        prediction=prediction,
+        environment_profile=profile,
+        adaptive_policy=policy,
+        event=event,
+        device_status={"light_level": 2.5},
+    )
+
+    assert night_result.decision_score > day_result.decision_score
+    assert any("[NIGHT MONITORING REGIME]" in f for f in night_result.contributing_factors)
+    assert any("[DAY MONITORING REGIME]" in f for f in day_result.contributing_factors)

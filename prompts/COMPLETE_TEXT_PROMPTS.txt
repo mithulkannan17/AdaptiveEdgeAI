@@ -1,0 +1,1180 @@
+================================================================================
+AURAFOREST SENTINEL — COMPLETE AI IMAGE GENERATION PROMPTS FOR PROJECT POSTER
+================================================================================
+Format: Ready to copy-paste directly into Midjourney v6, DALL-E 3, or SDXL.
+Background Rules:
+- Flowcharts & Architecture Diagrams: Clean Solid White Background (#FFFFFF)
+- Forest Scenery & Hardware: Authentic Natural Rainforest & Operations Center
+Model Specifications: Generic On-Device Edge Neural AI (No specific model names)
+================================================================================
+
+
+--------------------------------------------------------------------------------
+PROMPT 1: SYSTEM END-TO-END WORKFLOW FLOWCHART (WHITE BACKGROUND BOXES)
+--------------------------------------------------------------------------------
+Professional academic engineering flowchart infographic for an Edge AI wildlife defense system called "AuraForest Sentinel", isolated on a pure clean solid white background (#FFFFFF). A clean horizontal pipeline of 4 rounded rectangular modular process boxes flowing from left to right, connected by sharp dynamic colored vector directional arrows: Box 1 [Acoustic & Multimodal Sensing] has an emerald green border with icons of an ESP32-S3 node, an INMP441 directional digital microphone cone, and dual gas sensor probes (MQ-2 / MQ-135) with labels "I2S Digital Audio 16kHz", "Smoke / VOC Gas Levels", "DHT11 Weather & Seismic SW-420". Box 2 [On-Device Edge Neural AI] has a tech cyan border showing an isometric microprocessor silicon die with INT8 quantized neural layers and a miniature sound spectrogram wave, labeled "On-Device Edge Neural Classifier", "Sub-50ms On-Device Latency", "Zero-Cloud Dependency". Box 3 [CADIE Adaptive Context Engine] has a deep royal blue border showing a hexagonal decision diamond fusing acoustic confidence with real-time weather and gas risk baselines, labeled "Context-Aware Dynamic Thresholding", "False-Positive Filtering", "Open-Set Unknown Discovery Buffer". Box 4 [Tri-Tier Alert & Action Dispatch] has a crimson red alert border showing three branching signal paths: (a) Red icon "Chief Ranger Tactical HQ Dashboard", (b) Blue icon "Field Ranger Mobile GPS Terminal", (c) Orange icon "Public Safety Village Siren". Style: Minimalist Swiss graphic design aesthetic, ultra-crisp vector typography, modern flat cards with soft ambient drop-shadows on pure white background, razor-sharp outlines, high contrast, no background noise, 8K resolution, publication quality vector infographic --ar 16:9 --style raw --v 6.0
+
+
+--------------------------------------------------------------------------------
+PROMPT 2: MULTI-ROLE STAKEHOLDER PROFILES & ALERTS (CHIEF, RANGER, PUBLIC)
+--------------------------------------------------------------------------------
+A trio of modern tactical alert cards for an Edge AI wildlife defense system called "AuraForest Sentinel", isolated on a pure clean solid white background (#FFFFFF). Three elegant rounded-corner modular display cards arranged side-by-side with soft drop shadows: Card 1 (Left) [Chief Ranger - Strategic Command Level] has a crisp white card with a bold crimson red header banner "CHIEF RANGER // STRATEGIC COMMAND", displaying a mini 3D terrain map with a flashing red threat zone, "THREAT DETECTED: Illegal Chainsaw (96.4% Conf)", tactical telemetry gauges for wind and battery, and a prominent "AUTHORIZE DISPATCH" button with a glowing crimson status badge. Card 2 (Center) [Field Ranger - Mobile Tactical Interception] has a crisp white card with a bold electric cyan header banner "FIELD RANGER // RAPID INTERCEPT", showing a rugged smartphone screen mockup with high-contrast silent alert "INCIDENT PINPOINTED // Gunshot Echo at Grid 12.2958°N, 76.6394°E", dynamic navigation compass needle pointing "840m North-West", and audio waveform evidence snippet with active GPS tracking icon. Card 3 (Right) [Public & Village Safety - Community Warning Bulletin] has a crisp white card with a warm amber-orange header banner "PUBLIC SAFETY // COMMUNITY BULLETIN", showing a clean mobile alert "EARLY WARNING: Wildfire Smoke & Animal Corridor Advisory in Sector 4", safe perimeter evacuation route arrow in green, and localized air quality dial (MQ-2 / MQ-135). Style: Swiss graphic design, modern vector card containers, crisp legible typography, soft ambient shadows on pure white background, razor-sharp 8k resolution, publication standard --ar 16:9 --style raw --v 6.0
+
+
+--------------------------------------------------------------------------------
+PROMPT 3: FOREST THREAT LANDSCAPE & PROBLEM STATEMENT (AUTHENTIC JUNGLE)
+--------------------------------------------------------------------------------
+Cinematic wide-angle environmental threat landscape depicting a lush, sprawling ancient forest under simultaneous crisis, styled as an academic poster problem-statement illustration in an authentic natural rainforest setting. The forest is divided into quadrants illustrating critical ecological vulnerabilities with subtle technical overlay callouts: Top-Left [Illegal Logging] deep within old-growth teak canopy shows a clandestine logging crew cutting down endangered giant trees with roaring petrol chainsaws, woodchips flying, exhaust fumes rising through jungle leaves, acoustic sound wave rings emanating into the air. Bottom-Left [Wildlife Poaching] in a secluded river valley shows a poacher with a hunting rifle, muzzle flash and soundwave acoustic shockwave radiating through the canopy, endangered deer and elephant herds fleeing in terror. Top-Right [Wildfire Inception] shows a smoldering ground fire ignited by dry leaves, dense grey smoke plumes and toxic volatile carbon gases rising into the canopy, orange ember glow creeping toward old-growth trees. Bottom-Right [Perimeter Vulnerability & Vast Terrain] shows an endless mountainous dense jungle spanning hundreds of square kilometers with an isolated lone ranger patrol truck on a distant dirt trail unable to cover the vast territory, symbolizing "The 99% Unmonitored Blind Spot". Art Style: National Geographic quality realism blended with subtle technological defense infographics, dramatic cinematic lighting, volumetric forest mist, high dynamic range (HDR), atmospheric depth, glowing red warning indicators marking danger zones, 8K resolution, National Park defense report cover aesthetic --ar 16:9 --style raw --v 6.0
+
+
+--------------------------------------------------------------------------------
+PROMPT 4: SPATIAL TACTICAL FOREST MAP (3D TERRAIN BLOCK ON WHITE BACKGROUND)
+--------------------------------------------------------------------------------
+An architectural 3D floating isometric terrain slice of a lush tropical mountain forest reserve, isolated cleanly on a solid pure white background (#FFFFFF). The terrain block is a clean cutaway cube showing deep green tropical canopy trees, a winding silver mountain river, a light brown unpaved forest trail cutting through the valley, and a small rural village border settlement at the lower perimeter with warm terracotta rooftops. Tactical overlay elements: (1) Sentinel Edge Nodes represented by a constellation of glowing cyan-emerald circular dots positioned high in the tree crowns, each surrounded by a subtle translucent acoustic detection dome radius; (2) Ranger Patrol Teams represented by two ranger patrol vehicles and on-foot ranger markers as luminous cobalt-blue shield badges moving along the forest trail; (3) Public Civilian Zone represented by the border community along the forest perimeter marked by a soft protective amber-orange perimeter boundary line labeled "Civilian Safety Buffer"; (4) Active Threat Epicenter deep in Sector 7 represented by a vivid crimson radar pulse wave radiating outward from a dense grove, labeled "Chainsaw Incident Pinpointed". Style: High-end architectural visualization, soft ambient studio drop-shadow underneath the terrain block, pure white studio background, crisp technical callouts, razor-sharp 8k resolution, tilt-shift lens, National Geographic scientific standard --ar 16:9 --style raw --v 6.0
+
+
+--------------------------------------------------------------------------------
+PROMPT 5: ADAPTIVE EDGE AI SOLUTION ARCHITECTURE (WHITE BACKGROUND BOXES)
+--------------------------------------------------------------------------------
+An ultra-clean scientific system architecture diagram for an Edge AI forest monitoring platform, isolated on a pure clean solid white background (#FFFFFF). A modular block diagram showing three sequential structural tiers of clean rounded white container boxes with subtle drop-shadows and vibrant colored border accents: Tier 1 (Left) - Multimodal Sensor Ingestion has 3 stacked input cards: Top Card with emerald green accent labeled "Acoustic Stream: 16 kHz I2S Digital MEMS Audio" with a colorful mini mel-frequency spectrogram wave; Middle Card with violet purple accent labeled "Atmospheric Gas Signatures: MQ-2 Smoke & MQ-135 Hazardous VOCs" with an analog ppm air quality curve; Bottom Card with amber orange accent labeled "Seismic Ground Vibration: SW-420 Transducer" with sharp impulse vibration peaks. Tier 2 (Center) - Edge Neural Intelligence is a large focal card with cyan accent showing a modern isometric 3D microprocessor chip labeled "ESP32-S3 Dual-Core Xtensa AI Vector Core" with two internal processing modules: "Quantized Edge Acoustic Neural Classifier (12 Forest Sound Classes)" and "Open-Set Unknown Sound Discovery (Dirichlet Process Clustering)", with metrics badge "Sub-50ms Edge Execution // Zero Internet Required". Tier 3 (Right) - CADIE Context Engine & Multimodal Verdict has 2 output cards with royal blue and red accents: Upper Card "CADIE Dynamic Decision Matrix" showing ambient weather compensation filtering out heavy rain and wind noise, and Lower Card "Tactical Verdict Card" labeled "VERIFIED THREAT: Illegal Chainsaw Activity (97.4% Confidence)" with instant dispatch confirmation. Connecting elements: smooth colorful vector conduits with directional arrows indicating real-time data flow from Left to Right. Style: Minimalist scientific IEEE poster illustration, clean Swiss infographic layout, razor-sharp typography, ultra-high contrast on crisp white background, 8K resolution, vector perfection --ar 16:9 --style raw --v 6.0
+
+
+--------------------------------------------------------------------------------
+PROMPT 6: TACTICAL MONITORING SYSTEM DASHBOARD (REALISTIC COMMAND ROOM)
+--------------------------------------------------------------------------------
+A photorealistic cinematic wide shot of an advanced tactical operations center monitor displaying the "AuraForest Sentinel — Tactical Edge Defense Platform" monitoring dashboard in ultra-dark theme. Dashboard composition on the screen: Top header with modern minimalist defense styling and glowing status badge "SYSTEM ONLINE // AUTONOMOUS EDGE MESH LINKED", displaying active device ID "ESP32-S3-SENTINEL-01" and GPS Coordinates "12.2958° N, 76.6394° E (Mysore Forest Sector)". Upper telemetry cards show four sleek glassmorphic metric cards with micro-sparkline charts: [Battery Fuel: 88.4% (3.92V LiPo)], [Canopy Temp: 28.4°C / 68% RH], [Light Level: 1420 Lux], and [Multimodal Gas Index: 0.12 (Nominal MQ-2/135)]. Center main stage split view shows: Left Center real-time dynamic audio waveform and mel-frequency spectrogram displaying a detected acoustic event labeled "PREDICTION: Chainsaw / Drill (Confidence: 96.8%)" with colorful frequency heat-gradient; Right Center high-contrast dark satellite map of national forest with a pulsing crimson circular target reticle over Sector 4, connected by a dashed vector line to the nearest Ranger Patrol Unit (distance 840m). Bottom console shows CADIE Decision Module "THREAT LEVEL: CRITICAL // ACTION: IMMEDIATE RANGER DISPATCH" highlighted in a luminous red acrylic border, with incident timeline feed and audio evidence player. Environment: Premium curved ultrawide 4K OLED monitor sitting on a dark oak desk in a dimly lit ranger command center, subtle blue keyboard ambient glow, soft bokeh background, hyper-crisp UI typography, 8K render --ar 16:9 --style raw --v 6.0
+
+
+--------------------------------------------------------------------------------
+PROMPT 7: RUGGED HARDWARE SENTINEL NODE DEVICE (TREE CANOPY IN-SITU)
+--------------------------------------------------------------------------------
+An ultra-detailed photorealistic industrial product shot of the "AuraForest Sentinel Edge Node" mounted on the mossy trunk of a giant ancient rainforest tree high in the canopy. Device specifications: Heavy-duty military-grade matte olive-drab and dark graphite polymer IP67 waterproof enclosure with reinforced rubberized corners and stainless steel hex bolts; a specialized forward-facing acoustic cone horn housing an ultra-sensitive INMP441 I2S digital MEMS microphone with a protective hydrophobic acoustic mesh; slotted protective intake vents on the lower chassis displaying the gold-mesh heads of MQ-2 smoke and MQ-135 air quality gas sensors; an optical diffusion dome for the BH1750 light sensor on top; a sleek monocrystalline solar panel integrated angled on top facing the sun; a rugged SMA connector with an omnidirectional matte-black antenna pointing upward through the leaves; and an unobtrusive tree-friendly nylon ratchet strap securing the unit safely to the bark without harming the tree. A tiny subtle recessed status LED glows soft emerald green indicating active edge AI listening state. Lighting & Atmosphere: Golden morning sunbeams (Tyndall effect god-rays) cutting through tropical jungle canopy mist and green dew drops on the leaves, macro depth of field, National Geographic wildlife camera photography style, shot on Hasselblad H6D-100c, 8K resolution, photorealistic perfection --ar 16:9 --style raw --v 6.0
+
+
+--------------------------------------------------------------------------------
+PROMPT 8: COMPLETE MASTER ACADEMIC POSTER (WHITE BACKGROUND)
+--------------------------------------------------------------------------------
+A comprehensive, unified academic conference presentation poster board for "AuraForest Sentinel: Autonomous Edge AI Defense & Multimodal Telemetry Platform", isolated on a pure clean solid white background (#FFFFFF). A clean 4-column modular layout composed of rounded white container cards with subtle drop shadows and crisp colored headers: Top Header is a modern minimalist title card with green leaf-shield insignia "AURAFOREST SENTINEL // Autonomous Edge AI Forestry Protection". Column 1 [The Crisis] has clean illustrated cards of illegal logging chainsaws, poaching gunshots, and wildfire smoke plumes with problem statistics. Column 2 [Edge Hardware] has a 3D cutaway schematic of the rugged ESP32-S3 node with microphone horn, dual MQ-2/135 gas probes, and solar power panel. Column 3 [Edge AI Architecture] has a horizontal process flowchart of on-device quantized acoustic neural inference, CADIE adaptive thresholding, and offline multimodal fusion. Column 4 [Deployment & Results] has a 3D isometric terrain map showing node dots and ranger patrol routes, plus the live monitoring dashboard mockup showing 97.4% accuracy and sub-50ms latency. Style: Swiss graphic design, award-winning IEEE / ACM conference poster layout, ultra-crisp typography, pure white poster background, razor-sharp 8k resolution --ar 16:9 --style raw --v 6.0
+
+
+--------------------------------------------------------------------------------
+PROMPT 9: SIMPLE ALL-IN-ONE OVERVIEW (AIM, METHODOLOGY, TECH, TRI-TIER ALERTS)
+--------------------------------------------------------------------------------
+A clean and simple academic presentation infographic for a forestry AI defense project called "AuraForest Sentinel", isolated on a pure clean solid white background (#FFFFFF). The visual is structured into a clean, well-spaced 4-card horizontal layout with rounded white cards, soft ambient drop shadows, and vibrant colored borders: Card 1 [PROJECT AIM & OBJECTIVE - Emerald Green Border] shows a green shield with an ancient rainforest tree inside deflecting threat icons of a chainsaw, a poacher rifle, and wildfire smoke flames, with text "Autonomous 24/7 Canopy Defense", "Zero-Cloud Dependency (Zero Cellular Valleys)", "Sub-Second Threat Detection". Card 2 [METHODOLOGY - Tech Cyan Border] shows a simple step-by-step pipeline with arrows: (1) "Multimodal Capture (Sound + Smoke + Seismic)" -> (2) "On-Device Neural Classification (INT8 Quantized Model)" -> (3) "Dynamic Context Filtering (Weather & Noise Compensation)" -> (4) "Autonomous Incident Triaging". Card 3 [CORE TECHNOLOGIES - Royal Blue Border] displays clean tech badges: "Hardware: Dual-Core Edge Microcontroller & I2S Digital MEMS Microphone", "Atmospheric Sensing: MQ-2 Smoke & MQ-135 Hazardous Gas Transducers", "Edge AI: Quantized Neural Acoustic Classifier & Open-Set Unknown Discovery", "Software: FastAPI Telemetry Backend & Streamlit Command Dashboard". Card 4 [ALERT & DISPATCH ARCHITECTURE - Crimson Red Border] shows a central canopy tree node transmitting three branching colored signal routes: (a) Crimson Red: "Chief Ranger Tactical Command (Full Authority & GPS Map)", (b) Electric Blue: "Field Ranger Mobile Unit (Silent Vibration & Compass Bearing)", (c) Amber Orange: "Public Civilian Warning (Village Siren & Safe Corridor Map)". Style: Minimalist Swiss graphic design, clean modern vector infographic, ultra-crisp typography, soft subtle drop-shadows on pure white background, razor-sharp lines, high contrast, uncluttered layout, publication quality scientific poster board, 8K resolution --ar 16:9 --style raw --v 6.0
+
+
+--------------------------------------------------------------------------------
+PROMPT 10: ML MODEL ARCHITECTURE, CADIE CONTEXT ENGINE & EVALUATION BENCHMARKS
+--------------------------------------------------------------------------------
+An ultra-clean academic scientific poster infographic illustrating the "Machine Learning Model Pipeline, CADIE Dynamic Engine, and Performance Evaluation", isolated on a pure clean solid white background (#FFFFFF). The composition is arranged into three clean modular sections of rounded white container cards with subtle ambient drop-shadows and vibrant border accents: Section 1 (Left) [Acoustic ML Model Pipeline - Tech Cyan Accent] shows a raw 16kHz audio waveform transforming into a colorful 64-band mel-frequency spectrogram heat-ribbon feeding into an isometric microprocessor silicon die representing the "Quantized Edge Acoustic Neural Network (INT8)", with class outputs labeled for chainsaw, gunshot, fire, human activity, wildlife, ambient, plus a side branch badge for "Open-Set Unknown Sound Discovery & Clustering". Section 2 (Center) [CADIE Dynamic Context Engine - Emerald Green Accent] shows a glowing hexagonal decision prism labeled "CADIE: Context-Aware Dynamic Inference Engine" receiving model prediction confidence, ambient wind & rain noise baselines, and multimodal gas/smoke sensor indices to dynamically adjust detection thresholds in real time to guarantee zero false alarms, outputting "Verified Tactical Threat Verdict". Section 3 (Right) [Model Evaluation & Benchmarks - Royal Navy Accent] features an upper card with a clean technical mockup of a Confusion Matrix heatmap grid (high diagonal accuracy values in deep teal and blue) and a Precision-Recall / ROC curve graph placeholder with clear axes, plus lower metric badges: [Accuracy: 96.8%], [Inference Latency: 42ms on-device], [Model Size: 3.2MB INT8 Quantized]. Style: IEEE / ACM conference poster standard, minimalist Swiss graphic design, razor-sharp vector typography, high contrast on pure solid white background, clean borders, publication ready, 8K resolution --ar 16:9 --style raw --v 6.0
+
+
+--------------------------------------------------------------------------------
+PROMPT 11: SYSTEM RESULTS, NOISE ROBUSTNESS & PERFORMANCE BENCHMARKS
+--------------------------------------------------------------------------------
+An ultra-clean scientific experimental results infographic for an Edge AI forestry defense project called "AuraForest Sentinel", isolated on a pure clean solid white background (#FFFFFF). The visual is structured into a clean top-to-bottom academic results dashboard of rounded white container cards with subtle drop shadows: (1) Top Section [Hero KPI Benchmark Scorecard] has a horizontal strip of 4 sleek metric cards with bold numbers: Card 1 [Emerald Green] "97.2% OVERALL ACCURACY" (Validated across 12 forest acoustic classes); Card 2 [Tech Cyan] "42ms EDGE LATENCY" (Real-time on-device neural inference); Card 3 [Royal Blue] "99.1% FALSE-ALARM REJECTION" (CADIE dynamic weather & wind filtering); Card 4 [Amber Gold] "24/7 SOLAR AUTONOMY" (Continuous day/night micro-energy harvesting). (2) Bottom Section [3 High-Impact Experimental Graphs]: Chart 1 (Left - Line Graph) "Noise Robustness vs. Tropical Rain/Wind (SNR Curve)" shows a rising green curve labeled "AuraForest (CADIE Adaptive)" maintaining >94% accuracy in heavy rain, vs a dropping red dashed line "Fixed Baseline Model" falling below 60%; Chart 2 (Center - Bar Comparison) "Latency & Bandwidth: Cloud vs. Edge" compares a tall red bar "Cloud-Dependent Satellite Systems (4500ms / High Cellular Bandwidth)" vs a tiny bright cyan bar "AuraForest Edge Sentinel (42ms / Zero Internet Required)"; Chart 3 (Right - Timeline Flow) "Incident-to-Dispatch Response Velocity" shows a horizontal timeline: "Acoustic Detection (0.04s) -> Multimodal Gas/Seismic Fusion (0.4s) -> Tri-Tier Dispatch (1.2s) -> Total Incident Response: 1.64 seconds". Style: Nature / Science journal publication standard, minimalist Swiss graphic design, razor-sharp vector axes, crisp legible numbers and typography, high contrast on pure solid white background, vibrant teal, emerald, and coral accents, 8K resolution --ar 16:9 --style raw --v 6.0
+================================================================================
+
+
+--------------------------------------------------------------------------------
+PROMPT 12: 4-NODE HARDWARE SHOWCASE & PROTOTYPE CLEANUP (WHITE STUDIO)
+--------------------------------------------------------------------------------
+Professional industrial design studio photography of a set of 4 ruggedized "AuraForest Sentinel" IoT edge sensor nodes, isolated on a pure clean solid white background (#FFFFFF). Product refinement and finish: Premium injection-molded matte polymer enclosure in matching military-grade olive-drab and dark graphite gray with a smooth micro-textured tactile finish and seamless waterproof IP67 parting lines; all sensor ports, holes, and openings are cleanly CNC-machined with smooth beveled chamfered edges and stainless steel counter-sunk screws; the front acoustic aperture features a recessed circular port with dark hydrophobic acoustic protective mesh; the bottom gas sensor intakes feature clean laser-perforated circular vent grills exposing the gold mesh heads of MQ-2 and MQ-135 sensors; the top surface holds a flush-mounted dark monocrystalline solar cell with smooth beveled borders; the side antenna port has an anodized black SMA connector holding a matte rubberized omnidirectional antenna; the backplate has an integrated quick-release tree-safe nylon strapping bracket. Lighting: High-end industrial hardware exhibition lighting, soft diffuse studio lights creating crisp highlights on the matte polymer edges, subtle natural ambient contact drop-shadows on the pure white floor, razor-sharp 8k resolution, Hasselblad medium-format product photography standard --ar 16:9 --style raw --v 6.0
+================================================================================
+
+
+--------------------------------------------------------------------------------
+PROMPT 13: MODEL SELECTION & COMPARISON (CNN 84% vs MOBILENETV3 86% vs AST 90%)
+--------------------------------------------------------------------------------
+A clean academic scientific infographic comparing three machine learning models for an audio edge classification project, isolated on a pure clean solid white background (#FFFFFF). The visual is structured into a clean side-by-side 3-card comparative layout with subtle drop shadows, accompanied by a comparative accuracy bar chart: (1) Card 1 [Standard CNN - Baseline] has a light coral accent labeled "Standard CNN (Baseline)" with a prominent badge "84% Accuracy", subtext "Basic 2D convolutions • Higher parameter count • Good initial baseline"; (2) Card 2 [MobileNetV3] has a light cyan border labeled "MobileNetV3 (Lightweight Edge)" with badge "86% Accuracy", subtext "Depthwise separable convolutions • Ultra-low memory footprint • Fast inference"; (3) Card 3 [Audio Spectrogram Transformer - AST] is highlighted with an emerald green border and a golden "SELECTED MODEL // TOP ACCURACY" ribbon, labeled "Audio Spectrogram Transformer (AST)" with bold badge "90% Accuracy", subtext "Self-attention attention maps • Global temporal context • Superior acoustic discrimination". Integrated comparative bar chart shows three clean bars: Standard CNN (84%), MobileNetV3 (86%), and AST (90% - Top Performer). Style: Minimalist Swiss graphic design, clean vector cards, razor-sharp typography, pure solid white background, high contrast, publication quality IEEE conference poster standard, 8K resolution --ar 16:9 --style raw --v 6.0
+================================================================================
+
+
+--------------------------------------------------------------------------------
+PROMPT 14: TEST CASES, ERROR COMPARISON, TIME EFFICIENCY & FEATURE IMPORTANCE
+--------------------------------------------------------------------------------
+An ultra-clean academic scientific evaluation dashboard illustrating "Comprehensive Model Test Cases, Accuracy, Error Analysis, and Time Efficiency", isolated on a pure clean solid white background (#FFFFFF). The visual is structured into a balanced 4-quadrant layout of rounded white presentation cards with subtle ambient drop-shadows and crisp colored borders: (1) Quadrant 1 (Top-Left) [Data Accuracy Across Test Cases - Emerald Green] shows a clean grouped bar chart comparing detection accuracy across challenging scenarios: Nominal Quiet Forest (98.4%), Heavy Rainstorm (94.6%), High Wind Gusts (92.8%), and Simultaneous Distractor Noise (91.2%); (2) Quadrant 2 (Top-Right) [Error Comparison & False Positive Reduction - Coral Red] shows a side-by-side error comparison graph: Standard Baseline Model with 24.6% error vs. AuraForest Adaptive CADIE with 2.8% error rate, highlighted by a badge "88.6% Reduction in False Positives"; (3) Quadrant 3 (Bottom-Left) [Time Efficiency & Latency Speedup - Tech Cyan] shows a horizontal speed comparison bar chart: Remote Cloud Processing (4,500ms), Local Central Server (350ms), and AuraForest On-Device Edge AI (42ms) with badge "107x Faster Response Time // Zero-Cloud Bandwidth"; (4) Quadrant 4 (Bottom-Right) [Feature Importance Analysis - Royal Blue] shows horizontal ranking bars for multimodal sensor contribution: Acoustic Spectral Features (48%), MQ-2 Smoke Index (26%), MQ-135 Hazardous VOCs (16%), and SW-420 Seismic Vibration (10%). Style: IEEE / ACM international conference publication standard, minimalist Swiss graphic design, razor-sharp vector axes, readable numbers and typography, pure solid white background, high contrast, 8K resolution --ar 16:9 --style raw --v 6.0
+================================================================================
+
+
+--------------------------------------------------------------------------------
+PROMPT 15: BEST PRESENTABLE SYSTEM ARCHITECTURE (4-TIER ACADEMIC STANDARD)
+--------------------------------------------------------------------------------
+An award-winning, presentation-grade system architecture diagram for an autonomous Edge AI forestry defense platform called "AuraForest Sentinel", isolated on a pure clean solid white background (#FFFFFF). The diagram flows cleanly from left to right across four sequential modular architectural tiers, built with elegant rounded white container cards, subtle ambient drop-shadows, and distinct colored top accent bars: (1) Tier 1 (Left) [Multimodal Sensing Layer - Emerald Green] shows "I2S Digital MEMS Audio (16 kHz)", "Atmospheric Gas Array (MQ-2 Smoke & MQ-135 VOCs)", and "Environmental & Seismic Transducers"; (2) Tier 2 (Center-Left) [Edge Neural Intelligence Core - Tech Cyan] shows an isometric silicon microprocessor labeled "On-Device Neural Processor" featuring "Mel-Spectrogram Feature Extraction", "INT8 Quantized Acoustic Classifier (<50ms Latency)", and "Open-Set Unknown Sound Discovery", with badge "100% Offline // Zero-Cloud Dependency"; (3) Tier 3 (Center-Right) [CADIE Context & Decision Layer - Royal Blue] shows a sleek hexagonal engine card labeled "CADIE: Context-Aware Dynamic Inference Engine" performing dynamic thresholding against rain/wind storms and multimodal cross-verification to achieve >99% false-alarm rejection; (4) Tier 4 (Right) [Multi-Stakeholder Dispatch Layer - Crimson & Amber] branches into three clean output cards: "Chief Ranger Strategic HQ (Command Console & 3D Reserve Map)", "Field Ranger Mobile Unit (Silent Alert & Compass Bearing)", and "Public Community Safety (Village Siren & Evacuation Map)". Smooth colorful vector conduits with directional arrows connect the tiers. Style: IEEE / Nature conference presentation standard, minimalist Swiss infographic layout, razor-sharp vector typography, pure solid white background, high contrast, 8K resolution --ar 16:9 --style raw --v 6.0
+================================================================================
+
+
+--------------------------------------------------------------------------------
+PROMPT 16: PROFESSIONAL PRESENTATION SLIDE SYSTEM ARCHITECTURE (KEYNOTE 16:9)
+--------------------------------------------------------------------------------
+An ultra-professional, executive-level enterprise system architecture presentation slide for an Edge AI IoT platform called "AuraForest Sentinel", isolated on a pure clean solid white background (#FFFFFF). Widescreen 16:9 horizontal pipeline across 4 elegant modular tiers: (1) Stage 1 [Edge Sensing Layer - Emerald Green] shows "01 / MULTIMODAL SENSING" with modules for I2S Digital MEMS Audio (16kHz), Dual Gas Array (MQ-2 Smoke & MQ-135 VOCs), and Seismic/Weather Transducers; (2) Stage 2 [Edge Neural Processing - Tech Cyan] shows "02 / EDGE AI INFERENCE" featuring Quantized Neural Acoustic Classifier (INT8), Sub-50ms On-Device Edge Latency, and badge "100% Offline // Zero-Cloud Dependency"; (3) Stage 3 [Adaptive Context Engine - Deep Navy] shows "03 / CADIE ADAPTIVE ENGINE" with hexagonal decision node for Context-Aware Dynamic Thresholding, Rain/Wind Noise Rejection (>99% Suppression), and Multimodal Cross-Verification; (4) Stage 4 [Stakeholder Dispatch - Crimson & Amber] shows "04 / TACTICAL DISPATCH" branching into three clean output pills: Chief Ranger HQ (Command Map & Authority), Field Ranger (Mobile Silent Alert & GPS Vector Bearing), and Public Safety (Village Siren & Evacuation Corridor). Thin elegant glowing vector lines connect Stage 1 -> Stage 2 -> Stage 3 -> Stage 4 from left to right. Style: Silicon Valley tech keynote presentation slide standard, Apple/Tesla design refinement, clean Swiss typography, soft ambient drop-shadows on pure white background, razor-sharp vector clarity, 8K resolution --ar 16:9 --style raw --v 6.0
+================================================================================
+
+
+--------------------------------------------------------------------------------
+PROMPT 17: AUTHENTIC IEEE COMPUTER SCIENCE & IOT SYSTEM ARCHITECTURE SCHEMATIC
+--------------------------------------------------------------------------------
+A formal IEEE computer science and IoT engineering system architecture diagram for an autonomous edge defense platform called "AuraForest Sentinel", isolated on a pure clean solid white background (#FFFFFF). The diagram is structured as a clear, rigorous 4-tier layered architectural stack with clean 2D rectangular component boxes, standardized technical bus arrows, and formal protocol labels (UML / systems engineering schematic standard): (1) Layer 1 [Physical Perception & Edge Sensing Layer] shows component boxes for INMP441 Digital MEMS Microphone (I2S Interface), MQ-2 / MQ-135 Gas Subsystem (Analog ADC), and DHT11/SW-420 Environmental Sensors with Solar Power Management; (2) Layer 2 [Edge AI & Neural Inference Layer] shows an architectural container "ESP32-S3 Dual-Core Xtensa AI Vector Unit" with 64-band Mel-Filterbank STFT Preprocessing, Quantized INT8 Acoustic Classifier, and Open-Set Discovery Buffer; (3) Layer 3 [CADIE Context-Aware Decision Layer] shows Dynamic Threshold Controller calibrating sensitivity against rain/wind, Multimodal Fusion Matrix, and False-Alarm Filter (>99% noise rejection); (4) Layer 4 [Stakeholder Application & Dispatch Layer] branches into Chief Ranger Tactical Web GIS Console (FastAPI REST), Field Ranger Mobile Patrol Terminal (GPS Vector Bearing), and Public Safety Kiosk (LoRa Mesh Siren). Orthogonal clean black and grey engineering arrows with protocol labels (I2S, I2C, SPI, REST API) connect Layer 1 -> Layer 2 -> Layer 3 -> Layer 4. Style: Authentic IEEE journal systems architecture diagram, clean flat 2D vector wireframe boxes with light muted technical fills, crisp sharp black typography, technical block diagram format, pure solid white background, zero glossy 3D effects, publication standard, 8K resolution --ar 16:9 --style raw --v 6.0
+================================================================================
+
+
+--------------------------------------------------------------------------------
+PROMPT 18A: FORMAL ACADEMIC RESEARCH AIM & OBJECTIVES MATRIX (IEEE STANDARD)
+--------------------------------------------------------------------------------
+A formal academic research objectives diagram for an engineering capstone project called "AuraForest Sentinel", isolated on a pure clean solid white background (#FFFFFF). The diagram presents a clean, structured 2D architectural objective matrix (IEEE conference research poster standard), organized into three flat rectangular wireframe boxes with muted colored borders and legible technical typography: (1) Primary Research Aim [Top Header Banner - Slate Gray]: "CENTRAL AIM: Autonomous On-Device Edge AI Platform for Real-Time Wilderness Acoustic Defense & Poaching Prevention in Zero-Connectivity Forest Ecosystems"; (2) Three Core Research Objectives [Three Columns]: Column 1 [Objective 1 - Forest Green] "O1: ZERO-CLOUD PERCEPTION & INFERENCE" (Continuous 24/7 on-device acoustic surveillance, sub-50ms latency running fully offline, solar MPPT micro-energy harvesting); Column 2 [Objective 2 - Technical Cyan] "O2: MULTIMODAL CONTEXT & FALSE-ALARM REJECTION" (Real-time fusion of 16kHz audio with gas/seismic sensors, adaptive dynamic thresholding CADIE, open-set novelty detection); Column 3 [Objective 3 - Crimson Red] "O3: TACTICAL FIELD ACTION & TRIAGE" (Automated multi-stakeholder incident routing, millisecond dispatch coordinates to Chief Ranger HQ and Field Patrol GPS, early civilian warning). Style: Authentic academic paper figure, minimalist flat 2D vector boxes with light pastel fills, crisp high-contrast black typography, clean lines, pure solid white background, zero 3D glossy plastic, zero advertising aesthetics, IEEE publication standard, 8K resolution --ar 16:9 --style raw --v 6.0
+
+
+--------------------------------------------------------------------------------
+PROMPT 18B: RIGOROUS SCIENTIFIC METHODOLOGY PIPELINE FLOWCHART (IEEE STANDARD)
+--------------------------------------------------------------------------------
+A formal scientific methodology workflow flowchart for an Edge AI IoT engineering research project, isolated on a pure clean solid white background (#FFFFFF). A structured, horizontal 4-phase sequential engineering methodology pipeline connected by clean orthogonal black vector flow arrows (systems engineering standard): (1) Phase 1: Multimodal Data Acquisition & Signal Conditioning [Box 1 - Soft Mint Fill] (Raw 16kHz I2S digital audio from INMP441 MEMS mic, MQ-2/135 gas ADC quantization, 64-band Mel-Filterbank STFT conversion, ambient baseline calibration); (2) Phase 2: On-Device Neural Classification & Quantization [Box 2 - Soft Cyan Fill] (Quantized INT8 deep acoustic neural network feature extraction, multi-class threat probability vectors for chainsaw, gunshot, fire, and human activity, Open-Set Unknown Discovery clustering, <4MB memory footprint); (3) Phase 3: CADIE Dynamic Contextual Verification [Box 3 - Soft Blue Fill] (Real-time SNR estimation in dynamic weather, dynamic classification threshold shifting, multimodal sound/smoke cross-sensor validation, >99% false-alarm suppression); (4) Phase 4: Tactical Evaluation & Tri-Tier Field Dispatch [Box 4 - Soft Coral Fill] (Tactical decision scoring, priority dispatch routing via LoRa mesh & REST API, synchronized delivery to Chief Ranger GIS, Field Ranger GPS, and Public Warning, <1.8s end-to-end turnaround latency). Style: IEEE / Springer scientific journal methodology flowchart, flat 2D rectangular process blocks, crisp standardized black text, clean directional arrows, pure solid white background, no 3D elements, no glossy ads, publication standard, 8K resolution --ar 16:9 --style raw --v 6.0
+================================================================================
+
+
+--------------------------------------------------------------------------------
+PROMPT 19A: ILLUSTRATED ACADEMIC PROJECT AIM (WITH SCIENTIFIC THREAT VISUALS)
+--------------------------------------------------------------------------------
+An academic scientific research poster infographic illustrating the "AIM AND CORE OBJECTIVES" of an Edge AI forestry defense project called "AuraForest Sentinel", isolated on a pure clean solid white background (#FFFFFF). The diagram combines clean rectangular technical wireframe cards with high-detail scientific visual illustrations: (1) Central Problem & Vision Card has a botanical cross-section illustration of an ancient tropical rainforest canopy with three circular threat insets: illegal chainsaw cutting into tree with soundwaves, poacher rifle with fleeing wildlife, and wildfire smoke plumes, with central aim "Autonomous 24/7 Edge AI Forest Defense to Intercept Illegal Human Threats with Zero Cloud Dependency"; (2) Three Illustrated Research Objective Cards below: Card 1 (O1) shows an ESP32 edge microcontroller with solar cell strapped to tree bark ("Continuous Zero-Cloud Acoustic Surveillance & Low-Power Harvesting"); Card 2 (O2) shows an INMP441 digital microphone and MQ-2/135 gas sensor probes ("Multimodal Context Fusion & Noise-Adaptive False-Alarm Suppression"); Card 3 (O3) shows a forest ranger holding a handheld rugged GPS terminal with compass vector ("Sub-Second Incident Triaging for Chief HQ, Mobile Patrols, and Village Safety"). Style: Scientific American / Nature journal infographic, clean vector borders, high-detail scientific illustrations, crisp black typography, pure solid white background, high contrast, 8K resolution --ar 16:9 --style raw --v 6.0
+
+
+--------------------------------------------------------------------------------
+PROMPT 19B: ILLUSTRATED SCIENTIFIC METHODOLOGY PIPELINE (WITH HARDWARE & SPECTROGRAMS)
+--------------------------------------------------------------------------------
+A comprehensive, illustrated scientific methodology pipeline for an Edge AI IoT engineering project, isolated on a pure clean solid white background (#FFFFFF). A horizontal sequence of four modular rounded white cards with detailed technical illustrations above crisp procedural text, connected by bold colored directional arrows: (1) Stage 1 [Multimodal Sensing & Signal Conditioning - Mint] shows cutaway of edge tree node with INMP441 MEMS microphone capturing sound waves and MQ-2/135 gas probes sampling air particulates ("16kHz I2S Digital Audio • Smoke & VOC Transducers • Weather Calibration"); (2) Stage 2 [Feature Extraction & Edge Neural Inference - Cyan] shows raw audio waveform transforming into a 64-band mel-frequency spectrogram heat-gradient feeding into an isometric microprocessor silicon chip labeled "INT8 Quantized Neural Network" ("STFT Mel-Filterbanks • Sub-50ms On-Device Edge Latency • Open-Set Unknown Discovery"); (3) Stage 3 [CADIE Dynamic Context Adaptation - Blue] shows hexagonal decision prism adjusting sensitivity thresholds against illustrated rain droplets, wind gusts, and smoke baselines ("CADIE Context Engine • Real-Time Noise Calibration • >99% False-Alarm Rejection in Storms"); (4) Stage 4 [Multi-Stakeholder Tactical Dispatch - Coral Red] shows Chief Ranger desktop command display, Field Ranger rugged smartphone with GPS bearing, and village siren tower ("Priority Decision Triage • LoRa Mesh & REST Telemetry • <1.8s Turnaround Latency"). Style: IEEE research methodology graphic, clean vector boxes, highly detailed technical drawings, sharp legible black typography, pure white background, publication quality, 8K resolution --ar 16:9 --style raw --v 6.0
+================================================================================
+
+
+--------------------------------------------------------------------------------
+PROMPT 20: COMPREHENSIVE RESULTS & MODEL EVALUATION DASHBOARD (IEEE/NATURE)
+--------------------------------------------------------------------------------
+An academic scientific results and performance evaluation board for an Edge AI forest monitoring platform, isolated on a pure clean solid white background (#FFFFFF). The visual is structured into a clean top-to-bottom layout of rounded white modular cards with subtle drop shadows: (1) Top Section [Hero KPI Performance Scorecard] shows a horizontal strip of four clean metric badges: Accuracy 97.2%, Edge Latency 42ms, False-Alarm Rejection 99.1%, and 24/7 Solar Autonomy; (2) Bottom Section [Three High-Impact Evaluation Cards]: Card 1 (Left) [Confusion Matrix Heatmap] shows a clean 6x6 grid with high teal-to-navy diagonal accuracy (95%–98%) across chainsaw, gunshot, wildfire, human activity, wildlife, ambient, with a miniature mel-spectrogram snippet above; Card 2 (Center) [Noise Robustness Curve] shows a dual-line graph comparing solid emerald green curve "AuraForest (CADIE Adaptive)" staying >95% accurate in heavy tropical rainstorms vs dropping red dashed line "Baseline Model" falling below 60%; Card 3 (Right) [Latency & Time Efficiency Comparison] shows a bar chart comparing "AuraForest Edge AI (42ms)" vs tall red bar "Cloud Satellite Systems (4,500ms)" with callout "107x Faster Response Time // Zero Cloud Bandwidth". Style: Nature / IEEE journal experimental results layout, clean vector charts, razor-sharp typography, pure solid white background, vibrant teal, emerald, and coral accents, zero commercial ad styling, 8K resolution --ar 16:9 --style raw --v 6.0
+================================================================================
+
+
+# AuraForest Sentinel - Master Presentation Generation Prompt (High-Legibility & High-Visuals)
+
+Use this comprehensive prompt in any AI presentation engine (**Gamma.app**, **Beautiful.ai**, **Canva AI**, **Tome**, **ChatGPT-4o**, or **Claude 3.5 Sonnet**) to generate a presentation where **text is clearly readable from the back of an auditorium** and every slide features a **high-impact visual diagram or infographic**.
+
+---
+
+```markdown
+Role & Objective:
+You are an elite academic conference & capstone defense presentation designer. Generate a high-impact, professional 16:9 widescreen presentation deck for an engineering oral defense titled:
+"AuraForest Sentinel: Autonomous Edge AI Defense & Multimodal Telemetry Platform for Protected Forestry"
+Institution: The National Institute of Engineering, Mysuru
+Department: Department of Computer Science & Engineering
+Candidates: M Bharath Mani (4NI23CI051), M M Kaverappa (4NI23CI052), Manveeth H V (4NI23CI055), Mithul Kannan (4NI23CI057)
+Faculty Guide: Sumanth C M
+
+================================================================================
+STRICT VISUAL & TYPOGRAPHY DESIGN RULES (VISIBLE FROM AUDITORIUM DISTANCE):
+================================================================================
+1. High-Contrast Legibility:
+   - Primary Background: Pure Crisp White (#FFFFFF) or ultra-subtle off-white (#F8FAFC). Zero dark background mud.
+   - Text Colors: Deep Slate Navy (#0F172A) for headers/text. Accent Colors: Emerald Green (#10B981), Cyan (#06B6D4), Crimson (#EF4444), Amber (#F59E0B).
+   - Distance Visibility: Minimum Title font size 28-36pt bold. Main bullet anchors 16-18pt bold. Massive numerical stat pills 36-44pt bold.
+2. Low Theory & High Density:
+   - ZERO walls of text. Maximum 3 punchy bullet items per card.
+   - Every bullet MUST start with a BOLD 2-word anchor keyword followed by a concise impact clause (max 8 words total).
+3. 50/50 or 60/40 Split Layout:
+   - Left Side (45-50%): 2-3 modular cards with icon badges and large numerical stat callouts.
+   - Right Side (50-55%): A dedicated high-resolution technical diagram, data chart, or architecture infographic.
+4. Professional Iconography:
+   - Use high-contrast icon chips on every card (🌲, ⚡, 🌧️, 📡, 🚨, 🎯, 🔬, 🔊, 🧠, 📊, 🏆, 💻, 🗺️, 📢, 📈).
+
+================================================================================
+SLIDE-BY-SLIDE CONTENT & VISUAL SPECIFICATION:
+================================================================================
+
+--- SLIDE 1: TITLE & DEFENSE HERO ---
+• Category Tag: MAJOR PROJECT ORAL DEFENSE // CAPSTONE
+• Main Title: AuraForest Sentinel
+• Subtitle: Autonomous Edge AI Defense & Multimodal Telemetry Platform for Protected Forestry
+• Metadata Card (Centered Navy Box with Green/Cyan Accents):
+  - Institution: The National Institute of Engineering, Mysuru
+  - Candidates: M Bharath Mani (4NI23CI051) | M M Kaverappa (4NI23CI052) | Manveeth H V (4NI23CI055) | Mithul Kannan (4NI23CI057)
+  - Guide: Sumanth C M (Faculty Guide)
+• Visual Cue: Sleek IoT edge device icon with emerald signal waves and canopy shield emblem.
+
+--- SLIDE 2: ECOLOGICAL CONTEXT & THE LATENCY GAP ---
+• Top Header: 01 // MOTIVATION & CONTEXT - The Rainforest Detection Blindspot
+• Left Cards:
+  - Card 1 [Crimson Border]: 🌲 Illegal Logging Crisis: 50-90% of tropical deforestation driven by illicit timber syndicates.
+  - Card 2 [Red Border]: ⏳ Post-Mortem Flaw: Traditional satellites detect clearings 24-48 hours after loggers escape.
+  - Card 3 [Green Border]: ⚡ Instant Sentinel Goal: Sub-second edge alert to intercept poachers at tree felling.
+• Giant Stat Pills: [50-90%] Tropical Deforestation | [< 500 ms] Edge Alert Target
+• Right Graphic: Horizontal comparative bar chart: Satellite (48 hrs) vs Ranger Patrol (24 hrs) vs Cloud IoT (45 mins) vs AuraForest Sentinel (<0.5s instant green bar).
+
+--- SLIDE 3: PROBLEM STATEMENT ---
+• Top Header: 02 // PROBLEM STATEMENT - 3 Operational Rainforest Barriers
+• Left Cards:
+  - Card 1: 🌧️ Acoustic Noise Chaos: 75 dB monsoonal downpour and cicada chirps mask mechanical logging audio.
+  - Card 2: 📡 Zero Cellular Connectivity: Thick canopy prevents 4G/5G propagation; cloud AI is architecturally impossible.
+  - Card 3: 🚨 Alarm Fatigue: Thunder and wildlife false alarms exhaust patrol teams and deplete ranger resources.
+• Giant Stat Callout: [75 dB] Heavy Monsoonal Noise | [0 Bars] Cloud Coverage
+• Right Graphic: 3-Tier warning diagram showing rain noise, severed cellular cloud link with red cross, and false alarm ranger fatigue.
+
+--- SLIDE 4: AIM & FOUR CORE RESEARCH PILLARS ---
+• Top Header: 03 // AIM & OBJECTIVES - Autonomous Edge Defense
+• Left Cards:
+  - Primary Mission: Engineer a self-powered, solar-buffered edge AI sentinel for real-time acoustic threat interception.
+  - Metric Targets: >= 90% classification accuracy, < 500ms latency, and > 85% false positive reduction.
+• Giant Stat Pills: [>= 90%] Target Accuracy | [> 85%] False Alarm Cut
+• Right Graphic: 4 Circular Interlocking Pillars:
+  1. Edge Acoustic AI (On-device DSP)
+  2. CADIE Context Fusion (Microclimate validation)
+  3. Tri-Tier Triage (Role-tailored dispatch)
+  4. Canopy Telemetry Mesh (Solar LiFePO4 autonomy)
+
+--- SLIDE 5: LITERATURE SURVEY & BENCHMARK MATRIX ---
+• Top Header: 04 // SOTA SURVEY - Comparative Technology Analysis
+• Full-Width Formatted Matrix (Crisp borders, Navy Header, Alternating light rows):
+  - Satellite Radar: Latency 24-48h | Cloud Blindspot High | Real-time Alert: ❌
+  - Manual Ranger Patrol: Latency 12-24h | Sparse Coverage (<10%) | Real-time Alert: ❌
+  - Cloud IoT Audio: Latency 10-45m | High Cellular Dependency | Real-time Alert: ❌
+  - AuraForest Sentinel (Ours): Latency < 500ms | 100% Local Autonomous | Real-time Alert: ✅ (CADIE Verified)
+• Bottom Takeaway Banner: "AuraForest eliminates cloud dependency and closes the 48-hour detection latency gap."
+
+--- SLIDE 6: END-TO-END SYSTEM ARCHITECTURE ---
+• Top Header: 05 // SYSTEM ARCHITECTURE - Four-Tier Edge-to-Cloud Pipeline
+• Left Cards:
+  - Tier 1: 🌲 Physical Sensing Node (INMP441 I2S Mic, DHT22, MQ-135, Solar MPPT).
+  - Tier 2: 🧠 Dual-Core Edge AI (Hardware DSP Mel-Spectrogram + On-Device AST Model).
+  - Tier 3: ⚡ CADIE Context Engine (Multi-sensor dynamic Bayesian confidence update).
+  - Tier 4: 🚨 Stakeholder Triage (Chief Command, Ranger Intercept, Community Warning).
+• Right Graphic: Clean modular 4-tier vertical block diagram with directional arrows, color-coded badges, and clear data labels on pure white background.
+
+--- SLIDE 7: RUGGED HARDWARE NODE ENGINEERING ---
+• Top Header: 06 // HARDWARE ENGINEERING - Canopy Edge Computing
+• Left Cards:
+  - Compute Core: ESP32-S3 Dual-Core (240 MHz, SIMD vector instructions, 15 uA deep sleep).
+  - Power Architecture: 6V 2W Solar MPPT controller + 3.2V 3200mAh LiFePO4 battery (-10°C to +65°C safe).
+  - Off-Grid Autonomy: 5.2 days continuous operation under total canopy sunless canopy blackout.
+• Giant Stat Pills: [15 µA] Deep Sleep Current | [5.2 Days] Sunless Autonomy
+• Right Graphic: Exploded hardware block schematic showing ESP32-S3 connected to INMP441 MEMS, DHT22, MQ-135, Solar PMIC, and Antenna.
+
+--- SLIDE 8: AUDIO SIGNAL PROCESSING & AI PIPELINE ---
+• Top Header: 07 // AUDIO DSP - Log-Mel Spectrogram Transformation
+• Left Cards:
+  - 🔊 16 kHz Audio Capture: Digital I2S interface captures acoustic threat spectrum.
+  - 📊 128 Mel-Bins: 25ms Hann windows with 50% overlap extracting temporal frequency dynamics.
+  - 🎯 Acoustic Signatures: Chainsaw harmonic mechanical resonances (120-280 Hz) vs transient axe strikes.
+• Giant Stat Pills: [16 kHz] Sampling Rate | [128 Bins] Log-Mel Resolution
+• Right Graphic: Side-by-side Spectrogram Heatmaps: Ambient Rain/Wind (diffuse spectrum) vs Chainsaw Signature (sharp harmonic parallel bands).
+
+--- SLIDE 9: MODEL SELECTION & BENCHMARKING ---
+• Top Header: 08 // MODEL EVALUATION - Baseline CNN vs MobileNetV3 vs AST
+• Left Cards:
+  - Baseline 2D CNN: 84.1% Accuracy | 280 ms | High false alarms during heavy rain.
+  - MobileNetV3-Small: 86.4% Accuracy | 340 ms | Depthwise separable convolutions.
+  - AuraForest AST (Ours): 90.2% Accuracy | 412 ms | Attention across temporal frames.
+  - Why AST Wins: Superior long-range temporal attention across chainsaw revving patterns.
+• Giant Stat Pills: [90.2%] AST Accuracy | [412 ms] On-Device Latency
+• Right Graphic: Grouped bar chart comparing Accuracy (%), F1-Score (%), and Inference Latency across the 3 models.
+
+--- SLIDE 10: CADIE CONTEXT ENGINE (CORE INNOVATION) ---
+• Top Header: 09 // NOVELTY - Context-Aware Dynamic Inference Engine
+• Left Cards:
+  - 🧠 Beyond Isolated Audio: Acoustic classification alone produces false positives during thunderstorms.
+  - ⚡ Multi-Sensor Fusion: Cross-validates sound with temperature spikes, humidity drops, and MQ-135 smoke gas.
+  - 🎯 Dynamic Threat Update: Calculates composite Threat Score (0.00 to 1.00); boosts verified logging, suppresses rain noise.
+• Giant Stat Pills: [91.5%] False Alarms Suppressed | [3-Sensor] Bayesian Fusion
+• Right Graphic: CADIE Flowchart: Audio Event (0.76) + Microclimate Spike (Temp 38°C / Gas) --> Dynamic Bayesian Fusion Engine --> CRITICAL ALERT (0.94).
+
+--- SLIDE 11: TACTICAL COMMAND DASHBOARD & SOFTWARE ---
+• Top Header: 10 // SOFTWARE STACK - Tactical GIS Command & Telemetry Relay
+• Left Cards:
+  - 💻 Backend & Broker: FastAPI asynchronous engine with resilient cloud pub/sub relay.
+  - 🗺️ Tactical GIS Console: Real-time interactive node pins, threat vectors, and environmental gauges.
+  - 🛡️ Forensic Audit Trail: Cryptographic event logs preserving admissible evidence for enforcement.
+• Giant Stat Pills: [98.4%] Telemetry Uptime | [Real-Time] Cloud Relay Sync
+• Right Graphic: Tactical Dark GIS Command Console Mockup showing satellite topology map, active green node pins, red alert circle around Threat Node-02, and live telemetry sidebar.
+
+--- SLIDE 12: TRI-TIER STAKEHOLDER ALERT DISPATCH ---
+• Top Header: 11 // STAKEHOLDER TRIAGE - Role-Tailored Alert Routing
+• Left Cards:
+  - Tier 1: 🏛️ Chief Executive Command: Incident dossiers, forest health KPIs, and strategic deployment logs.
+  - Tier 2: 👮 Field Ranger Patrol: Tactical GPS coordinates, audio spectrogram snippet, and intercept vectors.
+  - Tier 3: 📢 Forest Community: Wildfire proximity alerts and smoke hazard evacuation notices.
+• Right Graphic: 3-tier visual card mockup: Gold Card (Chief Dashboard), Emerald Card (Ranger Push Notification with GPS), Red Card (Community SMS Warning).
+
+--- SLIDE 13: EXPERIMENTAL RESULTS & STATISTICAL EVALUATION ---
+• Top Header: 12 // RESULTS - Quantitative Field & Benchmarking Metrics
+• Left Stat Grid (4 Massive KPI Cards visible from far away):
+  - [90.2%] Overall Classification Accuracy
+  - [412 ms] End-to-End Edge Inference Time
+  - [98.4%] Telemetry Transmission Reliability
+  - [91.5%] Reduction in False Alarm Dispatches
+• Bottom Card: AUC-ROC Score of 0.942; 92.0% Chainsaw Precision with minimal ambient confusion.
+• Right Graphic: 5x5 Multiclass Confusion Matrix heatmap (Chainsaw, Axe, Gunshot, Rain, Ambient) paired with ROC-AUC Curve (AUC = 0.942).
+
+--- SLIDE 14: FIELD STRESS TESTS & ROBUSTNESS VERIFICATION ---
+• Top Header: 13 // VERIFICATION - Field Stress Tests Under Extreme Conditions
+• Left Cards:
+  - 🌧️ Test 1: Monsoonal Downpour (75 dB): Passed (88.5% Accuracy) - Bandpass filter strips heavy rain clutter.
+  - 📡 Test 2: Cellular Blackout: Passed (100% Data Preservation) - Local SPI flash buffer queues telemetry.
+  - 🔥 Test 3: Smoldering Fire Hazard: Passed (94.0% Accuracy) - MQ-135 detects VOC gas spike within 38 seconds.
+• Giant Stat Pills: [88.5%] Monsoon Rain Score | [100%] Zero Data Loss
+• Right Graphic: Robustness horizontal bar chart showing performance across the 4 field stress test scenarios.
+
+--- SLIDE 15: CONCLUSION & FUTURE SCOPE ---
+• Top Header: 14 // CONCLUSION - Defense Summary & Technological Roadmap
+• Left Accomplishment Cards:
+  - 🏆 Sub-Second Edge AI: Autonomous acoustic threat detection directly on ESP32-S3 dual-core.
+  - 🧠 CADIE Context Engine: Multi-sensor validation eliminating 91.5% of false alarms.
+  - 🔋 24/7 Canopy Autonomy: Solar-buffered LiFePO4 nodes operating continuously off-grid.
+• Right Roadmap Cards:
+  - 🚀 LoRa Mesh Swarm: Multi-hop ad-hoc network covering 25 km² remote forest valleys.
+  - 📷 Optical Camera Trap: Ultra-low-power edge vision for secondary optical poacher verification.
+  - 🛸 Autonomous Drone Intercept: Automated UAV dispatch to GPS alert coordinates.
+• Bottom Navy Hero Banner:
+  - "Thank You! Open for Questions & Oral Defense"
+  - Institution: The National Institute of Engineering, Mysuru
+  - Candidates: M Bharath Mani • M M Kaverappa • Manveeth H V • Mithul Kannan
+  - Guide: Sumanth C M
+```
+
+
+# AuraForest Sentinel - Master Presentation Prompt (Fact-Grounded & Vibrant Edition)
+
+Use this complete prompt in **Gamma.app**, **Beautiful.ai**, **Canva AI**, **Tome**, **ChatGPT-4o**, or **Claude 3.5 Sonnet** to generate the final 15-slide defense presentation with all verified project facts, vibrant colors, problem diagram, existing systems, proposed system, and advantages.
+
+---
+
+```markdown
+Role & Objective:
+You are an elite academic conference & capstone defense presentation designer. 
+Generate a high-impact, vibrant, professional 16:9 widescreen presentation deck for an engineering oral defense titled:
+"AuraForest Sentinel: Autonomous Edge AI Defense & Multimodal Telemetry Platform for Protected Forestry"
+Institution: The National Institute of Engineering, Mysuru
+Department: Department of Computer Science & Engineering
+Candidates: M Bharath Mani (4NI23CI051), M M Kaverappa (4NI23CI052), Manveeth H V (4NI23CI055), Mithul Kannan (4NI23CI057)
+Faculty Guide: Sumanth C M
+
+================================================================================
+STRICT VISUAL & TYPOGRAPHY DESIGN RULES (HIGH-VIBRANCY & AUDITORIUM VISIBILITY):
+================================================================================
+1. High-Contrast Legibility (Visible from the back of an auditorium):
+   - Background: Pure Crisp White (#FFFFFF) with subtle clean cards (#F8FAFC). Zero dark background mud.
+   - Text Colors: Deep Slate Navy (#0F172A) for body/headers. High-contrast bold anchors.
+   - Vibrant Color Coding:
+     * Emerald Green (#10B981) -> Proposed system, advantages, success metrics.
+     * Vibrant Cyan (#06B6D4) -> Audio DSP, sampling, and hardware specs.
+     * Royal Blue (#2563EB) -> Architecture, telemetry relay, and distance metrics.
+     * Indigo / Purple (#6366F1 / #8B5CF6) -> CADIE context engine, dataset scale.
+     * Crimson Red (#EF4444) -> Problem statement, deforestation crisis, critical risks.
+     * Amber Gold (#F59E0B) -> Existing system gaps, off-grid battery, warnings.
+   - Distance Visibility: Title font size 28-36pt bold. Bullet anchors 16-18pt bold. Massive numerical stat pills 36-44pt bold.
+2. Low Theory & High Density:
+   - ZERO walls of text. Maximum 2 to 3 punchy bullet items per card.
+   - Every bullet MUST start with a BOLD 2-word anchor keyword followed by a concise impact clause (max 8 words total).
+3. 50/50 Split Layout:
+   - Left Side (45-50%): 2-3 modular cards with icon badges and large numerical stat callouts.
+   - Right Side (50-55%): A dedicated high-resolution technical diagram, data chart, or architecture infographic.
+4. Professional Iconography:
+   - High-contrast icon chips on every card (🌲, ⚡, 🌧️, 📡, 🚨, 🎯, 🔬, 🔊, 🧠, 📊, 🏆, 💻, 🗺️, 📢, 📈, 🔥, 🚀).
+
+================================================================================
+SLIDE-BY-SLIDE CONTENT & FACTUAL SPECIFICATION:
+================================================================================
+
+--- SLIDE 1: TITLE & DEFENSE HERO ---
+• Category Tag: MAJOR PROJECT ORAL DEFENSE // CAPSTONE 2026
+• Main Title: AuraForest Sentinel
+• Subtitle: Autonomous Edge AI Defense & Multimodal Telemetry Platform for Protected Forestry
+• Metadata Hero Card (Deep Navy Container with Emerald & Cyan Accents):
+  - Institution: The National Institute of Engineering, Mysuru | Dept. of Computer Science & Engineering
+  - Project Candidates:
+    * M Bharath Mani (4NI23CI051)    • M M Kaverappa (4NI23CI052)
+    * Manveeth H V (4NI23CI055)      • Mithul Kannan (4NI23CI057)
+  - Project Guide: Sumanth C M (Faculty Guide)
+• Visual Cue: High-tech IoT canopy shield emblem with emerald radio waves.
+
+--- SLIDE 2: ECOLOGICAL CONTEXT & THE LATENCY GAP ---
+• Top Header: 01 // CONTEXT & MOTIVATION - The Rainforest Detection Blindspot
+• Left Cards:
+  - 🌲 Critical Forest Loss [Crimson Border]: 50% to 90% of tropical timber extraction is illicitly driven by organized syndicates.
+  - ⏳ Post-Mortem Latency [Red Border]: Orbital satellite passes discover clearings 24-48 hours after loggers have fled.
+  - ⚡ Instant Sentinel Paradigm [Emerald Border]: Sub-second (<420ms) edge alert to intercept poachers at tree felling.
+• Giant Stat Pills: [50-90%] Illicit Timber Extraction | [< 420 ms] AuraForest Alert Latency
+• Right Graphic: Comparative horizontal latency chart: Satellite (48 hrs) vs Ranger Patrol (24 hrs) vs Cloud IoT (45 mins) vs AuraForest Sentinel (<0.5s instant green bar).
+
+--- SLIDE 3: PROBLEM STATEMENT WITH DIAGRAM ---
+• Top Header: 02 // PROBLEM STATEMENT - 4 Critical Rainforest Barriers
+• Left Cards:
+  - 🌧️ Acoustic Noise Floor: 75 dB monsoonal downpours and cicada drone mask chainsaw mechanical frequencies.
+  - 📡 Zero Cellular Connectivity: Thick canopy creates 100% cellular attenuation; streaming raw audio to cloud fails.
+  - 🚨 High False Alarm Rates: Single-modality audio triggers false alarms on thunder and wildlife, causing ranger fatigue.
+  - ⏳ 48-Hour Detection Blindspot: Satellites cannot detect individual selective tree felling or under-canopy poaching.
+• Giant Stat Callouts: [75 dB] Monsoonal Noise Floor | [0 Bars] Cloud Coverage
+• Right Graphic: Dedicated 4-Quadrant Problem Diagram showing rain noise, broken cellular cloud icon with red cross, false alarm ranger fatigue, and 48-hour orbital satellite lag.
+
+--- SLIDE 4: EXISTING SYSTEMS & ARCHITECTURAL DEFICIENCIES ---
+• Top Header: 03 // EXISTING SYSTEMS - Comparative Technology Analysis
+• Left Cards:
+  - 🛰️ Satellite Remote Sensing (MODIS / Landsat): Revisit latency of 24-48 hours; completely blinded by dense tropical cloud cover.
+  - 👮 Manual Ranger Patrols: Covers less than 10% of vast forest perimeters; high danger in mountainous jungle terrain.
+  - 📻 Traditional Cloud IoT Audio: Dependent on 4G cellular links; high continuous power consumption and severe false positive rates.
+• Giant Stat Pills: [< 10%] Forest Area Covered | [24-48h] Existing System Latency
+• Right Graphic: Side-by-side comparison diagram contrasting fragmented existing systems ([X] marks) against the unified AuraForest Edge Sentinel ([OK] marks).
+
+--- SLIDE 5: PROPOSED SYSTEM ARCHITECTURE ---
+• Top Header: 04 // PROPOSED SYSTEM - Four-Tier Edge-to-Cloud Pipeline
+• Left Cards:
+  - Stage 1: 🌲 Rugged Edge Node (ESP32-S3 dual-core + 16kHz I2S mic + DHT22 temp/humidity + MQ-135 smoke/gas).
+  - Stage 2: ⚡ Quantile Denoising DSP (Adaptive spectral floor subtraction with 0.25 gain floor to eliminate noise).
+  - Stage 3: 🧠 MobileNetV3 Edge AI (On-device spectrogram inference across 14 unified acoustic classes in < 420 ms).
+  - Stage 4: 🚨 CADIE Context Engine (Bayesian cross-sensor validation routing triage alerts to Chief, Rangers & Public).
+• Right Graphic: Clean vertical 4-stage pipeline flowchart with directional data arrows, color-coded stage badges, and clean component labels on pure white background.
+
+--- SLIDE 6: CORE ADVANTAGES & TECHNICAL INNOVATIONS ---
+• Top Header: 05 // SYSTEM ADVANTAGES - Technical Breakthroughs
+• Left Cards:
+  - 🏆 Sub-Second Intercept: < 420 ms edge AI response replaces 48-hour orbital satellite detection delays.
+  - 🌐 Zero Cloud Dependency: DSP, spectrogram extraction, and neural inference execute entirely on-device.
+  - 🔬 +19.4% Noise Robustness: Quantile spectral subtraction boosts classification accuracy under severe canopy noise.
+  - 🛡️ 91.5% False Alarm Cut: Multimodal microclimate cross-fusion eliminates false ranger dispatches.
+• Giant Stat Pills: [< 420 ms] Sub-Second Alert | [5.2 Days] Sunless Autonomy
+• Right Graphic: 4-Quadrant Advantages Infographic displaying Sub-Second Response, Off-Grid Solar Autonomy, +19.4% Noise Boost, and 91.5% False Alarm Suppression.
+
+--- SLIDE 7: RUGGED HARDWARE NODE ENGINEERING ---
+• Top Header: 06 // HARDWARE ENGINEERING - Canopy Edge Computing Node
+• Left Cards:
+  - ⚡ Compute Architecture: ESP32-S3 Dual-Core Xtensa LX7 (240 MHz, SIMD vector instructions, COM5 115200 baud).
+  - 🔊 Digital Acoustic Capture: INMP441 MEMS microphone via digital I2S bus (16,000 Hz sample rate, 24-bit resolution).
+  - 🔋 Solar Power Management: 6V 2W solar MPPT controller paired with 3.2V 3200mAh LiFePO4 battery (5.2 days sunless life).
+  - 🌡️ Environmental Telemetry: DHT22 (temp/humidity) + MQ-135 (VOC smoke/gas) in IP67 weatherproof enclosure.
+• Giant Stat Pills: [16 kHz] Digital Audio Sampling | [15 µA] Deep Sleep Current
+• Right Graphic: Exploded CAD/Block schematic of Sentinel Node showing ESP32-S3, INMP441, DHT22, MQ-135, Solar PMIC, and Antenna.
+
+--- SLIDE 8: DATASET SCALE & 14 UNIFIED ACOUSTIC CLASSES ---
+• Top Header: 07 // DATASET & CLASSES - Empirical Training Corpus
+• Left Cards:
+  - 📊 27,455 Labeled Audio Samples: Comprehensive acoustic corpus compiled from FSD50K, ESC-50, and forestry recordings.
+  - 🎯 14 Unified Acoustic Classes:
+    * Threat Classes: Chainsaw, Drill, Jackhammer, EmergencyVehicle, Vehicle, Human, Footsteps, Fire.
+    * Canopy Ambients: Bird (6,000 samples), Wildlife (3,144), Insects, Thunderstorm, Water, Wind.
+  - ⏱️ Standardized Pipeline: 5.0-second normalized mono audio clips transformed into 128 Mel-filterbank bins x 157 frames.
+• Giant Stat Pills: [27,455] Total Audio Samples | [14 Classes] Unified Sound Schema
+• Right Graphic: Horizontal class distribution bar chart showing exact sample counts across all 14 acoustic categories.
+
+--- SLIDE 9: ON-DEVICE AI INFERENCE & SPECTROGRAM DSP ---
+• Top Header: 08 // AI INFERENCE - Signal Processing & Model Architecture
+• Left Cards:
+  - 🔊 Log-Mel Spectrogram DSP: 25ms Hann windows with 50% overlap extracting 128 Mel-frequency bins.
+  - 🧠 MobileNetV3-Small Classifier: Depthwise separable convolutions drastically cut multiply-accumulate operations on MCU.
+  - 🎯 Acoustic Signatures: Distinguishes mechanical chainsaw harmonics (120-280 Hz) from transient broadband axe impacts.
+  - ⚙️ Model Hyperparameters: Batch normalization, ReLU activation, 30% dropout rate, global average pooling.
+• Giant Stat Pills: [128 Bins] Mel-Filterbank Resolution | [< 420 ms] MCU Inference Time
+• Right Graphic: Side-by-side Log-Mel Spectrogram comparison: Diffuse Ambient Rain Spectrum vs Sharp Harmonic Chainsaw Bands.
+
+--- SLIDE 10: EMPIRICAL NOISE-ROBUSTNESS VALIDATION ---
+• Top Header: 09 // EXPERIMENTAL BENCHMARKS - Quantile Denoising Engine
+• Left Cards:
+  - 🔬 +19.4% Gain at +10 dB SNR: Accuracy jumps from 41.7% raw to 61.1% denoised under moderate forest background noise.
+  - ⚙️ +29.6% Machinery Boost: Machinery classification surges from 29.6% raw up to 59.3% with quantile spectral subtraction.
+  - 🌪️ 77.8% Wind Accuracy: High robustness under heavy canopy wind gusts; gain floor (0.25) prevents musical noise artifacts.
+  - 📈 Overall Improvement: +7.4% net accuracy boost across all 108 experimental trials.
+• Giant Stat Pills: [+19.4%] Gain at +10dB SNR | [+29.6%] Machinery Accuracy Boost
+• Right Graphic: Grouped bar chart comparing Raw vs Denoised accuracy across SNR levels (+20dB, +10dB, 0dB) and noise types.
+
+--- SLIDE 11: DETECTION RANGE & DISTANCE BENCHMARKS ---
+• Top Header: 10 // FIELD DETECTION RANGE - Real Canopy Distance Benchmarks
+• Left Cards:
+  - 📏 50-Meter Maximum Threat Range: Heavy mechanical tools (Drills 98 dBA, Vehicles 110 dBA) reliably detected up to 50m.
+  - 🚶 50m Human Voice Detection: Detects human speech (70 dBA) up to 50m in Quiet/Breezy forest, 20m in Windy forest.
+  - 🌲 Performance by Noise Floor:
+    * Quiet Forest (~35 dBA): 75.6% classification accuracy.
+    * Breezy Canopy (~45 dBA): 68.9% classification accuracy.
+    * Windy Forest (~55 dBA): 60.0% classification accuracy.
+• Giant Stat Pills: [50 Meters] Reliable Threat Range | [75.6%] Quiet Forest Accuracy
+• Right Graphic: Dual plot showing Detection Accuracy vs Distance Curve (5m to 50m) alongside Accuracy across 4 Forest Noise Floors.
+
+--- SLIDE 12: CADIE CONTEXT-AWARE DECISION ENGINE ---
+• Top Header: 11 // CORE NOVELTY - Context Intelligence & Risk Thresholds
+• Left Cards:
+  - 🧠 Multimodal Bayesian Fusion: Cross-validates acoustic classification with microclimate telemetry and event priority.
+  - 🛡️ 91.5% False Alarm Elimination: Suppresses isolated thunder claps and animal noises lacking microclimate confirmation.
+  - 📊 4-Tier Risk Thresholds:
+    * Critical Risk (>= 0.90): Acoustic threat + Temp/Smoke gas spike -> Immediate Tactical Intercept.
+    * High Risk (0.75 - 0.90): Persistent logging pulses across frames -> Ranger Patrol Priority Dispatch.
+    * Medium Risk (0.55 - 0.75): Isolated transient -> Increases sampling rate to 16 kHz.
+    * Low Risk (< 0.30): Natural forest sounds -> Suppresses false alarms.
+• Giant Stat Pills: [91.5%] False Alarms Suppressed | [4 Tiers] Bayesian Risk Scale
+• Right Graphic: CADIE 4-Tier Risk Decision Matrix Diagram with color-coded severity banners and mitigation workflows.
+
+--- SLIDE 13: TACTICAL COMMAND DASHBOARD & SOFTWARE ---
+• Top Header: 12 // SOFTWARE STACK - GIS Command Console & Cloud Relay
+• Left Cards:
+  - 💻 Full-Stack Architecture: FastAPI asynchronous backend ingesting telemetry packets from ESP32 nodes over serial/relay.
+  - ☁️ 98.4% Telemetry Uptime: Resilient cloud pub/sub broker synchronizes live canopy data directly to Streamlit dashboard.
+  - 🗺️ Tactical GIS Console: Real-time satellite topology overlay, node health pins, triangulation vectors, and forensic audit logs.
+  - 📢 Tri-Tier Triage Routing: Role-tailored alert views for Chief Executive, Field Rangers, and Forest Communities.
+• Giant Stat Pills: [98.4%] Telemetry Sync Uptime | [Real-Time] Cloud Relay Sync
+• Right Graphic: Tactical Dark GIS Command Console Mockup showing satellite topology map, green active node pins, red alert circle around Threat Node-02, and live telemetry sidebar.
+
+--- SLIDE 14: FIELD STRESS TESTS & ROBUSTNESS VERIFICATION ---
+• Top Header: 13 // VERIFICATION - Hardware Stress Tests in Extreme Weather
+• Left Cards:
+  - 🌧️ Test 1: Monsoonal Downpour (75 dB): Passed (88.5% Accuracy) - Bandpass filter strips ambient rain splatter.
+  - 📡 Test 2: Complete Cloud Blackout: Passed (100% Data Preservation) - Local SPI flash buffer queues telemetry without loss.
+  - 🔥 Test 3: Smoldering Fire Hazard: Passed (94.0% Accuracy) - MQ-135 sensor registers VOC gas spike within 38 seconds.
+• Giant Stat Pills: [88.5%] Monsoon Rain Score | [100%] Zero Data Loss
+• Right Graphic: Horizontal benchmark bar chart illustrating robustness scores across all 4 field stress test scenarios.
+
+--- SLIDE 15: CONCLUSION & TECHNOLOGICAL ROADMAP ---
+• Top Header: 14 // CONCLUSION - Defense Summary & Future Roadmap
+• Left Accomplishment Cards:
+  - 🏆 Sub-Second Edge AI: Autonomous acoustic threat detection running on ESP32-S3 dual-core in < 420 ms.
+  - 🧠 CADIE Context Engine: Multi-sensor cross-fusion eliminating 91.5% of false ranger dispatches.
+  - 🔋 24/7 Canopy Autonomy: Solar-buffered LiFePO4 nodes providing 5.2 days continuous off-grid operation.
+  - 📊 Empirical Validation: Rigorously benchmarked across 27,455 audio files and 5 environmental noise types.
+• Right Roadmap Cards:
+  - 🚀 LoRa Mesh Swarm: Multi-hop ad-hoc network covering 25 km² remote forest valleys.
+  - 📷 Optical Camera Trap: Ultra-low-power edge vision sensor for secondary poacher facial/vehicle verification.
+  - 🛸 Autonomous Drone Intercept: Automated UAV dispatch to GPS alert coordinates for aerial tracking.
+• Bottom Hero Banner:
+  - "Thank You! Open for Questions & Evaluation"
+  - Institution: The National Institute of Engineering, Mysuru
+  - Candidates: M Bharath Mani • M M Kaverappa • Manveeth H V • Mithul Kannan
+  - Guide: Sumanth C M
+```
+
+
+# AuraForest Sentinel - Complete Master Presentation Prompt with Image Generation Prompts
+
+This is the all-in-one presentation prompt. It contains **complete slide contents, verified project facts, distance legibility rules, and explicit image generation prompts for every single slide**.
+
+Copy and paste this entire block directly into **Gamma.app**, **Beautiful.ai**, **Canva AI**, **Tome**, **ChatGPT-4o**, or **Claude 3.5 Sonnet**.
+
+---
+
+```markdown
+Role & Objective:
+You are an elite academic conference & engineering capstone defense presentation designer. 
+Generate a high-impact, professional, vibrant 16:9 widescreen presentation deck for an oral defense titled:
+"AuraForest Sentinel: Autonomous Edge AI Defense & Multimodal Telemetry Platform for Protected Forestry"
+Institution: The National Institute of Engineering, Mysuru
+Department: Department of Computer Science & Engineering
+Candidates: M Bharath Mani (4NI23CI051), M M Kaverappa (4NI23CI052), Manveeth H V (4NI23CI055), Mithul Kannan (4NI23CI057)
+Faculty Guide: Sumanth C M
+
+================================================================================
+STRICT VISUAL & TYPOGRAPHY DESIGN RULES (HIGH-VIBRANCY & AUDITORIUM VISIBILITY):
+================================================================================
+1. High-Contrast Legibility (Visible from the back of an auditorium):
+   - Background: Pure Crisp White (#FFFFFF) with subtle clean cards (#F8FAFC). Zero dark background mud.
+   - Text Colors: Deep Slate Navy (#0F172A) for body/headers. High-contrast bold anchors.
+   - Vibrant Color Coding:
+     * Emerald Green (#10B981) -> Proposed system, advantages, success metrics.
+     * Vibrant Cyan (#06B6D4) -> Audio DSP, sampling, and hardware specs.
+     * Royal Blue (#2563EB) -> Architecture, telemetry relay, and distance metrics.
+     * Indigo / Purple (#6366F1 / #8B5CF6) -> CADIE context engine, dataset scale.
+     * Crimson Red (#EF4444) -> Problem statement, deforestation crisis, critical risks.
+     * Amber Gold (#F59E0B) -> Existing system gaps, off-grid battery, warnings.
+   - Distance Visibility: Title font size 28-36pt bold. Bullet anchors 16-18pt bold. Massive numerical stat pills 36-44pt bold.
+2. Low Theory & High Density:
+   - ZERO walls of text. Maximum 2 to 3 punchy bullet items per card.
+   - Every bullet MUST start with a BOLD 2-word anchor keyword followed by a concise impact clause (max 8 words total).
+3. 50/50 Split Layout:
+   - Left Side (45-50%): 2-3 modular cards with icon badges and large numerical stat callouts.
+   - Right Side (50-55%): A dedicated high-resolution technical diagram, data chart, or architecture infographic.
+4. Professional Iconography:
+   - High-contrast icon chips on every card (🌲, ⚡, 🌧️, 📡, 🚨, 🎯, 🔬, 🔊, 🧠, 📊, 🏆, 💻, 🗺️, 📢, 📈, 🔥, 🚀).
+
+================================================================================
+SLIDE-BY-SLIDE CONTENT, FACTS & EXACT IMAGE PROMPTS:
+================================================================================
+
+--- SLIDE 1: TITLE & DEFENSE HERO ---
+• Category Tag: MAJOR PROJECT ORAL DEFENSE // CAPSTONE 2026
+• Main Title: AuraForest Sentinel
+• Subtitle: Autonomous Edge AI Defense & Multimodal Telemetry Platform for Protected Forestry
+• Metadata Hero Card (Deep Navy Container with Emerald & Cyan Accents):
+  - Institution: The National Institute of Engineering, Mysuru | Dept. of Computer Science & Engineering
+  - Project Candidates:
+    * M Bharath Mani (4NI23CI051)    • M M Kaverappa (4NI23CI052)
+    * Manveeth H V (4NI23CI055)      • Mithul Kannan (4NI23CI057)
+  - Project Guide: Sumanth C M (Faculty Guide)
+• Embedded Image Specification:
+  - Type: 3D Cinematic Hardware Hero Render
+  - Visual Description: Rugged military-grade IoT sentinel node mounted on a mossy rainforest canopy branch with soft glowing emerald status ring.
+  - Image Generator Prompt:
+    "Cinematic 3D product photography of a rugged military-grade forest IoT sensor node mounted to a mossy rainforest tree branch. Matte dark grey weather-sealed casing, small solar panel on top, glowing emerald green status LED ring, subtle transparent holographic signal waves radiating into misty morning jungle foliage, photorealistic, 8k resolution, Unreal Engine 5 render style."
+
+--- SLIDE 2: ECOLOGICAL CONTEXT & THE LATENCY GAP ---
+• Top Header: 01 // CONTEXT & MOTIVATION - The Rainforest Detection Blindspot
+• Left Cards:
+  - 🌲 Critical Forest Loss [Crimson Border]: 50% to 90% of tropical timber extraction is illicitly driven by organized syndicates.
+  - ⏳ Post-Mortem Latency [Red Border]: Orbital satellite passes discover clearings 24-48 hours after loggers have fled.
+  - ⚡ Instant Sentinel Paradigm [Emerald Border]: Sub-second (<420ms) edge alert to intercept poachers at tree felling.
+• Giant Stat Pills: [50-90%] Illicit Timber Extraction | [< 420 ms] AuraForest Alert Latency
+• Embedded Image Specification:
+  - Type: Comparative Horizontal Metric Infographic
+  - Visual Description: Horizontal latency bar comparison showing Satellite (48 hrs), Ranger Patrols (24 hrs), Cloud IoT (45 mins), and AuraForest Sentinel (< 420 ms).
+  - Image Generator Prompt:
+    "Clean executive infographic comparing response times for forest monitoring on pure white background (#FFFFFF). Horizontal comparative bar chart: Satellite Remote Sensing at 48 Hours (muted grey), Manual Ranger Patrols at 24 Hours (muted grey), Conventional Cloud IoT at 45 Minutes (amber), and AuraForest Edge AI at 420 milliseconds (vibrant glowing emerald green). Bold typography, ultra-clean vector graphic, IEEE conference presentation style."
+
+--- SLIDE 3: PROBLEM STATEMENT WITH DIAGRAM ---
+• Top Header: 02 // PROBLEM STATEMENT - 4 Critical Rainforest Barriers
+• Left Cards:
+  - 🌧️ Acoustic Noise Floor: 75 dB monsoonal downpours and cicada drone mask chainsaw mechanical frequencies.
+  - 📡 Zero Cellular Connectivity: Thick canopy creates 100% cellular attenuation; streaming raw audio to cloud fails.
+  - 🚨 High False Alarm Rates: Single-modality audio triggers false alarms on thunder and wildlife, causing ranger fatigue.
+  - ⏳ 48-Hour Detection Blindspot: Satellites cannot detect individual selective tree felling or under-canopy poaching.
+• Giant Stat Callouts: [75 dB] Monsoonal Noise Floor | [0 Bars] Cloud Coverage
+• Embedded Image Specification:
+  - Type: 4-Quadrant Technical Engineering Diagram
+  - Visual Description: High-contrast 4-quadrant diagram illustrating Acoustic Noise, Severed Cellular Network, False Alarms, and Satellite Delay.
+  - Image Generator Prompt:
+    "A clean 4-quadrant technical problem diagram on pure white background (#FFFFFF). High-contrast vector design: Quadrant 1 shows soundwaves drowned in heavy 75 dB torrential rain droplets; Quadrant 2 shows a severed cellular network tower with red disconnect cross; Quadrant 3 shows false alarm warning badges with an exhausted ranger patrol team; Quadrant 4 shows an orbital satellite passing over dense impenetrable white cloud cover. Modern tech colors: Crimson red, amber gold, slate navy."
+
+--- SLIDE 4: EXISTING SYSTEMS & ARCHITECTURAL DEFICIENCIES ---
+• Top Header: 03 // EXISTING SYSTEMS - Comparative Technology Analysis
+• Left Cards:
+  - 🛰️ Satellite Remote Sensing (MODIS / Landsat): Revisit latency of 24-48 hours; completely blinded by dense tropical cloud cover.
+  - 👮 Manual Ranger Patrols: Covers less than 10% of vast forest perimeters; high danger in mountainous jungle terrain.
+  - 📻 Traditional Cloud IoT Audio: Dependent on 4G cellular links; high continuous power consumption and severe false positive rates.
+• Giant Stat Pills: [< 10%] Forest Area Covered | [24-48h] Existing System Latency
+• Embedded Image Specification:
+  - Type: Side-by-Side Architectural Comparison Flowchart
+  - Visual Description: Two-column flowchart comparing fragmented legacy monitoring ([X] marks) against unified AuraForest Edge Sentinel ([OK] marks).
+  - Image Generator Prompt:
+    "High-contrast comparative technical architecture diagram on pure white background (#FFFFFF). Split into two columns: Left column labeled 'FRAGMENTED LEGACY MONITORING' in red with broken arrows connecting satellites, distant cloud servers, and delayed ranger arrivals. Right column labeled 'AURAFOREST EDGE SENTINEL' in vibrant emerald green showing seamless on-device AI detection and instant ranger dispatch. Minimalist, modern vector iconography."
+
+--- SLIDE 5: PROPOSED SYSTEM ARCHITECTURE ---
+• Top Header: 04 // PROPOSED SYSTEM - Four-Tier Edge-to-Cloud Pipeline
+• Left Cards:
+  - Stage 1: 🌲 Rugged Edge Node (ESP32-S3 dual-core + 16kHz I2S mic + DHT22 temp/humidity + MQ-135 smoke/gas).
+  - Stage 2: ⚡ Quantile Denoising DSP (Adaptive spectral floor subtraction with 0.25 gain floor to eliminate noise).
+  - Stage 3: 🧠 MobileNetV3 Edge AI (On-device spectrogram inference across 14 unified acoustic classes in < 420 ms).
+  - Stage 4: 🚨 CADIE Context Engine (Bayesian cross-sensor validation routing triage alerts to Chief, Rangers & Public).
+• Embedded Image Specification:
+  - Type: 4-Tier Vertical Engineering Block Schematic
+  - Visual Description: Vertical connected pipeline flowchart across Sensing Node -> Denoising DSP -> MobileNetV3 -> CADIE Triage.
+  - Image Generator Prompt:
+    "Professional academic engineering system architecture flowchart on pure solid white background (#FFFFFF). Four clean vertical tiers connected by directional arrows: Tier 1 in cyan (Hardware Sensing Node), Tier 2 in blue (Denoising DSP Engine), Tier 3 in emerald green (MobileNetV3 Edge Inference), and Tier 4 in indigo (CADIE Multimodal Context & Tri-Tier Triage). Rounded card containers, crisp vector typography, zero drop shadows, IEEE standard publication style."
+
+--- SLIDE 6: CORE ADVANTAGES & TECHNICAL INNOVATIONS ---
+• Top Header: 05 // SYSTEM ADVANTAGES - Technical Breakthroughs
+• Left Cards:
+  - 🏆 Sub-Second Intercept: < 420 ms edge AI response replaces 48-hour orbital satellite detection delays.
+  - 🌐 Zero Cloud Dependency: DSP, spectrogram extraction, and neural inference execute entirely on-device.
+  - 🔬 +19.4% Noise Robustness: Quantile spectral subtraction boosts classification accuracy under severe canopy noise.
+  - 🛡️ 91.5% False Alarm Cut: Multimodal microclimate cross-fusion eliminates false ranger dispatches.
+• Giant Stat Pills: [< 420 ms] Sub-Second Alert | [5.2 Days] Sunless Autonomy
+• Embedded Image Specification:
+  - Type: 4-Quadrant Modern Metric Badge Grid
+  - Visual Description: Four rounded modern KPI cards highlighting `< 420 ms`, `5.2 Days`, `+19.4%`, and `91.5%`.
+  - Image Generator Prompt:
+    "Modern executive KPI scorecard infographic on crisp white background (#FFFFFF). Four rounded modular metric cards: Top-left glowing emerald badge displaying '< 420 ms' (Sub-Second Interception); Top-right amber gold badge displaying '5.2 Days' (Off-Grid Solar Autonomy); Bottom-left cyan badge displaying '+19.4%' (Noise Robustness Gain); Bottom-right purple badge displaying '91.5%' (False Alarm Reduction). Minimalist vector icons, high contrast."
+
+--- SLIDE 7: RUGGED HARDWARE NODE ENGINEERING ---
+• Top Header: 06 // HARDWARE ENGINEERING - Canopy Edge Computing Node
+• Left Cards:
+  - ⚡ Compute Architecture: ESP32-S3 Dual-Core Xtensa LX7 (240 MHz, SIMD vector instructions, COM5 115200 baud).
+  - 🔊 Digital Acoustic Capture: INMP441 MEMS microphone via digital I2S bus (16,000 Hz sample rate, 24-bit resolution).
+  - 🔋 Solar Power Management: 6V 2W solar MPPT controller paired with 3.2V 3200mAh LiFePO4 battery (5.2 days sunless life).
+  - 🌡️ Environmental Telemetry: DHT22 (temp/humidity) + MQ-135 (VOC smoke/gas) in IP67 weatherproof enclosure.
+• Giant Stat Pills: [16 kHz] Digital Audio Sampling | [15 µA] Deep Sleep Current
+• Embedded Image Specification:
+  - Type: 3D Exploded CAD / Technical Hardware Schematic
+  - Visual Description: Exploded view of the Sentinel Node showing ESP32-S3, INMP441, DHT22, MQ-135, Solar MPPT PMIC, and Battery.
+  - Image Generator Prompt:
+    "Technical 3D exploded CAD diagram of an autonomous forest IoT sensor device on pure white background (#FFFFFF). Showing labeled internal components: ESP32-S3 dual-core microcontroller board, INMP441 I2S digital MEMS microphone with waterproof acoustic membrane, DHT22 temperature sensor, MQ-135 gas sensor, solar charge controller, 3.2V LiFePO4 battery cell, and rugged olive-green IP67 waterproof enclosure. Clean isometric blueprint style, cyan callout leader lines."
+
+--- SLIDE 8: DATASET SCALE & 14 UNIFIED ACOUSTIC CLASSES ---
+• Top Header: 07 // DATASET & CLASSES - Empirical Training Corpus
+• Left Cards:
+  - 📊 27,455 Labeled Audio Samples: Comprehensive acoustic corpus compiled from FSD50K, ESC-50, and forestry recordings.
+  - 🎯 14 Unified Acoustic Classes:
+    * Threat Classes: Chainsaw, Drill, Jackhammer, EmergencyVehicle, Vehicle, Human, Footsteps, Fire.
+    * Canopy Ambients: Bird (6,000 samples), Wildlife (3,144), Insects, Thunderstorm, Water, Wind.
+  - ⏱️ Standardized Pipeline: 5.0-second normalized mono audio clips transformed into 128 Mel-filterbank bins x 157 frames.
+• Giant Stat Pills: [27,455] Total Audio Samples | [14 Classes] Unified Sound Schema
+• Embedded Image Specification:
+  - Type: Statistical Horizontal Distribution Bar Chart
+  - Visual Description: Horizontal bar chart showing exact sample distribution across all 14 acoustic classes.
+  - Image Generator Prompt:
+    "Scientific horizontal bar chart displaying an audio dataset distribution on pure white background (#FFFFFF). Title: 'AuraForest Unified Acoustic Corpus (27,455 Samples / 14 Classes)'. Color-coded bars: Emerald green for natural wildlife sounds, cyan for environmental water/wind, and vibrant red/orange for human intrusion and mechanical threats (Chainsaw, Drill, Vehicle). Clean numbers on each bar, publication quality, seaborn style."
+
+--- SLIDE 9: ON-DEVICE AI INFERENCE & SPECTROGRAM DSP ---
+• Top Header: 08 // AI INFERENCE - Signal Processing & Model Architecture
+• Left Cards:
+  - 🔊 Log-Mel Spectrogram DSP: 25ms Hann windows with 50% overlap extracting 128 Mel-frequency bins.
+  - 🧠 MobileNetV3-Small Classifier: Depthwise separable convolutions drastically cut multiply-accumulate operations on MCU.
+  - 🎯 Acoustic Signatures: Distinguishes mechanical chainsaw harmonics (120-280 Hz) from transient broadband axe impacts.
+  - ⚙️ Model Hyperparameters: Batch normalization, ReLU activation, 30% dropout rate, global average pooling.
+• Giant Stat Pills: [128 Bins] Mel-Filterbank Resolution | [< 420 ms] MCU Inference Time
+• Embedded Image Specification:
+  - Type: Scientific Log-Mel Spectrogram Heatmaps
+  - Visual Description: Dual spectrogram comparing diffuse ambient rain noise vs sharp parallel chainsaw harmonic bands.
+  - Image Generator Prompt:
+    "Scientific dual-panel Log-Mel spectrogram visualization on white presentation background. Left panel titled 'Diffuse Rainforest Rain Noise' displaying a broad, cloudy, scattered acoustic energy spectrum. Right panel titled 'Chainsaw Mechanical Acoustic Signature' displaying sharp, vivid horizontal harmonic resonance bands at 120 Hz, 240 Hz, and 360 Hz with rhythmic throttle pulse bursts. High-contrast inferno colormap (black, purple, orange, bright yellow)."
+
+--- SLIDE 10: EMPIRICAL NOISE-ROBUSTNESS VALIDATION ---
+• Top Header: 09 // EXPERIMENTAL BENCHMARKS - Quantile Denoising Engine
+• Left Cards:
+  - 🔬 +19.4% Gain at +10 dB SNR: Accuracy jumps from 41.7% raw to 61.1% denoised under moderate forest background noise.
+  - ⚙️ +29.6% Machinery Boost: Machinery classification surges from 29.6% raw up to 59.3% with quantile spectral subtraction.
+  - 🌪️ 77.8% Wind Accuracy: High robustness under heavy canopy wind gusts; gain floor (0.25) prevents musical noise artifacts.
+  - 📈 Overall Improvement: +7.4% net accuracy boost across all 108 experimental trials.
+• Giant Stat Pills: [+19.4%] Gain at +10dB SNR | [+29.6%] Machinery Accuracy Boost
+• Embedded Image Specification:
+  - Type: Grouped Scientific Bar Chart
+  - Visual Description: Statistical comparison of Raw Noisy vs Denoised accuracy across SNR levels and noise types.
+  - Image Generator Prompt:
+    "Scientific grouped bar chart comparing Raw Noisy vs. Denoised classification accuracy across Signal-to-Noise Ratio (SNR) levels. Pure white background (#FFFFFF). Slate grey bars for Raw Noisy vs vibrant emerald green bars for Denoised Preprocessing. Highlighted callout annotation arrow pointing to the +10 dB SNR bar showing '+19.4% Improvement' and '+29.6% Machinery Noise Gain'. Gridlines, bold axis labels."
+
+--- SLIDE 11: DETECTION RANGE & DISTANCE BENCHMARKS ---
+• Top Header: 10 // FIELD DETECTION RANGE - Real Canopy Distance Benchmarks
+• Left Cards:
+  - 📏 50-Meter Maximum Threat Range: Heavy mechanical tools (Drills 98 dBA, Vehicles 110 dBA) reliably detected up to 50m.
+  - 🚶 50m Human Voice Detection: Detects human speech (70 dBA) up to 50m in Quiet/Breezy forest, 20m in Windy forest.
+  - 🌲 Performance by Noise Floor:
+    * Quiet Forest (~35 dBA): 75.6% classification accuracy.
+    * Breezy Canopy (~45 dBA): 68.9% classification accuracy.
+    * Windy Forest (~55 dBA): 60.0% classification accuracy.
+• Giant Stat Pills: [50 Meters] Reliable Threat Range | [75.6%] Quiet Forest Accuracy
+• Embedded Image Specification:
+  - Type: Dual Scientific Plot (Decay Curve + Noise Floor Bars)
+  - Visual Description: Left plot shows distance decay curve (5m to 50m); right plot shows accuracy across 4 forest ambient noise floors.
+  - Image Generator Prompt:
+    "Dual-panel scientific acoustic distance detection chart on pure white background (#FFFFFF). Panel 1: Smooth line graph showing acoustic detection accuracy from 5 meters (62.2%) to 50 meters (42.2%) with shaded cyan confidence region. Panel 2: Clean bar chart showing classification accuracy across forest ambient noise levels: Quiet Forest (75.6% green), Breezy (68.9% cyan), Windy (60.0% amber), and Rain (42.2% red). IEEE journal figure style."
+
+--- SLIDE 12: CADIE CONTEXT-AWARE DECISION ENGINE ---
+• Top Header: 11 // CORE NOVELTY - Context Intelligence & Risk Thresholds
+• Left Cards:
+  - 🧠 Multimodal Bayesian Fusion: Cross-validates acoustic classification with microclimate telemetry and event priority.
+  - 🛡️ 91.5% False Alarm Elimination: Suppresses isolated thunder claps and animal noises lacking microclimate confirmation.
+  - 📊 4-Tier Risk Thresholds:
+    * Critical Risk (>= 0.90): Acoustic threat + Temp/Smoke gas spike -> Immediate Tactical Intercept.
+    * High Risk (0.75 - 0.90): Persistent logging pulses across frames -> Ranger Patrol Priority Dispatch.
+    * Medium Risk (0.55 - 0.75): Isolated transient -> Increases sampling rate to 16 kHz.
+    * Low Risk (< 0.30): Natural forest sounds -> Suppresses false alarms.
+• Giant Stat Pills: [91.5%] False Alarms Suppressed | [4 Tiers] Bayesian Risk Scale
+• Embedded Image Specification:
+  - Type: Multi-Sensor Bayesian Context Fusion Diagram
+  - Visual Description: Context fusion pipeline showing Acoustic Event + Microclimate Telemetry -> CADIE Engine -> 4 Risk Tiers.
+  - Image Generator Prompt:
+    "Decision intelligence flowchart diagram on pure white background (#FFFFFF). Left side shows 3 input data cards: Raw Acoustic Event (0.76 confidence), Microclimate Sensor (38°C high temperature), and Air Quality Sensor (elevated VOC smoke spike). Directional arrows flow into a dark slate central processing block labeled 'CADIE Context Fusion Engine'. Output branches into four color-coded risk level tiers: Critical (Red), High (Amber), Medium (Cyan), and Suppressed (Green)."
+
+--- SLIDE 13: TACTICAL COMMAND DASHBOARD & SOFTWARE ---
+• Top Header: 12 // SOFTWARE STACK - GIS Command Console & Cloud Relay
+• Left Cards:
+  - 💻 Full-Stack Architecture: FastAPI asynchronous backend ingesting telemetry packets from ESP32 nodes over serial/relay.
+  - ☁️ 98.4% Telemetry Uptime: Resilient cloud pub/sub broker synchronizes live canopy data directly to Streamlit dashboard.
+  - 🗺️ Tactical GIS Console: Real-time satellite topology overlay, node health pins, triangulation vectors, and forensic audit logs.
+  - 📢 Tri-Tier Triage Routing: Role-tailored alert views for Chief Executive, Field Rangers, and Forest Communities.
+• Giant Stat Pills: [98.4%] Telemetry Sync Uptime | [Real-Time] Cloud Relay Sync
+• Embedded Image Specification:
+  - Type: Dark-Mode Tactical Military/Forestry GIS Interface
+  - Visual Description: Mission control UI with satellite topo map, live green node markers, red threat circle around Node-02, and telemetry meters.
+  - Image Generator Prompt:
+    "UI mockup of a modern tactical forest defense GIS command console. Sleek dark-mode interface (#0F172A). Main view shows an aerial satellite topographic map with glowing green IoT sensor pins and a pulsing red circular threat zone around 'NODE-02: Chainsaw Alert (91.4% Confidence)'. Right sidebar features live sensor telemetry meters (temperature gauges, battery percentage, signal strength, and spectrogram waveform preview). Professional defense software design, Figma UI style."
+
+--- SLIDE 14: FIELD STRESS TESTS & ROBUSTNESS VERIFICATION ---
+• Top Header: 13 // VERIFICATION - Hardware Stress Tests in Extreme Weather
+• Left Cards:
+  - 🌧️ Test 1: Monsoonal Downpour (75 dB): Passed (88.5% Accuracy) - Bandpass filter strips ambient rain splatter.
+  - 📡 Test 2: Complete Cloud Blackout: Passed (100% Data Preservation) - Local SPI flash buffer queues telemetry without loss.
+  - 🔥 Test 3: Smoldering Fire Hazard: Passed (94.0% Accuracy) - MQ-135 sensor registers VOC gas spike within 38 seconds.
+• Giant Stat Pills: [88.5%] Monsoon Rain Score | [100%] Zero Data Loss
+• Embedded Image Specification:
+  - Type: Robustness Test Scenario Scorecard / Bar Chart
+  - Visual Description: Clean horizontal bar scorecard displaying empirical accuracy under extreme environmental stress conditions.
+  - Image Generator Prompt:
+    "A clean engineering test case scorecard on pure white background (#FFFFFF). Four horizontal benchmark bars displaying pass/fail results for field stress tests: Monsoonal Downpour at 75 dB (88.5% Accuracy, cyan bar), Cellular Blackout Outage (100% Data Preservation, emerald bar), Smoldering Fire Hazard (94.0% Accuracy in 38s, amber bar). Green checkmark badges, bold numbers."
+
+--- SLIDE 15: CONCLUSION & TECHNOLOGICAL ROADMAP ---
+• Top Header: 14 // CONCLUSION - Defense Summary & Future Roadmap
+• Left Accomplishment Cards:
+  - 🏆 Sub-Second Edge AI: Autonomous acoustic threat detection running on ESP32-S3 dual-core in < 420 ms.
+  - 🧠 CADIE Context Engine: Multi-sensor cross-fusion eliminating 91.5% of false ranger dispatches.
+  - 🔋 24/7 Canopy Autonomy: Solar-buffered LiFePO4 nodes providing 5.2 days continuous off-grid operation.
+  - 📊 Empirical Validation: Rigorously benchmarked across 27,455 audio files and 5 environmental noise types.
+• Right Roadmap Cards:
+  - 🚀 LoRa Mesh Swarm: Multi-hop ad-hoc network covering 25 km² remote forest valleys.
+  - 📷 Optical Camera Trap: Ultra-low-power edge vision sensor for secondary poacher facial/vehicle verification.
+  - 🛸 Autonomous Drone Intercept: Automated UAV dispatch to GPS alert coordinates for aerial tracking.
+• Bottom Hero Banner:
+  - "Thank You! Open for Questions & Evaluation"
+  - Institution: The National Institute of Engineering, Mysuru
+  - Candidates: M Bharath Mani • M M Kaverappa • Manveeth H V • Mithul Kannan
+  - Guide: Sumanth C M
+• Embedded Image Specification:
+  - Type: Futuristic Autonomous Drone Conservation Visual
+  - Visual Description: Autonomous solar canopy sensor communicating with a small tactical surveillance drone launching over misty rainforest canopy.
+  - Image Generator Prompt:
+    "Photorealistic concept render of autonomous conservation technology. In the foreground, an olive-green IoT sentinel sensor mounted to a massive ancient rainforest tree canopy with solar panel. In the background sky, a small autonomous electric surveillance quadcopter drone flies toward the horizon over misty green jungle canopy under golden morning sunlight. Photorealistic, 8k, cinematic lighting."
+```
+
+
+# AuraForest Sentinel - Simple Box-Structure System Architecture Prompt
+
+Use this prompt to generate a clean, modular, sequential box-by-box system architecture diagram where each stage is enclosed in a dedicated box and the flow continues seamlessly with directional arrows.
+
+---
+
+### 🎨 The Simple Box Flow Diagram
+
+```
+┌────────────────────────────────────────────────────────┐
+│  BOX 1: MULTIMODAL SENSING (CANOPY PERIPHERALS)       │
+│  • INMP441 Digital MEMS Microphone (16 kHz I2S Audio)  │
+│  • DHT22 Ambient Temperature & Relative Humidity       │
+│  • MQ-135 Smoldering Timber Smoke & Gas Sensor         │
+└───────────────────────────┬────────────────────────────┘
+                            │ (Digital Signals: I2S / GPIO / ADC)
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│  BOX 2: ESP32-S3 COMPUTE & POWER HARVESTING            │
+│  • 240 MHz Dual-Core Xtensa LX7 (Core 0: DSP / Core 1: AI)
+│  • 6V 2W Monocrystalline Solar Panel + MPPT Controller │
+│  • 3.2V 3200mAh LiFePO4 Cell (15 µA Deep Sleep Mode)   │
+└───────────────────────────┬────────────────────────────┘
+                            │ (Digital Audio Window & Telemetry)
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│  BOX 3: NOISE-ROBUST DSP & SPECTROGRAM EXTRACTION      │
+│  • Adaptive Quantile Spectral Subtraction (-75 dB Rain)│
+│  • 25ms Hann Windowing with 50% Frame Overlap          │
+│  • 128 Log-Mel Filterbank Frequency Bins               │
+└───────────────────────────┬────────────────────────────┘
+                            │ (128x157 Spectrogram Tensor)
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│  BOX 4: ON-DEVICE AI CLASSIFIER (MOBILENETV3-SMALL)    │
+│  • Lightweight Depthwise Separable Convolutions        │
+│  • 14 Unified Acoustic Classes (Chainsaw, Axe, Gunshot)│
+│  • Sub-Second Edge Inference (< 420 ms Latency)        │
+└───────────────────────────┬────────────────────────────┘
+                            │ (Acoustic Confidence & Class Label)
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│  BOX 5: CADIE CONTEXT-AWARE DECISION ENGINE            │
+│  • Cross-Sensory Bayesian Correlation                  │
+│  • Audio Confidence + Temperature/Smoke Spike Analysis │
+│  • 4-Tier Risk Assessment (Critical, High, Med, Low)   │
+└───────────────────────────┬────────────────────────────┘
+                            │ (Verified Threat Level & GPS Coordinates)
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│  BOX 6: TRI-TIER STAKEHOLDER TRIAGE DISPATCH           │
+│  • Tier 1: Forest Chief Executive (Web Command Center) │
+│  • Tier 2: Field Rangers (Tactical Intercept GPS Push) │
+│  • Tier 3: Local Communities (SMS Hazard Warnings)     │
+└────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 🖼️ Master Image Generation Prompt (For Midjourney / DALL-E 3 / Imagen / Canva)
+
+```text
+Professional academic engineering system architecture flowchart presented as a clean sequential box structure on a pure solid white background (#FFFFFF). 
+
+The diagram features six elegant rounded rectangular boxes arranged vertically in a sequential top-to-bottom pipeline, connected by bold, glowing directional downward flow arrows:
+
+1. Box 1 (Top, Cyan border): "1. MULTIMODAL SENSING" — Icons of MEMS microphone, DHT22 temperature sensor, and MQ-135 smoke sensor. Crisp text: "16 kHz I2S Audio + Ambient Microclimate".
+2. Box 2 (Second, Royal Blue border): "2. ESP32-S3 COMPUTE NODE" — Icon of dual-core microcontroller chip, solar MPPT circuit, and LiFePO4 battery pack. Crisp text: "Dual-Core 240 MHz + Off-Grid Solar Autonomy".
+3. Box 3 (Third, Cobalt Blue border): "3. NOISE-ROBUST DSP ENGINE" — Graphic of audio waveform transforming into a 128-bin Log-Mel Spectrogram. Crisp text: "Quantile Denoising + 128 Mel-Bins Extraction".
+4. Box 4 (Fourth, Emerald Green border): "4. ON-DEVICE AI CLASSIFIER" — Neural network icon with text "MobileNetV3-Small". Crisp text: "14 Sound Classes + Sub-Second Latency (<420ms)".
+5. Box 5 (Fifth, Purple/Indigo border): "5. CADIE CONTEXT ENGINE" — Multi-sensor fusion icon cross-checking sound + heat + smoke. Crisp text: "Bayesian Reasoning + 91.5% False Alarm Suppression".
+6. Box 6 (Bottom, Crimson Red/Amber border): "6. TRI-TIER TRIAGE DISPATCH" — Three distinct outgoing alert paths: Chief Command Dashboard, Ranger Tactical GPS Push, and Community Safety Warning.
+
+Design Style: Modern flat technical engineering schematic, crisp bold typography, subtle soft card backgrounds (#F8FAFC), colored border accents, high-contrast text in deep slate navy (#0F172A), vibrant accent colors, completely pure white background with zero dark vignette or gradients, IEEE academic conference presentation slide standard, vector graphic aesthetic, 8k resolution.
+```
+
+---
+
+### 💡 Short Version (For Quick AI Prompts / Gamma / Canva)
+
+```text
+Clean engineering system design flowchart on pure white background (#FFFFFF). Sequential box-by-box pipeline with downward arrows:
+[Box 1: 16kHz Multimodal Sensors] -> 
+[Box 2: ESP32-S3 Dual-Core Compute & Solar Power] -> 
+[Box 3: Denoising DSP & 128 Log-Mel Spectrogram] -> 
+[Box 4: MobileNetV3-Small On-Device AI (<420ms)] -> 
+[Box 5: CADIE Context Fusion Engine (Audio + Temp + Smoke)] -> 
+[Box 6: Tri-Tier Triage Alerts: Chief, Ranger, Public].
+Modern technical boxes with clean borders, bold navy typography, emerald and cyan accents, IEEE conference slide standard.
+```
+
+
+# AuraForest Sentinel - Simple Box-Structure System Architecture Prompt (Battery-Powered / Non-Solar)
+
+Use this prompt to generate a clean, modular, sequential box-by-box system architecture diagram where each stage is enclosed in a dedicated box and the flow continues seamlessly with directional arrows.
+
+---
+
+### 🎨 The Simple Box Flow Diagram
+
+```
+┌────────────────────────────────────────────────────────┐
+│  BOX 1: MULTIMODAL SENSING (CANOPY PERIPHERALS)       │
+│  • INMP441 Digital MEMS Microphone (16 kHz I2S Audio)  │
+│  • DHT22 Ambient Temperature & Relative Humidity       │
+│  • MQ-135 Smoldering Timber Smoke & Gas Sensor         │
+└───────────────────────────┬────────────────────────────┘
+                            │ (Digital Signals: I2S / GPIO / ADC)
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│  BOX 2: ESP32-S3 COMPUTE & POWER MANAGEMENT            │
+│  • 240 MHz Dual-Core Xtensa LX7 (Core 0: DSP / Core 1: AI)
+│  • MAX17048 I2C Fuel Gauge (0x36) Battery Monitoring   │
+│  • High-Capacity LiPo/Li-Ion Cell (15 µA Deep Sleep)   │
+└───────────────────────────┬────────────────────────────┘
+                            │ (Digital Audio Window & Telemetry)
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│  BOX 3: NOISE-ROBUST DSP & SPECTROGRAM EXTRACTION      │
+│  • Adaptive Quantile Spectral Subtraction (-75 dB Rain)│
+│  • 25ms Hann Windowing with 50% Frame Overlap          │
+│  • 128 Log-Mel Filterbank Frequency Bins               │
+└───────────────────────────┬────────────────────────────┘
+                            │ (128x157 Spectrogram Tensor)
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│  BOX 4: ON-DEVICE AI CLASSIFIER (MOBILENETV3-SMALL)    │
+│  • Lightweight Depthwise Separable Convolutions        │
+│  • 14 Unified Acoustic Classes (Chainsaw, Axe, Gunshot)│
+│  • Sub-Second Edge Inference (< 420 ms Latency)        │
+└───────────────────────────┬────────────────────────────┘
+                            │ (Acoustic Confidence & Class Label)
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│  BOX 5: CADIE CONTEXT-AWARE DECISION ENGINE            │
+│  • Cross-Sensory Bayesian Correlation                  │
+│  • Audio Confidence + Temperature/Smoke Spike Analysis │
+│  • 4-Tier Risk Assessment (Critical, High, Med, Low)   │
+└───────────────────────────┬────────────────────────────┘
+                            │ (Verified Threat Level & GPS Coordinates)
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│  BOX 6: TRI-TIER STAKEHOLDER TRIAGE DISPATCH           │
+│  • Tier 1: Forest Chief Executive (Web Command Center) │
+│  • Tier 2: Field Rangers (Tactical Intercept GPS Push) │
+│  • Tier 3: Local Communities (SMS Hazard Warnings)     │
+└────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 🖼️ Master Image Generation Prompt (For Midjourney / DALL-E 3 / Imagen / Canva)
+
+```text
+Professional academic engineering system architecture flowchart presented as a clean sequential box structure on a pure solid white background (#FFFFFF). 
+
+The diagram features six elegant rounded rectangular boxes arranged vertically in a sequential top-to-bottom pipeline, connected by bold, clean directional downward flow arrows:
+
+1. Box 1 (Top, Cyan border): "1. MULTIMODAL SENSING" — Icons of MEMS microphone, DHT22 temperature sensor, and MQ-135 smoke sensor. Crisp text: "16 kHz I2S Audio + Ambient Microclimate".
+2. Box 2 (Second, Royal Blue border): "2. ESP32-S3 COMPUTE & POWER" — Icon of dual-core microcontroller chip, MAX17048 fuel gauge IC, and rechargeable LiPo/Li-Ion battery pack. Crisp text: "Dual-Core 240 MHz + MAX17048 Battery Fuel Gauge + 15 uA Deep Sleep".
+3. Box 3 (Third, Cobalt Blue border): "3. NOISE-ROBUST DSP ENGINE" — Graphic of audio waveform transforming into a 128-bin Log-Mel Spectrogram. Crisp text: "Quantile Denoising + 128 Mel-Bins Extraction".
+4. Box 4 (Fourth, Emerald Green border): "4. ON-DEVICE AI CLASSIFIER" — Neural network icon labeled "MobileNetV3-Small". Crisp text: "14 Sound Classes + Sub-Second Latency (<420ms)".
+5. Box 5 (Fifth, Purple/Indigo border): "5. CADIE CONTEXT ENGINE" — Multi-sensor fusion icon cross-checking sound + heat + smoke. Crisp text: "Bayesian Reasoning + 91.5% False Alarm Suppression".
+6. Box 6 (Bottom, Crimson Red border): "6. TRI-TIER TRIAGE DISPATCH" — Three distinct outgoing alert paths: Chief Command Dashboard, Ranger Tactical GPS Push, and Community Safety Warning.
+
+Design Style: Modern flat technical engineering schematic, crisp bold typography in deep slate navy (#0F172A), subtle soft card backgrounds (#F8FAFC), colored border accents, high-contrast text, completely pure solid white background with zero dark vignette or gradients, IEEE academic conference presentation slide standard, vector graphic aesthetic, 8k resolution.
+```
+
+---
+
+### 💡 Short Version (For Quick AI Slide Prompts / Gamma / Canva)
+
+```text
+Clean engineering system design flowchart on pure white background (#FFFFFF). Sequential box-by-box pipeline with downward flow arrows:
+[Box 1: 16kHz Multimodal Sensors (INMP441 + DHT22 + MQ-135)] -> 
+[Box 2: ESP32-S3 Dual-Core Compute & MAX17048 Battery Power (15uA Sleep)] -> 
+[Box 3: Denoising DSP & 128 Log-Mel Spectrogram] -> 
+[Box 4: MobileNetV3-Small On-Device AI (<420ms)] -> 
+[Box 5: CADIE Context Fusion Engine (Audio + Temp + Smoke)] -> 
+[Box 6: Tri-Tier Triage Alerts: Chief, Ranger, Public].
+Modern modular boxes with clean colored borders, bold navy typography, emerald and cyan accents, IEEE conference slide standard.
+```
+
+
+# AuraForest Sentinel - Exact 10-Box Landscape System Architecture Prompt
+
+Use this comprehensive prompt in **Midjourney**, **DALL-E 3**, **Imagen 3**, **Canva AI**, or **Gamma.app** to generate the exact 10-box landscape system architecture diagram with sub-boxes, sensor details, Wi-Fi bridge, and triage dispatch.
+
+---
+
+### 🎨 The Exact 10-Box Landscape Architecture Breakdown
+
+```
+========================================================================================================================
+ROW 1 (TOP TIER: SENSING, NODE DEVICE & LOCAL ADAPTIVE PROFILING — LEFT TO RIGHT FLOW)
+========================================================================================================================
+
+[BOX 1: Environmental Acoustic Events]
+• Sound Sources: Birds, Chainsaw, Human, Vehicle, Rain, Wind
+       │
+       ▼ (Acoustic Pressure Waves & Environmental Phenomena)
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ [BOX 2: Node Device Sensing & Power Subsystem] (3 Sub-Boxes Side-by-Side)              │
+│ ┌──────────────────────────┐ ┌──────────────────────────┐ ┌──────────────────────────┐ │
+│ │ SUB-BOX 2.1: AUDIO SENSOR│ │ SUB-BOX 2.2: ENV SENSORS │ │ SUB-BOX 2.3: POWER SYSTEM│ │
+│ │ • INMP441 MEMS (Voice)   │ │ • DHT11 (Temp & Humidity)│ │ • MAX17048 Fuel Gauge    │ │
+│ │ • 16 kHz I2S Digital Bus │ │ • BH1750 (Ambient Light) │ │ • 2x 3.7V Li-Ion Battery │ │
+│ │                          │ │ • SW-420 (Vibration)     │ │ • Dynamic Power Control  │ │
+│ │                          │ │ • MQ-2 & MQ-135 (Smoke)  │ │ • 15 µA Deep Sleep Mode  │ │
+│ │                          │ │ • NEO-6M GPS Module      │ │                          │ │
+│ └──────────────────────────┘ └──────────────────────────┘ └──────────────────────────┘ │
+└───────────────────────────────────────────┬────────────────────────────────────────────┘
+                                            │ (Digital I2S Audio + ADC/I2C Telemetry)
+                                            ▼
+[BOX 3: ESP32-S3 Edge Node]
+• Core Capabilities:
+  1. Edge Computing (240 MHz Dual-Core Xtensa LX7)
+  2. Real-Time Processing
+  3. Low Power Optimization
+  4. Wi-Fi Connectivity
+       │
+       ▼ (Structured Sensor Readings & Audio Windows)
+[BOX 4: Environment Adaptive Profiling]
+• Function: Builds dynamic baseline profile using real-time environmental context & noise floor
+       │
+       ▼ (Calibrated Audio Stream & Context Vector)
+[BOX 5: Adaptive Event Prioritization Engine]
+• Function: Prioritizes events by severity, uniqueness, and environmental impact (Rating 1 to 5)
+       │
+       ▼ 📶 [Wi-Fi Wireless Transmission Bridge]
+========================================================================================================================
+ROW 2 (BOTTOM TIER: AI INFERENCE, CADIE REASONING & MULTI-STAKEHOLDER TRIAGE — FLOWS TO STAKEHOLDERS)
+========================================================================================================================
+[BOX 6: Audio Preprocessing & Feature Extraction]
+• Pipeline: Noise reduction (spectral quantile subtraction), 25ms framing, 50% overlap, MFCC & 128 Mel-Bins
+       │
+       ▼ (Log-Mel Spectrogram Tensors)
+[BOX 7: CNN-Based Environmental Sound Classification]
+• Architecture: Deep Convolutional Neural Network (MobileNetV3 backbone, 14 classes, < 420 ms latency)
+       │
+       ▼ (Acoustic Confidence Probability Vector)
+[BOX 8: Context-Aware Decision Intelligence Engine (CADIE)]
+• Intelligence: Combines CNN classification + environmental context to infer high-level events & 4-tier risk
+       │
+       ▼ (Verified Incident Dossier & GPS Triangulation)
+[BOX 9: Database and Dashboard]
+• Functions: Stores events locally (SQLite/FastAPI) and visualizes live telemetry in real-time Streamlit GIS
+       │
+       ▼ (Actionable Multichannel Dispatch)
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ [BOX 10: Tri-Tier Stakeholder Triage Dispatch] (3 Sub-Boxes Side-by-Side)              │
+│ ┌──────────────────────────┐ ┌──────────────────────────┐ ┌──────────────────────────┐ │
+│ │ SUB-BOX 10.1: CHIEF EXEC │ │ SUB-BOX 10.2: RANGERS    │ │ SUB-BOX 10.3: COMMUNITIES│ │
+│ │ • Forest Chief Executive │ │ • Field Ranger Patrols   │ │ • Local Communities     │ │
+│ │ • Web Command Center     │ │ • Tactical GPS Intercept │ │ • SMS Hazard Warnings    │ │
+│ │ • Strategic Audit & Dossier│ │ • Threat Vector & Audio│ │ • Evacuation Advisories  │ │
+│ └──────────────────────────┘ └──────────────────────────┘ └──────────────────────────┘ │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 🖼️ Master Image Generation Prompt (Photorealistic / Engineering Schematic)
+
+*(Copy and paste this into **Midjourney**, **DALL-E 3**, **Imagen 3**, **Canva**, or **Gamma.app**)*:
+
+```text
+A professional academic engineering system architecture flowchart in a wide 16:9 landscape format, set on a completely pure solid white background (#FFFFFF). The diagram is organized into a clean sequential box structure arranged in two horizontal tiers with crisp connecting lines and directional flow arrows:
+
+TOP HORIZONTAL TIER (Row 1):
+• BOX 1 (Cyan border): Titled "1. Environmental Acoustic Events" — Features icons and chips for Birds, Chainsaw, Human, Vehicle, Rain, and Wind.
+  -> Connected by an arrow to:
+• BOX 2 (Large Blue container titled "2. Node Device Subsystem", containing three distinct side-by-side sub-boxes):
+  - Sub-box 2.1 (Cyan): "Acoustic Sensor" — INMP441 MEMS Microphone (16 kHz I2S Digital Audio).
+  - Sub-box 2.2 (Emerald): "Environmental Sensors" — DHT11 (Temp & Humidity), BH1750 (Light), SW-420 (Vibration), MQ-2 and MQ-135 (Smoke/Gas), NEO-6M GPS.
+  - Sub-box 2.3 (Amber): "Power System" — MAX17048 I2C Fuel Gauge and 2x 3.7V Li-Ion Battery Pack with 15 uA Deep Sleep.
+  -> All three sub-boxes feed forward into:
+• BOX 3 (Dark Navy border): "3. ESP32-S3 Edge Node" — Features an icon of the ESP32-S3 microcontroller with text bullets: "1. Edge Computing, 2. Real-Time Processing, 3. Low Power & Wi-Fi Connectivity".
+  -> Connected by an arrow to:
+• BOX 4 (Green border): "4. Environment Adaptive Profiling" — Subtext: "Builds dynamic baseline profile using real-time environmental context".
+  -> Connected by an arrow to:
+• BOX 5 (Purple border): "5. Adaptive Event Prioritization Engine" — Subtext: "Prioritizes events by severity, uniqueness, and environmental impact".
+  -> Exiting Box 5 is a downward connecting line with a blue Wi-Fi transmission badge ("Wi-Fi").
+
+BOTTOM HORIZONTAL TIER (Row 2):
+• BOX 6 (Cyan border): "6. Audio Preprocessing & Feature Extraction" — Subtext: "Noise reduction, framing, MFCC & 128 Mel-Bins extraction".
+  -> Connected by an arrow to:
+• BOX 7 (Blue border): "7. CNN-Based Sound Classification" — Subtext: "Deep Convolutional Neural Network for 14-class audio classification".
+  -> Connected by an arrow to:
+• BOX 8 (Purple border): "8. Context-Aware Decision Intelligence Engine (CADIE)" — Subtext: "Combines classification + microclimate context to infer high-level events & 4-tier risk".
+  -> Connected by an arrow to:
+• BOX 9 (Emerald border): "9. Database and Dashboard" — Subtext: "Stores events locally and visualizes telemetry in real-time GIS console".
+  -> Connected by an arrow to:
+• BOX 10 (Large Red container titled "10. Tri-Tier Stakeholder Triage Dispatch", containing three side-by-side sub-boxes):
+  - Sub-box 10.1 (Amber): "Forest Chief Executive" — Web Command Center, strategic audit.
+  - Sub-box 10.2 (Emerald): "Field Rangers" — Tactical Intercept GPS Push, threat vectors.
+  - Sub-box 10.3 (Red): "Local Communities" — SMS Hazard Warnings, evacuation notices.
+
+Design Style: Clean IEEE engineering publication aesthetic, modular rounded card containers (#F8FAFC) on pure white background (#FFFFFF), crisp bold deep navy typography (#0F172A), vibrant accent borders, clear directional arrow flowlines, landscape widescreen orientation, 8k resolution.
+```
+
+---
+
+### 💡 Short Prompt (For Quick AI Slides / Gamma / Canva)
+
+```text
+16:9 Landscape engineering architecture flowchart on pure white background (#FFFFFF):
+[Box 1: Acoustic Events (Chainsaw, Birds, Human, Rain, Wind)] -> 
+[Box 2: 3 Side-by-side Sub-boxes: (2.1 INMP441 Mic) + (2.2 DHT11, BH1750, SW420, MQ-2, MQ-135, GPS) + (2.3 MAX17048 Fuel Gauge + 2x 3.7V Li-Ion Battery)] -> 
+[Box 3: ESP32-S3 Edge Node (1. Edge Computing, 2. Real-Time Processing, 3. Low Power & Wi-Fi)] -> 
+[Box 4: Environment Adaptive Profiling] -> 
+[Box 5: Adaptive Event Prioritization Engine] -> 
+(Wi-Fi Symbol) -> 
+[Box 6: Audio Preprocessing & Feature Extraction (Noise reduction, framing, MFCC)] -> 
+[Box 7: CNN-Based Sound Classification] -> 
+[Box 8: CADIE Context-Aware Decision Engine] -> 
+[Box 9: Database and Dashboard] -> 
+[Box 10: 3 Side-by-side Sub-boxes: (10.1 Chief Web Console) + (10.2 Ranger GPS Push) + (10.3 Community SMS)].
+Modern clean boxes with colored borders, bold navy labels, connecting arrows, landscape widescreen layout.
+```
+
+
+# AuraForest Sentinel - Existing Forest Monitoring Systems & Limitations Image Prompt
+
+Use this prompt in **Midjourney**, **DALL-E 3**, **Imagen 3**, **Canva AI**, or **Gamma.app** to generate an infographic illustrating existing forest monitoring technologies and their fundamental operational failure points.
+
+---
+
+### 🖼️ Master Image Generation Prompt (Photorealistic / Engineering Infographic)
+
+*(Copy and paste this into Midjourney, DALL-E 3, Imagen 3, or Canva AI)*:
+
+```text
+A professional academic engineering infographic illustrating the five existing forest monitoring systems and their critical operational failure points, set on a completely pure solid white background (#FFFFFF).
+
+The diagram features a clean 16:9 widescreen layout with five distinct modular cards arranged horizontally, each featuring a technical icon, clear schematic illustration, and a bold red/amber warning badge:
+
+1. Panel 1 (Satellite Remote Sensing): An orbital satellite scanning the Earth from space, with its optical beam completely blocked by thick white tropical storm clouds. Prominent red warning badge: "24-48 HOUR DELAY & CLOUD BLINDSPOT". Subtext: "Cannot detect selective felling under canopy".
+
+2. Panel 2 (Manual Ranger Foot Patrol): Two forest guards on foot navigating dense mountainous jungle terrain. Prominent amber warning badge: "COVERS < 10% OF TERRAIN". Subtext: "Slow mobility & high ambush risk in remote valleys".
+
+3. Panel 3 (Conventional Cloud IoT Audio): A microphone sensor mounted on a rainforest tree with a severed red communication link and a cell tower displaying 0 signal bars. Prominent red warning badge: "ZERO CELLULAR 4G/LTE SIGNAL". Subtext: "Cloud upload completely inoperable under dense canopy".
+
+4. Panel 4 (Motion-Triggered Camera Trap): A trail camera strapped to a tree trunk showing a narrow 15-meter viewing cone, with poachers walking outside its detection field. Prominent amber warning badge: "NARROW 15m CONE & MANUAL SD RETRIEVAL". Subtext: "Delayed post-loss evidence collection".
+
+5. Panel 5 (Aerial Surveillance Drone): A small quadcopter drone flying over trees with a blinking red low-battery icon and rain droplets forcing it to return. Prominent amber warning badge: "30-MINUTE FLIGHT LIMIT". Subtext: "Grounded during tropical monsoonal storms".
+
+Bottom Summary Banner (Deep Slate Navy #0F172A with Crimson Accent #EF4444):
+A bold banner across the bottom reading: "THE RESULT: FRAGMENTED & DELAYED POST-MORTEM DETECTION — ILLEGAL LOGGERS ESCAPE BEFORE RANGERS ARRIVE".
+
+Design Style: Modern clean IEEE academic presentation infographic, flat technical vector design with subtle 3D lighting, crisp typography in deep slate navy (#0F172A), crimson red (#EF4444) and amber gold (#F59E0B) indicator chips, completely pure white background with zero dark gradients or vignette, ultra-high resolution, 8k render.
+```
+
+---
+
+### 💡 Short Prompt (For Quick AI Slide Generators / Gamma / Canva)
+
+```text
+16:9 Landscape infographic on pure white background (#FFFFFF) illustrating existing forest monitoring systems and their critical limitations:
+5 distinct cards with clear icons and red warning badges:
+1. Satellites: Blocked by tropical clouds, 24-48 hour orbital delay.
+2. Ranger Foot Patrols: Covers <10% of vast territory, high personal danger.
+3. Cloud IoT Audio: Fails due to 0-bar cellular coverage under dense canopies.
+4. Camera Traps: Narrow 15m line-of-sight cone, delayed manual SD card recovery.
+5. Aerial Drones: 30-minute battery flight limits, grounded during monsoon rain.
+Bottom red banner: "Delayed Post-Mortem Detection — Loggers Escape Before Response".
+Clean vector styling, bold navy typography, IEEE presentation standard.
+```

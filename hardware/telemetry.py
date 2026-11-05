@@ -66,6 +66,10 @@ class DeviceTelemetry:
 
     vibration_detected: Optional[bool] = None
 
+    is_night: Optional[bool] = None
+
+    regime: Optional[str] = None
+
     def to_dict(self) -> dict:
         """
         Convert device telemetry to a dictionary.

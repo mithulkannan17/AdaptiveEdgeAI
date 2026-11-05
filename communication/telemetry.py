@@ -29,6 +29,10 @@ class DeviceTelemetry:
 
     vibration_detected: Optional[bool] = None
 
+    is_night: Optional[bool] = None
+
+    regime: Optional[str] = None
+
     def __post_init__(self):
         if self.battery_percent is not None:
 

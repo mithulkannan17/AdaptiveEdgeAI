@@ -334,3 +334,34 @@ class TestAdaptiveBehaviorEngine:
             "reason"
             in data
         )
+
+    def test_day_night_adaptive_threshold_natural(self):
+        engine = AdaptiveBehaviorEngine()
+        profile = make_profile('Natural')
+
+        # Day mode (e.g. 500 lux from BH1750)
+        day_policy = engine.generate_policy(profile, device_status={'light_level': 500.0})
+        assert day_policy.is_night is False
+        assert day_policy.regime == 'DAY'
+        assert day_policy.detection_threshold == 0.55
+        assert day_policy.sensitivity_for('Chainsaw') == 1.30
+
+        # Night mode (e.g. 3.5 lux from BH1750)
+        night_policy = engine.generate_policy(profile, device_status={'light_level': 3.5})
+        assert night_policy.is_night is True
+        assert night_policy.regime == 'NIGHT'
+        assert night_policy.detection_threshold == 0.45
+        assert night_policy.sensitivity_for('Chainsaw') == 1.45
+        assert night_policy.sensitivity_for('Gunshot') == 1.45
+        assert night_policy.detection_threshold < day_policy.detection_threshold
+
+    def test_day_night_adaptive_threshold_anthropogenic(self):
+        engine = AdaptiveBehaviorEngine()
+        profile = make_profile('Anthropogenic')
+
+        day_policy = engine.generate_policy(profile, device_status={'light_level': 800.0})
+        assert day_policy.detection_threshold == 0.60
+
+        night_policy = engine.generate_policy(profile, device_status={'light_level': 1.0})
+        assert night_policy.detection_threshold == 0.48
+        assert night_policy.sensitivity_for('Human') > day_policy.sensitivity_for('Human')

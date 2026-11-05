@@ -673,8 +673,9 @@ int readMicrophone()
         i < count;
         i++)
     {
+        // INMP441 24-bit PCM: Shift down by 13 (8x digital gain) for robust voice/speech pickup at 1-2m
         int32_t sample =
-            samples[i] >> 14;
+            samples[i] >> 13;
 
         if (sample < 0)
         {
@@ -803,9 +804,11 @@ bool captureAudio()
               without premature saturation or excessive noise.
             */
 
-            // Convert 32-bit (24-bit data) down to standard 16-bit PCM (amplify and truncate)
+            // Convert 32-bit (24-bit data) down to standard 16-bit PCM.
+            // Shift down by 13 (8x digital gain) with hard clipping to [-32768, 32767],
+            // ensuring clear speech recognition at 1 to 2 meters without clipping or distortion.
             int32_t sample =
-                rawSamples[i] >> 14;
+                rawSamples[i] >> 13;
 
             if (sample > 32767)
             {
@@ -1404,19 +1407,24 @@ String getEnvironmentType()
 // ADAPTIVE POLICY
 // ============================================================
 
+// Formal AuraForest Dynamic Threshold Formulation:
+// Threshold_effective = (BaseNoise * ContextFactor) / ThreatMultiplier
+// - Night (Low_Light < 15 lx): Threshold = 0.45 (Heightened nocturnal vigilance)
+// - Bright Daylight (> 1500 lx): Threshold = 0.60 (Diurnal false alarm suppression)
+// - Natural Canopy (15-1500 lx): Threshold = 0.55 (Nominal baseline)
 float getDetectionThreshold(
     const String &environment)
 {
     if (
         environment == "Low_Light")
     {
-        return 0.60;
+        return 0.45;
     }
 
     if (
         environment == "Bright")
     {
-        return 0.55;
+        return 0.60;
     }
 
     return 0.55;
@@ -1528,6 +1536,10 @@ String createPayload()
 
     status["light_level"] =
         lightLux;
+
+    bool isNight = (lightLux < 15.0);
+    status["is_night"] = isNight;
+    status["regime"] = isNight ? "NIGHT" : "DAY";
 
     status["vibration_detected"] =
         vibrationDetected;

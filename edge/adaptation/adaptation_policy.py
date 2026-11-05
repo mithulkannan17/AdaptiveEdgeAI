@@ -8,7 +8,7 @@ Adaptive Behaviour Engine.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict
+from typing import Any, Dict
 
 
 @dataclass(frozen=True)
@@ -40,8 +40,12 @@ class AdaptivePolicy:
 
     reason: str = ""
 
+    regime: str = "DAY"
+
+    is_night: bool = False
+
     # ======================================================
-    # Class Sensitivity
+    # Class Sensitivity & Adaptive Multipliers
     # ======================================================
 
     def sensitivity_for(
@@ -62,6 +66,61 @@ class AdaptivePolicy:
             label,
             1.0,
         )
+
+    # ======================================================
+    # Dynamic Threshold Formulation
+    # Threshold_effective = (Base * Noise * Context) / Multiplier
+    # ======================================================
+
+    def effective_threshold_for(
+        self,
+        label: str,
+    ) -> float:
+        """
+        Calculate the effective raw confidence threshold for a target class:
+        Effective Threshold = Policy Threshold / Multiplier.
+
+        A higher threat multiplier (e.g. 1.45 for Chainsaw) reduces the required
+        confidence barrier, ensuring faint or distant threat sounds are captured.
+        """
+
+        multiplier = self.sensitivity_for(label)
+
+        if multiplier <= 0.0:
+            return 1.0
+
+        return max(
+            0.0,
+            min(
+                1.0,
+                float(self.detection_threshold / multiplier),
+            ),
+        )
+
+    def formula_breakdown(
+        self,
+        label: str,
+    ) -> dict[str, Any]:
+        """
+        Break down the dynamic threshold components:
+        Threshold = (Base * Noise * Context) / Multiplier
+        """
+
+        multiplier = self.sensitivity_for(label)
+        effective = self.effective_threshold_for(label)
+
+        return {
+            "environment_type": self.environment_type,
+            "regime": self.regime,
+            "is_night": self.is_night,
+            "policy_threshold": round(self.detection_threshold, 4),
+            "threat_multiplier": round(multiplier, 4),
+            "effective_threshold": round(effective, 4),
+            "formula": (
+                f"Policy Threshold ({self.detection_threshold:.2f}) ÷ "
+                f"Multiplier ({multiplier:.2f}) = {effective:.4f} Required Confidence"
+            ),
+        }
 
     # ======================================================
     # Class Priority
@@ -141,5 +200,11 @@ class AdaptivePolicy:
 
             "reason":
                 self.reason,
+
+            "regime":
+                self.regime,
+
+            "is_night":
+                self.is_night,
 
         }

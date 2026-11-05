@@ -117,7 +117,7 @@ def get_configured_api_url() -> str:
 def get_source() -> RuntimeDataSource:
     url = get_configured_api_url()
     if "runtime_data_source" not in st.session_state or st.session_state.get("_cached_api_url") != url:
-        st.session_state["runtime_data_source"] = RuntimeDataSource(api_url=url)
+        st.session_state["runtime_data_source"] = RuntimeDataSource(api_url=url, enable_sqlite_fallback=True)
         st.session_state["_cached_api_url"] = url
     return st.session_state["runtime_data_source"]
 
@@ -184,8 +184,11 @@ def is_citizen_danger_threat(threat_type: str) -> bool:
         return True
     return False
 
-# Real-time auto-refresh across all portals (Chief, Ranger, and Citizens) - smooth 2.5s cadence
-if st_autorefresh is not None:
+# Real-time auto-refresh across live operational portals - smooth 2.5s cadence
+# Avoid continuous auto-refresh on static historical archives to prevent infinite render loops and allow quiet reading
+_current_nav = st.session_state.get("sidebar_navigation_choice") or ""
+_is_archive_page = any(k in str(_current_nav) for k in ["Archive", "Resolution Logs", "Security", "Audit Log"])
+if st_autorefresh is not None and not _is_archive_page:
     st_autorefresh(interval=2500, key="aura_live_refresh")
 
 # ============================================================
@@ -2475,10 +2478,45 @@ def render_incident_archive_page():
                 "RESOLUTION & FIELD NOTES": inc.get("resolution_notes") or "Perimeter verified and clear",
                 "LOCATION": loc_str,
             })
-        st.dataframe(registry_rows, use_container_width=True, hide_index=True)
+        st.dataframe(registry_rows, width="stretch", hide_index=True)
+
+    # Pagination for cards to prevent DOM rendering freezing
+    ITEMS_PER_PAGE = 10
+    total_items = len(filtered)
+    total_pages = max(1, (total_items + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE)
+
+    if "arch_page_num" not in st.session_state:
+        st.session_state["arch_page_num"] = 1
+    if st.session_state["arch_page_num"] > total_pages:
+        st.session_state["arch_page_num"] = total_pages
+    if st.session_state["arch_page_num"] < 1:
+        st.session_state["arch_page_num"] = 1
+
+    curr_page = st.session_state["arch_page_num"]
+    start_i = (curr_page - 1) * ITEMS_PER_PAGE
+    end_i = start_i + ITEMS_PER_PAGE
+    paged_items = filtered[start_i:end_i]
 
     with tab_cards:
-        for idx, inc in enumerate(filtered):
+        if total_pages > 1:
+            p_col1, p_col2, p_col3 = st.columns([1, 2, 1])
+            with p_col1:
+                if st.button("◀ Previous 10", disabled=(curr_page <= 1), key="arch_p_prev", use_container_width=True):
+                    st.session_state["arch_page_num"] -= 1
+                    st.rerun()
+            with p_col2:
+                st.markdown(
+                    f"<div style='text-align:center; padding-top:6px; font-size:12px; color:#73d9e8; font-weight:700;'>"
+                    f"Showing {start_i + 1} - {min(total_items, end_i)} of {total_items} (Page {curr_page} / {total_pages})"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+            with p_col3:
+                if st.button("Next 10 ▶", disabled=(curr_page >= total_pages), key="arch_p_next", use_container_width=True):
+                    st.session_state["arch_page_num"] += 1
+                    st.rerun()
+
+        for idx, inc in enumerate(paged_items):
             inc_id = inc.get("incident_id")
             src_type = inc.get("source_type")
             th_cat = inc.get("threat_category")
@@ -2749,15 +2787,23 @@ if current_role == "admin":
         with right:
             inference_ms = safe_num(prediction.get("inference_time_ms", event.get("inference_time_ms", 55.0)))
             env_type = environment.get("environment_type", "Temperate Forest Canopy")
+            light_lux = safe_num(telemetry.get("light_level", telemetry.get("light_lux", 100.0)))
+            is_night_regime = bool(policy.get("is_night") or policy.get("regime") == "NIGHT" or light_lux < 15.0)
+            active_thresh = safe_num(policy.get("detection_threshold", 0.45 if is_night_regime else 0.55))
+            regime_label = f"🌙 NOCTURNAL ({active_thresh:.2f} Vigilance)" if is_night_regime else f"☀️ DIURNAL ({active_thresh:.2f} Nominal)"
+            raw_model = str(prediction.get("model", "CNN-based Acoustic Classifier"))
+            model_display = "CNN-based Acoustic Classifier" if "mobilenet" in raw_model.lower() or not raw_model else raw_model
             st.markdown(
                 f"""
                 <div class="panel">
                     <div class="panel-title">Context Behavior & Edge Health</div>
-                    {display_status("Model Engine", prediction.get("model", "MobileNetV3-Small"))}
+                    {display_status("Model Engine", model_display)}
                     {display_status("Inference Latency", f"{inference_ms:.2f} ms")}
+                    {display_status("Day/Night Regime", regime_label)}
                     {display_status("Context Policy", policy.get("transmission_mode", "EVENT_TRIGGERED"))}
                     {display_status("Environmental Context", env_type)}
-                    {display_status("Adaptive Sensitivity", f"{safe_num(policy.get('detection_threshold', 0.60)):.2f} Floor")}
+                    {display_status("Adaptive Threshold", f"{active_thresh:.2f} Floor")}
+                    {display_status("Threshold Formula", "Base × Noise × Context ÷ Multiplier")}
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -3035,7 +3081,7 @@ if current_role == "admin":
                 """,
                 unsafe_allow_html=True,
             )
-            st.dataframe(map_dataframe[["Entity", "Category", "Coordinates", "Status"]], use_container_width=True, hide_index=True)
+            st.dataframe(map_dataframe[["Entity", "Category", "Coordinates", "Status"]], width="stretch", hide_index=True)
         with dispatch_col:
             st.markdown('<div class="panel"><div class="panel-title">Nearby Field Rangers Roster</div>', unsafe_allow_html=True)
             top_t_lat = active_alerts[0].get("location_lat", sent_lat) if active_alerts else sent_lat
@@ -3162,7 +3208,7 @@ if current_role == "admin":
                     "SECTOR": u.get("sector") or "—",
                     "REGISTERED VIA": u.get("created_by") or "SYSTEM",
                 })
-            st.dataframe(u_rows, use_container_width=True, hide_index=True)
+            st.dataframe(u_rows, width="stretch", hide_index=True)
 
             st.markdown("<hr style='border:none; border-top:1px solid rgba(115,217,232,0.2); margin:20px 0 16px 0;'/>", unsafe_allow_html=True)
 
@@ -3354,7 +3400,7 @@ SMTP_SSL=false
                 "RESOLVED BY": res_disp,
                 "RESOLUTION NOTES": a_item.get("resolution_notes") or "—",
             })
-        st.dataframe(hist_rows, use_container_width=True, hide_index=True)
+        st.dataframe(hist_rows, width="stretch", hide_index=True)
 
     elif "Citizen Reports Inbox" in active_page:
         st.markdown('<div class="section"><div class="section-title">Public Citizen Reports & Tips Inbox</div><div class="section-meta">CITIZEN TIPS · PHOTO EVIDENCE · TRIAGE & DISPATCH CONTROLS</div></div>', unsafe_allow_html=True)
@@ -3419,7 +3465,7 @@ SMTP_SSL=false
                         "RESOLVED BY": rr.get("resolved_by") or "Field Unit",
                         "RESOLUTION NOTES": rr.get("resolution_notes") or "Verified clear",
                     })
-                st.dataframe(r_rows, use_container_width=True, hide_index=True)
+                st.dataframe(r_rows, width="stretch", hide_index=True)
 
     elif active_page == "📜 Incident Archive & Resolution Logs":
         render_incident_archive_page()
@@ -3468,7 +3514,7 @@ SMTP_SSL=false
                     "ASSIGNED LABEL": c_lbl,
                     "BIOLOGIST NOTES": c_notes,
                 })
-            st.dataframe(cl_rows, use_container_width=True, hide_index=True)
+            st.dataframe(cl_rows, width="stretch", hide_index=True)
 
             # Triage / Labeling Interface & Audio Evaluation Studio
             st.markdown("<div style='font-size:14px;font-weight:700;color:#f2c66d;margin-top:24px;margin-bottom:10px;'>🏷️ Chief Ranger & Bioacoustic Voice Evaluation Studio:</div>", unsafe_allow_html=True)
@@ -3662,7 +3708,7 @@ SMTP_SSL=false
                     "SECURITY ACTION": l.get("action"),
                     "OFFICIAL AUDIT STATEMENT": l.get("details"),
                 })
-            st.dataframe(l_rows, use_container_width=True, hide_index=True)
+            st.dataframe(l_rows, width="stretch", hide_index=True)
         else:
             st.info("No audit logs recorded yet.")
 
@@ -3898,7 +3944,7 @@ elif current_role == "ranger":
                     "CADIE ACTION": ev_act,
                     "DEVICE": ev.get("device_id", "AURA_SENTRY_01")
                 })
-            st.dataframe(ev_rows, use_container_width=True, hide_index=True)
+            st.dataframe(ev_rows, width="stretch", hide_index=True)
 
     elif active_page == "🗺️ Sector Map & Near Rangers":
         st.markdown('<div class="section"><div class="section-title">Tactical Sector Map & Near My Rangers Radar</div><div class="section-meta">LIVE PATROL BUDDY PROXIMITY · TARGET THREAT COORDINATES</div></div>', unsafe_allow_html=True)

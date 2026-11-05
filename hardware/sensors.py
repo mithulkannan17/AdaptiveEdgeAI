@@ -358,6 +358,12 @@ class HardwareSensorManager:
                 .vibration_detected()
             )
 
+        is_night = None
+        regime = None
+        if light_level is not None:
+            is_night = (light_level < 15.0)
+            regime = "NIGHT" if is_night else "DAY"
+
         return DeviceTelemetry(
 
             battery_percent=battery_percent,
@@ -371,6 +377,10 @@ class HardwareSensorManager:
             light_level=light_level,
 
             vibration_detected=vibration_detected,
+
+            is_night=is_night,
+
+            regime=regime,
 
         )
 

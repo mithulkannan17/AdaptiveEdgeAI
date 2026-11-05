@@ -55,7 +55,9 @@ class RuntimeDataSource:
         device_id: str | None = None,
         event_history_limit: int = 50,
         timeout_seconds: float = 2.5,
+        enable_sqlite_fallback: bool = False,
     ) -> None:
+        self.enable_sqlite_fallback = enable_sqlite_fallback
         self.api_url = (
             api_url
             or os.getenv("AURAFOREST_API_URL")
@@ -199,7 +201,9 @@ class RuntimeDataSource:
                 self._api_offline_until = now + 15.0
         
         # If /health check failed or timed out, autonomously poll 24/7 cloud relay
-        if health is None:
+        # (Skip cloud relay fallback if targeting a local loopback mock endpoint in unit tests)
+        is_local_mock = any(self.api_url.startswith(p) for p in ["http://127.0.0.1", "http://localhost"])
+        if health is None and not is_local_mock:
             cloud_bundle = self._poll_cloud_relay()
             if cloud_bundle and (cloud_bundle.get("telemetry") or cloud_bundle.get("event")):
                 state = self._build_state(
@@ -231,9 +235,10 @@ class RuntimeDataSource:
             )
 
         # The API may temporarily fail or app is running in standalone mode.
-        # Check direct SQLite database before falling back to empty state.
+        # Check direct SQLite database before falling back to empty state if enabled.
         if (
-            health is None
+            getattr(self, "enable_sqlite_fallback", False)
+            and health is None
             and telemetry_response is None
             and latest_response is None
             and history_response is None

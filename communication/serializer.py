@@ -118,9 +118,11 @@ class EdgeMessageSerializer:
             device_status,
             dict,
         ):
-
+            from dataclasses import fields
+            allowed = {f.name for f in fields(DeviceTelemetry)}
+            filtered = {k: v for k, v in device_status.items() if k in allowed}
             return DeviceTelemetry(
-                **device_status
+                **filtered
             )
 
         raise TypeError(

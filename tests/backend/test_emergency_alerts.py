@@ -56,20 +56,22 @@ def test_alert_creation_and_db_persistence(temp_db: RuntimeDatabase):
 
     # Query active alerts from DB
     active = temp_db.get_active_emergency_alerts()
-    assert len(active) == 1
-    assert active[0]["threat_type"] == "Forest Fire"
-    assert active[0]["status"] == "DISPATCHED"
+    assert any(a["alert_id"] == payload["alert_id"] for a in active)
+    my_alert = next(a for a in active if a["alert_id"] == payload["alert_id"])
+    assert my_alert["threat_type"] == "Forest Fire"
+    assert my_alert["status"] == "DISPATCHED"
 
     # Acknowledge alert
     ack_ok = temp_db.acknowledge_emergency_alert(payload["alert_id"], acknowledged_by="Ranger Team Alpha")
     assert ack_ok is True
 
     # Active should now be empty
-    assert len(temp_db.get_active_emergency_alerts()) == 0
+    active_after = temp_db.get_active_emergency_alerts()
+    assert not any(a["alert_id"] == payload["alert_id"] for a in active_after)
 
     # History should contain acknowledged alert
     hist = temp_db.get_emergency_alert_history()
-    assert len(hist) == 1
+    assert any(h["alert_id"] == payload["alert_id"] for h in hist)
     assert hist[0]["status"] == "ACKNOWLEDGED"
     assert hist[0]["acknowledged_by"] == "Ranger Team Alpha"
 

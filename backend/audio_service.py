@@ -112,9 +112,9 @@ class AudioInferenceService:
         # --------------------------------------------------
         # Noise-robust acoustic preprocessing
         # --------------------------------------------------
-        # The denoiser is disabled by default for cloud inference
-        # to ensure sub-second latency and prevent ESP32 HTTP timeouts.
-        self.noise_robust_enabled = False
+        # Targeted stationary noise suppression protects the main voice / target sound
+        # by attenuating continuous background hiss while preserving transient harmonics.
+        self.noise_robust_enabled = True
         self.noise_n_fft = 512
         self.noise_hop_length = 128
         self.noise_noise_percentile = 20.0
@@ -1402,9 +1402,10 @@ class AudioInferenceService:
             "human", "speech", "voice", "footsteps", "conversation"
         }
 
-        # Any low-energy background audio (RMS < 0.012) is ambient forest silence / room noise,
-        # preventing false positive threat alerts when no actual sound is around.
-        if audio_rms < 0.012 and any(t in current_label_lower for t in threat_classes):
+        # Any quiescent background audio (RMS < 0.0010) is ambient forest silence / quiescent room noise floor,
+        # preventing false positive threat alerts or CNN hallucinations when no actual sound is around.
+        # Genuine human voice, speech near the mic (RMS >= 0.0012), or distant logging are fully recognized.
+        if audio_rms < 0.0010:
             prediction = PredictionResult(
                 label="Ambient",
                 class_id=0,
@@ -1412,7 +1413,7 @@ class AudioInferenceService:
                 top_k=[("Ambient", 0.96), (current_label_clean, 0.04)],
                 inference_time_ms=getattr(prediction, "inference_time_ms", 0.0),
             )
-        elif audio_rms < 0.018 and ("emergencyvehicle" in current_label_lower or "siren" in current_label_lower or "vehicle" in current_label_lower):
+        elif audio_rms < 0.0015 and ("emergencyvehicle" in current_label_lower or "siren" in current_label_lower):
             prediction = PredictionResult(
                 label="Ambient",
                 class_id=0,

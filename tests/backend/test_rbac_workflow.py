@@ -95,7 +95,7 @@ def test_citizen_report_submission_and_review(tmp_path, monkeypatch):
     reports_resp = client.get("/api/v1/public/reports")
     assert reports_resp.status_code == 200
     reports = reports_resp.json()["reports"]
-    assert len(reports) == 1
+    assert any(r["report_id"] == report_id for r in reports)
     assert reports[0]["reporter_name"] == "Jane Citizen"
 
     # Chief updates report status

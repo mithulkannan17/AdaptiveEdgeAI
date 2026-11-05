@@ -406,7 +406,8 @@ class EdgeController:
 
         policy = (
             self.behavior_engine.generate_policy(
-                profile
+                profile,
+                device_status=device_status,
             )
         )
 
