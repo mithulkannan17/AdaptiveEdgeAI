@@ -1214,16 +1214,20 @@ void connectWiFi()
     Serial.print("Connecting to Wi-Fi: ");
     Serial.println(activeWiFiSSID);
 
+    // Keep Wi-Fi permanently active from power-on
+    WiFi.persistent(true);
+    WiFi.setAutoReconnect(true);
     WiFi.mode(WIFI_STA);
-    WiFi.setSleep(false); // Essential for mobile hotspot stability
-    WiFi.setTxPower(WIFI_POWER_17dBm); // Prevents USB power rail brownout & current spikes while keeping strong Wi-Fi signal
+    WiFi.setSleep(false); // Disable modem sleep to prevent hotspot/router disconnects
+    WiFi.setTxPower(WIFI_POWER_19_5dBm); // Full RF output power for maximum range & connection stability
 
     WiFi.begin(activeWiFiSSID.c_str(), activeWiFiPassword.c_str());
 
     uint32_t start = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - start < 15000)
+    while (WiFi.status() != WL_CONNECTED && millis() - start < 25000)
     {
-        delay(500);
+        delay(300);
+        yield();
         Serial.print(".");
     }
     Serial.println();
@@ -1270,9 +1274,9 @@ void connectWiFi()
     else
     {
         wifiOK = false;
-        Serial.println("WiFi connection failed or network not found.");
-        Serial.println("Automatically launching Web Configuration Portal...");
-        startWiFiPortal();
+        Serial.println();
+        Serial.println("Wi-Fi still connecting in background...");
+        Serial.println("Auto-reconnect is active 24/7. Will link up immediately when network is available.");
     }
 }
 
@@ -1301,7 +1305,7 @@ void maintainWiFi()
 
     if (
         millis() - lastAttempt <
-        10000)
+        3000)
     {
         return;
     }
@@ -1310,13 +1314,15 @@ void maintainWiFi()
         millis();
 
     Serial.println(
-        "WiFi disconnected. Reconnecting...");
+        "WiFi disconnected. Reconnecting automatically...");
 
-    WiFi.disconnect();
-
-    WiFi.begin(
-        activeWiFiSSID.c_str(),
-        activeWiFiPassword.c_str());
+    WiFi.reconnect();
+    if (WiFi.status() != WL_CONNECTED)
+    {
+        WiFi.begin(
+            activeWiFiSSID.c_str(),
+            activeWiFiPassword.c_str());
+    }
 }
 
 // ============================================================
