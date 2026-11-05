@@ -80,7 +80,7 @@ class RuntimeDataSource:
         _env_api_url = os.getenv("AURAFOREST_API_URL")
         # On deployed cloud, default to public tunnel rather than unreachable 127.0.0.1
         default_base = (
-            "https://stored-comparing-keep-nationally.trycloudflare.com"
+            "https://jackson-moves-efficiency-cancelled.trycloudflare.com"
             if _is_cloud_env and not _env_api_url and not _st_api_url
             else "http://127.0.0.1:8000"
         )
@@ -152,8 +152,8 @@ class RuntimeDataSource:
         """Poll autonomous 24/7 cloud relay for direct live telemetry and events with fast in-memory caching."""
         import time as _t
         now = _t.time()
-        # Fast 3.0s cache to guarantee smooth, instant UI rendering without network lag
-        if hasattr(self, "_cloud_cache") and (now - getattr(self, "_cloud_cache_time", 0.0)) < 3.0:
+        # Fast 1.0s cache — allows ACOUSTIC panel to reflect each new 5-second audio inference immediately
+        if hasattr(self, "_cloud_cache") and (now - getattr(self, "_cloud_cache_time", 0.0)) < 1.0:
             return self._cloud_cache
 
         try:
@@ -240,8 +240,9 @@ class RuntimeDataSource:
         else:
             health = self._get_json("/health")
             if health is None:
-                # Back off for 45 seconds to prevent blocking UI execution loops on dead / unreachable endpoints
-                self._api_offline_until = now + 45.0
+                # Back off for 5 seconds only — shorter window so local dashboard retries quickly
+                # after transient failures (was 45s which caused stale ACOUSTIC panel)
+                self._api_offline_until = now + 5.0
         
         # If /health check failed or timed out, autonomously poll 24/7 cloud relay
         # (Skip cloud relay fallback only when executing under automated pytest suites)
