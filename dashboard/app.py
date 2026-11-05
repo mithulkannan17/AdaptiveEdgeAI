@@ -186,12 +186,13 @@ def is_citizen_danger_threat(threat_type: str) -> bool:
         return True
     return False
 
-# Real-time auto-refresh across live operational portals - stable 5.0s cadence for cloud synchronization
-# Avoid continuous auto-refresh on static historical archives to prevent infinite render loops and allow quiet reading
+# Real-time auto-refresh across live operational portals
+# Managed via the sidebar Live Sync toggle (defaults to stable on-demand to prevent cloud render loops)
 _current_nav = st.session_state.get("sidebar_navigation_choice") or ""
 _is_archive_page = any(k in str(_current_nav) for k in ["Archive", "Resolution Logs", "Security", "Audit Log"])
-if st_autorefresh is not None and not _is_archive_page:
-    st_autorefresh(interval=5000, key="aura_live_refresh")
+if st_autorefresh is not None and not _is_archive_page and st.session_state.get("aura_auto_sync_enabled", False):
+    _sync_rate = int(st.session_state.get("aura_auto_sync_interval", 10)) * 1000
+    st_autorefresh(interval=_sync_rate, key="aura_live_refresh")
 
 # ============================================================
 # DESIGN SYSTEM & MOBILE RESPONSIVE CSS
@@ -1530,13 +1531,33 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    # 5. System Status Indicator
+    # 5. System Status Indicator & Live Sync Controls
     st.markdown(
-        '''<div style="padding: 4px 8px; border-radius: 6px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); font-size: 11px; color: #10b981; font-family: 'JetBrains Mono', monospace; text-align: center;">
+        '''<div style="padding: 4px 8px; border-radius: 6px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); font-size: 11px; color: #10b981; font-family: 'JetBrains Mono', monospace; text-align: center; margin-bottom: 8px;">
             ● SYSTEM NOMINAL · INGESTION ACTIVE
         </div>''',
         unsafe_allow_html=True,
     )
+
+    if st.button("🔄 Refresh Data Now", use_container_width=True, key="btn_sidebar_manual_refresh"):
+        st.rerun()
+
+    auto_sync_on = st.toggle(
+        "⚡ Live Auto-Sync",
+        value=st.session_state.get("aura_auto_sync_enabled", False),
+        key="toggle_aura_auto_sync",
+        help="Enable continuous auto-refresh for live station monitoring",
+    )
+    st.session_state["aura_auto_sync_enabled"] = auto_sync_on
+    if auto_sync_on:
+        cadence = st.select_slider(
+            "Refresh Cadence",
+            options=[5, 10, 15, 30],
+            value=st.session_state.get("aura_auto_sync_interval", 10),
+            format_func=lambda x: f"{x}s",
+            key="slider_aura_cadence",
+        )
+        st.session_state["aura_auto_sync_interval"] = cadence
 
     # 6. Log Out Button
     if st.button("🚪 Sign Out", use_container_width=True, key="btn_sidebar_logout"):
