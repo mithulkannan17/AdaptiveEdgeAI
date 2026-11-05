@@ -240,23 +240,52 @@ class RuntimeDataSource:
     def tick(self) -> dict[str, Any]:
         """
         Fetch a completely fresh dashboard snapshot from FastAPI or cloud relay.
+        Uses consolidated high-speed snapshot to eliminate multi-request tunnel lag.
         """
         import time as _t
         self._last_error = None
 
         now = _t.time()
-        # If API was recently unreachable (e.g. on Streamlit Cloud), skip blocking urlopen
+
+        # 1. Fast Consolidated Snapshot (1 single round-trip instead of 4 sequential HTTP requests)
+        snapshot = self._get_json(
+            f"/api/v1/edge/dashboard/snapshot?device_id={quote(self.device_id, safe='')}&history_limit={self.event_history_limit}"
+        )
+        if isinstance(snapshot, dict) and snapshot.get("success"):
+            latest_event = snapshot.get("latest_event")
+            telemetry_record = snapshot.get("telemetry")
+            history_records = snapshot.get("recent_events") or []
+            health = snapshot.get("health") or {}
+
+            state = self._build_state(
+                latest_event=latest_event,
+                telemetry_record=telemetry_record,
+                history_records=history_records,
+                health=health,
+            )
+            state["connection"] = {
+                "online": True,
+                "status": "RUNTIME ONLINE",
+                "error": None,
+                "api_url": self.api_url,
+                "device_id": self.device_id,
+                "health": health,
+            }
+            if "active_alerts" in snapshot:
+                state["active_alerts"] = snapshot["active_alerts"]
+
+            self._last_state = deepcopy(state)
+            return deepcopy(state)
+
+        # 2. Sequential fallback if consolidated endpoint is not present
         if now < getattr(self, "_api_offline_until", 0.0):
             health = None
         else:
             health = self._get_json("/health")
             if health is None:
-                # Back off for 5 seconds only — shorter window so local dashboard retries quickly
-                # after transient failures (was 45s which caused stale ACOUSTIC panel)
                 self._api_offline_until = now + 5.0
         
         # If /health check failed or timed out, autonomously poll 24/7 cloud relay
-        # (Skip cloud relay fallback only when executing under automated pytest suites)
         is_unit_test = bool(os.getenv("PYTEST_CURRENT_TEST"))
         if health is None and not is_unit_test:
             cloud_bundle = self._poll_cloud_relay()

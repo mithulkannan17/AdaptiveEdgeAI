@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import time
 from typing import Any
 import json
 import struct
@@ -1931,6 +1932,14 @@ async def receive_edge_audio(
                 True,
         }
 
+    # Steady-state nature baseline: Ambient Forest, wind, water, insects, birds are nominal monitoring
+    p_lbl = str(prediction.get("label", "")).strip().lower()
+    if any(k in p_lbl for k in ["ambient", "wind", "insect", "water", "bird", "rain", "thunder"]):
+        event["detected"] = False
+        decision["risk_level"] = "LOW"
+        decision["recommended_action"] = "MONITOR"
+        decision["requires_attention"] = False
+
     # ------------------------------------------------------
     # Location fallback
     # ------------------------------------------------------
@@ -2141,6 +2150,58 @@ async def receive_edge_audio(
 
         "inference":
             inference_result,
+    }
+
+
+# ==========================================================
+# CONSOLIDATED DASHBOARD SNAPSHOT (HIGH SPEED)
+# ==========================================================
+
+@app.get(
+    "/api/v1/edge/dashboard/snapshot"
+)
+def dashboard_snapshot(
+    device_id: str = "edge_node_telemetry_001",
+    history_limit: int = 30,
+):
+    """
+    Consolidated single-call snapshot for zero-latency dashboard synchronization.
+    Returns backend health, latest telemetry, latest inference event, recent history,
+    and active alerts in a single atomic payload to eliminate sequential tunnel round-trips.
+    """
+    telemetry = database.get_latest_telemetry(device_id)
+    if not telemetry:
+        try:
+            all_tele = database.get_all_latest_telemetry()
+            if all_tele:
+                telemetry = all_tele[0]
+        except Exception:
+            pass
+    latest_event = database.get_latest()
+    recent = database.get_recent(limit=min(100, max(1, history_limit)))
+    try:
+        alerts = database.get_active_emergency_alerts(limit=10, include_acknowledged=True)
+    except Exception:
+        alerts = []
+
+    try:
+        total_records = database.count()
+    except Exception:
+        total_records = 0
+
+    return {
+        "success": True,
+        "health": {
+            "status": "healthy",
+            "stored_records": total_records,
+            "inference_model": "mobilenet_v3_small",
+            "device_id": device_id,
+        },
+        "telemetry": telemetry,
+        "latest_event": latest_event,
+        "recent_events": recent or [],
+        "active_alerts": alerts or [],
+        "server_time": time.time(),
     }
 
 

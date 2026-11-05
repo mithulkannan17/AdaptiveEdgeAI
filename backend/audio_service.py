@@ -121,17 +121,17 @@ class AudioInferenceService:
             n_fft=1024,
             hop_length=256,
             noise_percentile=20.0,
-            subtraction_strength=0.65,
-            gain_floor=0.35,
+            subtraction_strength=0.50,
+            gain_floor=0.40,
             activation_noise_ratio=0.10,
-            min_rms=0.0010,
+            min_rms=0.0001,
         )
         self.noise_n_fft = 1024
         self.noise_hop_length = 256
         self.noise_noise_percentile = 20.0
-        self.noise_reduction_strength = 0.65
+        self.noise_reduction_strength = 0.50
         self.noise_floor_ratio = 0.12
-        self.noise_min_gain = 0.35
+        self.noise_min_gain = 0.40
         self.noise_max_gain = 1.0
 
         # --------------------------------------------------
@@ -1306,7 +1306,7 @@ class AudioInferenceService:
         # 2. Ambient Forest baseline: When the sound is natural background (Wind, Insects,
         #    Water, Thunderstorm, Bird, quiet silence, room hiss), map to "Ambient" (Ambient Forest)
         #    giving a steady-state baseline telling the silence of the forest.
-        if is_target_threat and prediction_confidence >= 0.25 and audio_rms >= 0.0008:
+        if is_target_threat and prediction_confidence >= 0.20 and audio_rms >= 0.0001:
             # Genuine target sound detected cleanly — preserve prediction as-is
             pass
         else:

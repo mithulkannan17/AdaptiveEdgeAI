@@ -57,7 +57,7 @@ class NoiseRobustnessEngine:
         subtraction_strength: float = 0.85,
         gain_floor: float = 0.25,
         activation_noise_ratio: float = 0.10,
-        min_rms: float = 0.0015,
+        min_rms: float = 0.0001,
     ):
         self.enabled = bool(enabled)
         self.n_fft = int(n_fft)
