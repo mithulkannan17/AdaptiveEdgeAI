@@ -101,8 +101,21 @@ if not st.session_state.get("authenticated", False) and auth_param_user and auth
             if "auth_token" in st.query_params:
                 del st.query_params["auth_token"]
 
+ACTIVE_TUNNEL_URL = "https://announced-bikes-avi-sim.trycloudflare.com"
+
+def is_cloud_environment() -> bool:
+    """Detect if running in a deployed cloud environment (Streamlit Cloud, Render, Linux containers)."""
+    return bool(
+        sys.platform != "win32"
+        or os.path.exists("/mount/src")
+        or os.path.exists("/home/appuser")
+        or os.getenv("RENDER")
+        or os.getenv("IS_CLOUD_DEPLOYED")
+        or os.getenv("STREAMLIT_SHARING_MODE")
+    )
+
 def get_configured_api_url() -> str:
-    """Resolve backend API URL from Streamlit Cloud secrets or environment variables."""
+    """Resolve backend API URL from Streamlit Cloud secrets, environment variables, or active tunnel."""
     try:
         if hasattr(st, "secrets") and "AURAFOREST_API_URL" in st.secrets:
             val = str(st.secrets["AURAFOREST_API_URL"]).strip().rstrip("/")
@@ -114,6 +127,8 @@ def get_configured_api_url() -> str:
     env_val = os.getenv("AURAFOREST_API_URL")
     if env_val and env_val.strip():
         return env_val.strip().rstrip("/")
+    if is_cloud_environment():
+        return ACTIVE_TUNNEL_URL
     return "http://127.0.0.1:8000"
 
 def get_source() -> RuntimeDataSource:
@@ -187,11 +202,11 @@ def is_citizen_danger_threat(threat_type: str) -> bool:
     return False
 
 # Real-time auto-refresh across live operational portals
-# Managed via the sidebar Live Sync toggle (defaults to stable on-demand to prevent screen flashing)
+# 5s cadence: updates values smoothly matching ESP32 5-second audio / telemetry cycle
 _current_nav = st.session_state.get("sidebar_navigation_choice") or ""
 _is_archive_page = any(k in str(_current_nav) for k in ["Archive", "Resolution Logs", "Security", "Audit Log"])
-if st_autorefresh is not None and not _is_archive_page and st.session_state.get("aura_auto_sync_enabled", False):
-    _sync_rate = int(st.session_state.get("aura_auto_sync_interval", 10)) * 1000
+if st_autorefresh is not None and not _is_archive_page and st.session_state.get("aura_auto_sync_enabled", True):
+    _sync_rate = int(st.session_state.get("aura_auto_sync_interval", 5)) * 1000
     st_autorefresh(interval=_sync_rate, key="aura_live_refresh")
 
 # ============================================================
@@ -1544,17 +1559,17 @@ with st.sidebar:
 
     auto_sync_on = st.toggle(
         "⚡ Live Auto-Sync",
-        value=st.session_state.get("aura_auto_sync_enabled", False),
+        value=st.session_state.get("aura_auto_sync_enabled", True),
         key="toggle_aura_auto_sync",
         help="Enable continuous auto-refresh for live station monitoring",
     )
     st.session_state["aura_auto_sync_enabled"] = auto_sync_on
     if auto_sync_on:
-        _saved_cadence = st.session_state.get("aura_auto_sync_interval", 10)
-        _valid_cadence = _saved_cadence if _saved_cadence in [5, 10, 15, 30] else 10
+        _saved_cadence = st.session_state.get("aura_auto_sync_interval", 5)
+        _valid_cadence = _saved_cadence if _saved_cadence in [3, 5, 10, 15, 30] else 5
         cadence = st.select_slider(
             "Refresh Cadence",
-            options=[5, 10, 15, 30],
+            options=[3, 5, 10, 15, 30],
             value=_valid_cadence,
             format_func=lambda x: f"{x}s",
             key="slider_aura_cadence",

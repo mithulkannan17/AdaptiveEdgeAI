@@ -29,9 +29,23 @@ from copy import deepcopy
 from typing import Any
 import json
 import os
+import sys
 from urllib.error import URLError, HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
+
+ACTIVE_TUNNEL_URL = "https://announced-bikes-avi-sim.trycloudflare.com"
+
+def is_cloud_environment() -> bool:
+    """Detect if running in a deployed cloud environment (Streamlit Cloud, Render, Linux containers)."""
+    return bool(
+        sys.platform != "win32"
+        or os.path.exists("/mount/src")
+        or os.path.exists("/home/appuser")
+        or os.getenv("RENDER")
+        or os.getenv("IS_CLOUD_DEPLOYED")
+        or os.getenv("STREAMLIT_SHARING_MODE")
+    )
 
 
 class RuntimeDataSource:
@@ -69,18 +83,15 @@ class RuntimeDataSource:
         except Exception:
             pass
 
-        # Detect cloud deployment (e.g. Streamlit Community Cloud)
-        _is_cloud_env = bool(
-            os.getenv("STREAMLIT_SERVER_GATHER_USAGE_STATS")
-            or os.getenv("RENDER")
-            or os.getenv("IS_CLOUD_DEPLOYED")
-            or not os.path.exists("hardware.ino")
-        )
-
+        _is_cloud_env = is_cloud_environment()
         _env_api_url = os.getenv("AURAFOREST_API_URL")
-        # On deployed cloud, default to public tunnel rather than unreachable 127.0.0.1
+
+        # If running in cloud container and local URL was passed, redirect to public tunnel
+        if _is_cloud_env and str(api_url or "").rstrip("/").endswith((":8000", "127.0.0.1:8000", "localhost:8000")):
+            api_url = None
+
         default_base = (
-            "https://announced-bikes-avi-sim.trycloudflare.com"
+            ACTIVE_TUNNEL_URL
             if _is_cloud_env and not _env_api_url and not _st_api_url
             else "http://127.0.0.1:8000"
         )
