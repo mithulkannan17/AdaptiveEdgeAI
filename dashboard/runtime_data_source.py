@@ -80,7 +80,7 @@ class RuntimeDataSource:
         _env_api_url = os.getenv("AURAFOREST_API_URL")
         # On deployed cloud, default to public tunnel rather than unreachable 127.0.0.1
         default_base = (
-            "https://website-lyric-financial-effect.trycloudflare.com"
+            "https://announced-bikes-avi-sim.trycloudflare.com"
             if _is_cloud_env and not _env_api_url and not _st_api_url
             else "http://127.0.0.1:8000"
         )
