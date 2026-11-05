@@ -3384,9 +3384,10 @@ void loop()
         readDHT();
         lightLux = readBH1750();
         readBattery();
-        readMQ2();
-        readMQ135();
-        String preCaptureJson = buildTelemetryJSON();
+        readVibration();
+        readGasSensors();
+        readGPS();
+        String preCaptureJson = createPayload();
         sendToBackend(preCaptureJson);
         lastPost = millis();
 
@@ -3410,9 +3411,10 @@ void loop()
         readDHT();
         lightLux = readBH1750();
         readBattery();
-        readMQ2();
-        readMQ135();
-        String postCaptureJson = buildTelemetryJSON();
+        readVibration();
+        readGasSensors();
+        readGPS();
+        String postCaptureJson = createPayload();
         sendToBackend(postCaptureJson);
         lastPost = millis();
 
