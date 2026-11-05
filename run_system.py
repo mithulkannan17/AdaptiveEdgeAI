@@ -136,7 +136,7 @@ def main() -> None:
         print(f"\n[3/3] 🌐 Launching Cloudflare Public Cloud Bridge...")
         try:
             cloudflared_proc = subprocess.Popen(
-                [cf_bin, "tunnel", "--url", f"http://localhost:{backend_port}"],
+                [cf_bin, "tunnel", "--url", f"http://127.0.0.1:{backend_port}"],
                 stderr=subprocess.PIPE,
                 stdout=subprocess.DEVNULL,
                 text=True,

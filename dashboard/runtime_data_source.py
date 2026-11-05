@@ -71,7 +71,7 @@ class RuntimeDataSource:
         )
 
         self.event_history_limit = max(1, int(event_history_limit))
-        self.timeout_seconds = max(0.5, float(timeout_seconds if timeout_seconds != 2.5 else 1.5))
+        self.timeout_seconds = min(1.0, max(0.5, float(timeout_seconds if timeout_seconds != 2.5 else 1.0)))
         self._last_state: dict[str, Any] | None = None
         self._last_error: str | None = None
         self._api_offline_until: float = 0.0
@@ -210,8 +210,8 @@ class RuntimeDataSource:
         else:
             health = self._get_json("/health")
             if health is None:
-                # Back off for 15 seconds to prevent blocking UI execution loops
-                self._api_offline_until = now + 15.0
+                # Back off for 45 seconds to prevent blocking UI execution loops on dead / unreachable endpoints
+                self._api_offline_until = now + 45.0
         
         # If /health check failed or timed out, autonomously poll 24/7 cloud relay
         # (Skip cloud relay fallback only when executing under automated pytest suites)
