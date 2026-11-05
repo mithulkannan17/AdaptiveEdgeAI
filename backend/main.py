@@ -11,6 +11,7 @@ context to the adaptive audio-intelligence pipeline.
 
 from __future__ import annotations
 
+import asyncio
 import os
 from typing import Any
 import json
@@ -346,6 +347,37 @@ def sync_initial_experiment_data() -> None:
         print(f"[!] Note: experiment auto-sync skipped: {exc}")
 
 sync_initial_experiment_data()
+
+
+@app.on_event("startup")
+async def startup_event() -> None:
+    """Initialize startup hooks and suppress benign Windows proactor socket tracebacks."""
+    sync_initial_experiment_data()
+    if sys.platform == "win32":
+        try:
+            loop = asyncio.get_running_loop()
+            orig_handler = loop.get_exception_handler()
+
+            def _quiet_exception_handler(
+                loop: asyncio.AbstractEventLoop,
+                context: dict[str, Any],
+            ) -> None:
+                exc = context.get("exception")
+                if isinstance(exc, (ConnectionResetError, BrokenPipeError)):
+                    return
+                if isinstance(exc, OSError) and getattr(exc, "winerror", None) in (10054, 10053, 10058):
+                    return
+                msg = str(context.get("message", ""))
+                if "_call_connection_lost" in msg:
+                    return
+                if orig_handler:
+                    orig_handler(loop, context)
+                else:
+                    loop.default_exception_handler(context)
+
+            loop.set_exception_handler(_quiet_exception_handler)
+        except Exception:
+            pass
 
 
 # ==========================================================
