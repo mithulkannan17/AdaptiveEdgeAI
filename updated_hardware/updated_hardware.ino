@@ -183,7 +183,7 @@ const double FALLBACK_ACCURACY = 0.0;
 
 #define AUDIO_SAMPLE_RATE 16000
 
-#define AUDIO_DURATION_SECONDS 1 // 1.0s fast audio capture window for live instantaneous predictions
+#define AUDIO_DURATION_SECONDS 5 // 5.0s audio capture window for high-accuracy noise separation & threat classification
 
 #define AUDIO_SAMPLE_COUNT \
     (AUDIO_SAMPLE_RATE * AUDIO_DURATION_SECONDS)
@@ -352,7 +352,7 @@ uint32_t lastAudioInference = 0;
 // Continuous high-speed automatic audio inference
 bool automaticAudioDetection = true;
 
-const uint32_t AUDIO_INFERENCE_INTERVAL = 500; // 500ms minimal pause for near-instant continuous live inference
+const uint32_t AUDIO_INFERENCE_INTERVAL = 1000; // 1s minimal pause between 5s scans
 
 uint32_t nextAudioInference = 0;
 
@@ -3374,6 +3374,16 @@ void loop()
         nextAudioInference =
             millis() + AUDIO_INFERENCE_INTERVAL;
 
+        // Service sensors and transmit live telemetry immediately before starting 5-second audio capture
+        readDHT();
+        lightLux = readBH1750();
+        readBattery();
+        readMQ2();
+        readMQ135();
+        String preCaptureJson = buildTelemetryJSON();
+        sendToBackend(preCaptureJson);
+        lastPost = millis();
+
         Serial.println();
         Serial.println(
             "############################################################");
@@ -3389,6 +3399,16 @@ void loop()
 
         bool inferenceSuccess =
             performAudioInference();
+
+        // Service sensors and transmit live telemetry immediately after audio capture & upload
+        readDHT();
+        lightLux = readBH1750();
+        readBattery();
+        readMQ2();
+        readMQ135();
+        String postCaptureJson = buildTelemetryJSON();
+        sendToBackend(postCaptureJson);
+        lastPost = millis();
 
         if (inferenceSuccess)
         {
