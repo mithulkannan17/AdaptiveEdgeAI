@@ -1550,10 +1550,12 @@ with st.sidebar:
     )
     st.session_state["aura_auto_sync_enabled"] = auto_sync_on
     if auto_sync_on:
+        _saved_cadence = st.session_state.get("aura_auto_sync_interval", 10)
+        _valid_cadence = _saved_cadence if _saved_cadence in [5, 10, 15, 30] else 10
         cadence = st.select_slider(
             "Refresh Cadence",
             options=[5, 10, 15, 30],
-            value=st.session_state.get("aura_auto_sync_interval", 10),
+            value=_valid_cadence,
             format_func=lambda x: f"{x}s",
             key="slider_aura_cadence",
         )
