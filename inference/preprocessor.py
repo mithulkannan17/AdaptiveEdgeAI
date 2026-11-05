@@ -304,6 +304,9 @@ class PreProcessor:
                 "waveform must be a torch.Tensor."
             )
 
+        # Remove DC offset to eliminate microphone bias and low-frequency breath rumble
+        waveform = waveform - torch.mean(waveform)
+
         peak = torch.max(
             torch.abs(waveform)
         )

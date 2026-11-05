@@ -933,10 +933,56 @@ async def sync_telemetry_to_cloud(telemetry_dict: dict, auth_token: str | None =
 async def sync_event_to_cloud(runtime_message: dict) -> None:
     # 1. Forward live AI audio inference event to permanent 24/7 cloud broker
     try:
+        # Build compact message (< 3.5 KB) so ntfy preserves it directly in JSON message body without turning it into a file attachment
+        pred = runtime_message.get("prediction") or {}
+        evt = runtime_message.get("event") or {}
+        dec = runtime_message.get("decision") or {}
+        env = runtime_message.get("environment") or {}
+        pol = runtime_message.get("adaptive_policy") or {}
+        dev_stat = runtime_message.get("device_status") or {}
+        loc = runtime_message.get("location") or {}
+
+        compact_msg = {
+            "device_id": runtime_message.get("device_id", "edge_node_telemetry_001"),
+            "timestamp": runtime_message.get("timestamp"),
+            "prediction": {
+                "label": pred.get("label"),
+                "confidence": pred.get("confidence"),
+                "class_id": pred.get("class_id"),
+                "top_k": pred.get("top_k", [])[:5],
+                "inference_time_ms": pred.get("inference_time_ms", 0.0),
+            },
+            "event": {
+                "label": evt.get("label"),
+                "confidence": evt.get("confidence"),
+                "detected": evt.get("detected", False),
+                "priority": evt.get("priority", 1),
+                "reason": evt.get("reason"),
+            },
+            "decision": {
+                "risk_level": dec.get("risk_level"),
+                "recommended_action": dec.get("recommended_action"),
+                "decision_score": dec.get("decision_score"),
+                "requires_attention": dec.get("requires_attention"),
+                "reason": dec.get("reason"),
+                "contributing_factors": dec.get("contributing_factors", [])[:3],
+            },
+            "environment": {
+                "environment_type": env.get("environment_type"),
+            },
+            "adaptive_policy": {
+                "regime": pol.get("regime"),
+                "is_night": pol.get("is_night"),
+                "detection_threshold": pol.get("detection_threshold"),
+            },
+            "device_status": dev_stat,
+            "location": loc,
+        }
+
         async with httpx.AsyncClient(timeout=3.0) as client:
             await client.post(
                 AURA_CLOUD_BROKER_URL,
-                content=json.dumps(runtime_message),
+                content=json.dumps(compact_msg),
                 headers={
                     "Title": "event",
                     "Priority": "2",

@@ -150,9 +150,22 @@ class RuntimeDataSource:
                     try:
                         outer = json.loads(line)
                         inner_raw = outer.get("message")
-                        if not inner_raw:
-                            continue
-                        data = json.loads(inner_raw) if isinstance(inner_raw, str) else inner_raw
+                        data = None
+
+                        # Support both direct JSON string messages and large attachment JSON files
+                        if outer.get("attachment") and outer["attachment"].get("url") and "You received a file" in str(inner_raw or ""):
+                            try:
+                                att_url = outer["attachment"]["url"]
+                                with urlopen(att_url, timeout=2.5) as att_resp:
+                                    data = json.loads(att_resp.read().decode("utf-8"))
+                            except Exception:
+                                data = None
+                        elif inner_raw:
+                            try:
+                                data = json.loads(inner_raw) if isinstance(inner_raw, str) else inner_raw
+                            except Exception:
+                                data = None
+
                         if not isinstance(data, dict):
                             continue
 
@@ -201,9 +214,9 @@ class RuntimeDataSource:
                 self._api_offline_until = now + 15.0
         
         # If /health check failed or timed out, autonomously poll 24/7 cloud relay
-        # (Skip cloud relay fallback if targeting a local loopback mock endpoint in unit tests)
-        is_local_mock = any(self.api_url.startswith(p) for p in ["http://127.0.0.1", "http://localhost"])
-        if health is None and not is_local_mock:
+        # (Skip cloud relay fallback only when executing under automated pytest suites)
+        is_unit_test = bool(os.getenv("PYTEST_CURRENT_TEST"))
+        if health is None and not is_unit_test:
             cloud_bundle = self._poll_cloud_relay()
             if cloud_bundle and (cloud_bundle.get("telemetry") or cloud_bundle.get("event")):
                 state = self._build_state(
