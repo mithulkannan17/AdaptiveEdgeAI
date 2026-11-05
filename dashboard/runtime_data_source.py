@@ -76,7 +76,9 @@ class RuntimeDataSource:
         _st_api_url = None
         try:
             import streamlit as _st
-            if hasattr(_st, "secrets") and "AURAFOREST_API_URL" in _st.secrets:
+            if hasattr(_st, "session_state") and _st.session_state.get("custom_backend_relay_url"):
+                _st_api_url = str(_st.session_state["custom_backend_relay_url"]).strip()
+            elif hasattr(_st, "secrets") and "AURAFOREST_API_URL" in _st.secrets:
                 _st_api_url = str(_st.secrets["AURAFOREST_API_URL"]).strip()
             elif hasattr(_st, "query_params") and "api_url" in _st.query_params:
                 _st_api_url = str(_st.query_params["api_url"]).strip()
