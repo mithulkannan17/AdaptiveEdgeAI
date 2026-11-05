@@ -187,11 +187,11 @@ def is_citizen_danger_threat(threat_type: str) -> bool:
     return False
 
 # Real-time auto-refresh across live operational portals
-# Defaults to active (5s cadence matching ESP32 5s audio scans) for live instantaneous updates
+# Defaults to active (1s cadence for instant live streaming updates)
 _current_nav = st.session_state.get("sidebar_navigation_choice") or ""
 _is_archive_page = any(k in str(_current_nav) for k in ["Archive", "Resolution Logs", "Security", "Audit Log"])
 if st_autorefresh is not None and not _is_archive_page and st.session_state.get("aura_auto_sync_enabled", True):
-    _sync_rate = int(st.session_state.get("aura_auto_sync_interval", 5)) * 1000
+    _sync_rate = int(st.session_state.get("aura_auto_sync_interval", 1)) * 1000
     st_autorefresh(interval=_sync_rate, key="aura_live_refresh")
 
 # ============================================================
@@ -1552,8 +1552,8 @@ with st.sidebar:
     if auto_sync_on:
         cadence = st.select_slider(
             "Refresh Cadence",
-            options=[3, 5, 10, 15, 30],
-            value=st.session_state.get("aura_auto_sync_interval", 5),
+            options=[1, 2, 3, 5, 10],
+            value=st.session_state.get("aura_auto_sync_interval", 1),
             format_func=lambda x: f"{x}s",
             key="slider_aura_cadence",
         )

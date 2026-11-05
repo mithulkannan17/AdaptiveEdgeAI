@@ -183,7 +183,7 @@ const double FALLBACK_ACCURACY = 0.0;
 
 #define AUDIO_SAMPLE_RATE 16000
 
-#define AUDIO_DURATION_SECONDS 5
+#define AUDIO_DURATION_SECONDS 1 // 1.0s fast audio capture window for live instantaneous predictions
 
 #define AUDIO_SAMPLE_COUNT \
     (AUDIO_SAMPLE_RATE * AUDIO_DURATION_SECONDS)
@@ -352,13 +352,13 @@ uint32_t lastAudioInference = 0;
 // Continuous high-speed automatic audio inference
 bool automaticAudioDetection = true;
 
-const uint32_t AUDIO_INFERENCE_INTERVAL = 4000; // 4s gap after each scan: allows Wi-Fi stack & backend to breathe, preventing disconnects
+const uint32_t AUDIO_INFERENCE_INTERVAL = 500; // 500ms minimal pause for near-instant continuous live inference
 
 uint32_t nextAudioInference = 0;
 
-const uint32_t SENSOR_INTERVAL = 1000; // Read sensors every 1 second for smooth, reliable updates
+const uint32_t SENSOR_INTERVAL = 500; // Read sensors every 500ms for live, responsive telemetry
 
-const uint32_t POST_INTERVAL = 2000; // Transmit live telemetry every 2 seconds without socket congestion
+const uint32_t POST_INTERVAL = 1000; // Transmit live telemetry every 1 second (continuous real-time updates)
 
 // ============================================================
 // AUDIO BUFFER
