@@ -58,10 +58,38 @@ class RuntimeDataSource:
         enable_sqlite_fallback: bool = False,
     ) -> None:
         self.enable_sqlite_fallback = enable_sqlite_fallback
+
+        _st_api_url = None
+        try:
+            import streamlit as _st
+            if hasattr(_st, "secrets") and "AURAFOREST_API_URL" in _st.secrets:
+                _st_api_url = str(_st.secrets["AURAFOREST_API_URL"]).strip()
+            elif hasattr(_st, "query_params") and "api_url" in _st.query_params:
+                _st_api_url = str(_st.query_params["api_url"]).strip()
+        except Exception:
+            pass
+
+        # Detect cloud deployment (e.g. Streamlit Community Cloud)
+        _is_cloud_env = bool(
+            os.getenv("STREAMLIT_SERVER_GATHER_USAGE_STATS")
+            or os.getenv("RENDER")
+            or os.getenv("IS_CLOUD_DEPLOYED")
+            or not os.path.exists("hardware.ino")
+        )
+
+        _env_api_url = os.getenv("AURAFOREST_API_URL")
+        # On deployed cloud, default to public tunnel rather than unreachable 127.0.0.1
+        default_base = (
+            "https://stored-comparing-keep-nationally.trycloudflare.com"
+            if _is_cloud_env and not _env_api_url and not _st_api_url
+            else "http://127.0.0.1:8000"
+        )
+
         self.api_url = (
             api_url
-            or os.getenv("AURAFOREST_API_URL")
-            or "http://127.0.0.1:8000"
+            or _st_api_url
+            or _env_api_url
+            or default_base
         ).rstrip("/")
 
         self.device_id = (

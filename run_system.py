@@ -97,7 +97,6 @@ def main() -> None:
         "0.0.0.0",
         "--port",
         str(backend_port),
-        "--reload",
     ]
 
     dashboard_cmd = [
