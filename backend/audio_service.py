@@ -62,6 +62,7 @@ import librosa
 import numpy as np
 import torch
 
+from edge.noise_robustness import NoiseRobustnessEngine
 from inference.preprocessor import PreProcessor
 from inference.predictor import Predictor
 from edge.runtime.edge_controller import EdgeController
@@ -110,18 +111,28 @@ class AudioInferenceService:
         self.preprocessor = PreProcessor()
 
         # --------------------------------------------------
-        # Noise-robust acoustic preprocessing
+        # Noise-robust acoustic preprocessing (NoiseRobustnessEngine)
         # --------------------------------------------------
-        # Denoising spectral subtraction is disabled by default for online inference
-        # to ensure zero musical-noise chirping artifacts and ultra-fast sub-second response.
-        self.noise_robust_enabled = False
-        self.noise_n_fft = 512
-        self.noise_hop_length = 128
+        # Calibrated PyTorch-based spectral subtraction targets and preserves
+        # the main transient voice/threat harmonics while suppressing stationary noise.
+        self.noise_robust_enabled = True
+        self.noise_engine = NoiseRobustnessEngine(
+            enabled=True,
+            n_fft=1024,
+            hop_length=256,
+            noise_percentile=20.0,
+            subtraction_strength=0.80,
+            gain_floor=0.25,
+            activation_noise_ratio=0.10,
+            min_rms=0.0020,
+        )
+        self.noise_n_fft = 1024
+        self.noise_hop_length = 256
         self.noise_noise_percentile = 20.0
-        self.noise_reduction_strength = 0.65
+        self.noise_reduction_strength = 0.80
         self.noise_floor_ratio = 0.12
-        self.noise_min_gain = 0.30
-        self.noise_max_gain = 1.15
+        self.noise_min_gain = 0.25
+        self.noise_max_gain = 1.0
 
         # --------------------------------------------------
         # Production trained model
@@ -883,6 +894,7 @@ class AudioInferenceService:
     def reduce_stationary_noise(
         self,
         waveform: np.ndarray,
+        sample_rate: int | None = None,
     ) -> tuple[np.ndarray, dict[str, Any]]:
         """
         Apply conservative spectral-gating / spectral-subtraction.
@@ -898,145 +910,23 @@ class AudioInferenceService:
         x = self.validate(waveform)
 
         if not self.noise_robust_enabled:
+            rms = self._safe_rms(x)
             return x, {
                 "enabled": False,
                 "applied": False,
                 "reason": "noise_robustness_disabled",
-                "input_rms": self._safe_rms(x),
-                "output_rms": self._safe_rms(x),
+                "input_rms": rms,
+                "output_rms": rms,
                 "attenuation_ratio": 1.0,
             }
 
-        input_rms = self._safe_rms(x)
-
-        # Avoid processing effectively silent audio.  The existing
-        # open-set detector will handle silence/unknown rejection.
-        if input_rms < 1e-4 or x.size < self.noise_n_fft:
-            return x, {
-                "enabled": True,
-                "applied": False,
-                "reason": "low_energy_or_short_audio",
-                "input_rms": input_rms,
-                "output_rms": input_rms,
-                "attenuation_ratio": 1.0,
-            }
-
-        stft = librosa.stft(
-            x,
-            n_fft=self.noise_n_fft,
-            hop_length=self.noise_hop_length,
-            win_length=self.noise_n_fft,
-            center=True,
+        effective_sr = int(sample_rate or self.sample_rate)
+        denoised, diag = self.noise_engine.process(x, sample_rate=effective_sr)
+        diag_dict = diag.to_dict()
+        diag_dict["attenuation_ratio"] = float(
+            diag.output_rms / max(diag.input_rms, 1e-12)
         )
-
-        magnitude = np.abs(stft)
-        phase = np.angle(stft)
-
-        noise_profile = self.estimate_noise_profile(x)
-        noise_profile = noise_profile[:, None]
-
-        # Power-ratio style spectral subtraction.
-        # The floor prevents complete removal of a frequency bin.
-        estimated_signal = np.maximum(
-            magnitude - (
-                self.noise_reduction_strength * noise_profile
-            ),
-            self.noise_floor_ratio * magnitude,
-        )
-
-        # Soft spectral gate.  Bins close to the noise floor are
-        # attenuated; bins substantially above it are retained.
-        ratio = magnitude / (
-            noise_profile + 1e-8
-        )
-
-        gate = np.clip(
-            (ratio - 1.0) / 1.5,
-            0.0,
-            1.0,
-        )
-
-        gain = (
-            self.noise_min_gain
-            + (
-                1.0 - self.noise_min_gain
-            ) * gate
-        )
-
-        cleaned_magnitude = estimated_signal * gain
-
-        # Do not allow denoising to boost individual bins above the
-        # original magnitude.  This avoids artificial tonal artifacts.
-        cleaned_magnitude = np.minimum(
-            cleaned_magnitude,
-            magnitude * self.noise_max_gain,
-        )
-
-        cleaned_stft = (
-            cleaned_magnitude
-            * np.exp(1j * phase)
-        )
-
-        cleaned = librosa.istft(
-            cleaned_stft,
-            hop_length=self.noise_hop_length,
-            win_length=self.noise_n_fft,
-            length=x.size,
-        )
-
-        cleaned = np.asarray(
-            cleaned,
-            dtype=np.float32,
-        )
-
-        cleaned = np.nan_to_num(
-            cleaned,
-            nan=0.0,
-            posinf=0.0,
-            neginf=0.0,
-        )
-
-        cleaned = np.clip(
-            cleaned,
-            -1.0,
-            1.0,
-        )
-
-        output_rms = self._safe_rms(cleaned)
-
-        # Safety guard: if the denoiser removes almost everything,
-        # fall back to the original waveform.  This protects short,
-        # low-SNR environmental events.
-        if (
-            output_rms < input_rms * 0.20
-            and input_rms > 1e-4
-        ):
-            cleaned = x.copy()
-            output_rms = input_rms
-            applied = False
-            reason = "fallback_excessive_attenuation"
-        else:
-            applied = True
-            reason = "adaptive_spectral_noise_reduction"
-
-        attenuation_ratio = (
-            output_rms / input_rms
-            if input_rms > 1e-8
-            else 1.0
-        )
-
-        return cleaned, {
-            "enabled": True,
-            "applied": applied,
-            "reason": reason,
-            "input_rms": input_rms,
-            "output_rms": output_rms,
-            "attenuation_ratio": float(attenuation_ratio),
-            "n_fft": self.noise_n_fft,
-            "hop_length": self.noise_hop_length,
-            "noise_percentile": self.noise_noise_percentile,
-            "reduction_strength": self.noise_reduction_strength,
-        }
+        return denoised, diag_dict
 
     # ======================================================
     # AUDIO PROCESSING
@@ -1319,6 +1209,17 @@ class AudioInferenceService:
         )
 
         # --------------------------------------------------
+        # Targeted Noise Robustness & Background Suppression
+        # --------------------------------------------------
+        # Suppress stationary background noise (fan hum, electrical hiss)
+        # while targeting and preserving transient speech and target events.
+        waveform_np, noise_info = self.reduce_stationary_noise(
+            waveform_np,
+            sample_rate=effective_sample_rate,
+        )
+        self._last_noise_robustness = noise_info
+
+        # --------------------------------------------------
         # NumPy → Torch
         # --------------------------------------------------
 
@@ -1402,20 +1303,20 @@ class AudioInferenceService:
             current_label_clean == "Human"
             or "speech" in current_label_lower
             or "voice" in current_label_lower
-        ) and prediction_confidence >= 0.40
+        ) and prediction_confidence >= 0.35
 
         # Ambient gating rules:
-        # 1. If genuine voice is detected with high model confidence (>= 0.40) and measurable RMS (>= 0.002),
+        # 1. Voice protection: If genuine voice is detected with model confidence >= 0.35,
         #    preserve the voice prediction! Never suppress legitimate human speech.
-        # 2. In normal quiescent conditions (RMS < 0.007) without an active vocal trigger,
-        #    map the sound to "Ambient" (Ambient Forest) to prevent phantom alerts (Bird, Vehicle, etc.)
-        #    when the room/forest is quiet.
-        if not is_voice_detected and audio_rms < 0.0070:
+        # 2. Ambient Forest baseline: In quiescent room / quiet forest conditions (RMS < 0.010),
+        #    low-level stationary noise without vocal transients is classified as "Ambient" (Ambient Forest),
+        #    preventing hallucinated alerts (Bird, Vehicle, etc.) when the environment is peaceful.
+        if not is_voice_detected and audio_rms < 0.0100:
             prediction = PredictionResult(
                 label="Ambient",
                 class_id=0,
-                confidence=0.95,
-                top_k=[("Ambient", 0.95), (current_label_clean, 0.05)],
+                confidence=0.96,
+                top_k=[("Ambient", 0.96), (current_label_clean, 0.04)],
                 inference_time_ms=getattr(prediction, "inference_time_ms", 0.0),
             )
         elif audio_rms < 0.0010:
