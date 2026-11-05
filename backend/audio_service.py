@@ -121,17 +121,17 @@ class AudioInferenceService:
             n_fft=1024,
             hop_length=256,
             noise_percentile=20.0,
-            subtraction_strength=0.80,
-            gain_floor=0.25,
+            subtraction_strength=0.65,
+            gain_floor=0.35,
             activation_noise_ratio=0.10,
-            min_rms=0.0020,
+            min_rms=0.0010,
         )
         self.noise_n_fft = 1024
         self.noise_hop_length = 256
         self.noise_noise_percentile = 20.0
-        self.noise_reduction_strength = 0.80
+        self.noise_reduction_strength = 0.65
         self.noise_floor_ratio = 0.12
-        self.noise_min_gain = 0.25
+        self.noise_min_gain = 0.35
         self.noise_max_gain = 1.0
 
         # --------------------------------------------------
@@ -1209,17 +1209,6 @@ class AudioInferenceService:
         )
 
         # --------------------------------------------------
-        # Targeted Noise Robustness & Background Suppression
-        # --------------------------------------------------
-        # Suppress stationary background noise (fan hum, electrical hiss)
-        # while targeting and preserving transient speech and target events.
-        waveform_np, noise_info = self.reduce_stationary_noise(
-            waveform_np,
-            sample_rate=effective_sample_rate,
-        )
-        self._last_noise_robustness = noise_info
-
-        # --------------------------------------------------
         # NumPy → Torch
         # --------------------------------------------------
 
@@ -1292,47 +1281,41 @@ class AudioInferenceService:
         # Acoustic Energy & Ambient Floor Gating
         # --------------------------------------------------
         # Suppress false-positive threat predictions caused by
-        # quiescent microphone hiss or ambient room silence.
+        # quiescent microphone hiss, room silence, or benign environmental sounds.
         from inference.types import PredictionResult
         current_label_clean = str(getattr(prediction, "label", "")).strip()
         current_label_lower = current_label_clean.lower()
         prediction_confidence = float(getattr(prediction, "confidence", 0.0))
 
-        # Check if any significant target sound was distinctly recognized by the model.
-        # Protect all real acoustic events — not just voice — from being wrongly suppressed.
-        _protected_keywords = [
-            "human", "speech", "voice", "talking", "conversation",
+        # Explicit target threat & critical human action classes:
+        # Human speech, chainsaw, fire, gunshots, vehicles, sirens, drills, footsteps
+        target_threat_keywords = [
+            "human", "speech", "voice", "talking", "conversation", "footsteps",
+            "chainsaw", "drill", "jackhammer", "logging", "saw",
             "fire", "wildfire", "burning", "flame", "crackl",
-            "chainsaw", "drill", "logging", "jackhammer",
-            "gunshot", "explosion", "blast", "poach",
-            "vehicle", "truck", "engine", "motorcycle",
-            "bird", "insect", "water", "rain", "wind",
-            "siren", "emergency",
+            "gunshot", "explosion", "poaching", "blast", "firearm",
+            "vehicle", "truck", "car", "engine", "motorcycle",
+            "emergencyvehicle", "siren",
         ]
-        is_real_event_detected = (
-            any(kw in current_label_lower for kw in _protected_keywords)
-            and prediction_confidence >= 0.30
-        )
+        is_target_threat = any(kw in current_label_lower for kw in target_threat_keywords)
 
-        # Ambient gating rules (conservative — only suppress true silence/hiss):
-        # 1. Event protection: If the model recognizes ANY real target sound with >= 30% confidence,
-        #    always preserve the prediction — fire, human voice, chainsaw, etc.
-        # 2. True silence gate: Only force "Ambient" when RMS < 0.0030 (mic hiss / dead silence)
-        #    AND the model hasn't flagged a real acoustic event.
-        if not is_real_event_detected and audio_rms < 0.0030:
+        # Baseline rules:
+        # 1. Target threat detected: If genuine human speech, chainsaw, fire, gunshot,
+        #    vehicle, or logging is recognized with confidence >= 0.25 and audible energy (RMS >= 0.0008),
+        #    preserve the detection cleanly!
+        # 2. Ambient Forest baseline: When the sound is natural background (Wind, Insects,
+        #    Water, Thunderstorm, Bird, quiet silence, room hiss), map to "Ambient" (Ambient Forest)
+        #    giving a steady-state baseline telling the silence of the forest.
+        if is_target_threat and prediction_confidence >= 0.25 and audio_rms >= 0.0008:
+            # Genuine target sound detected cleanly — preserve prediction as-is
+            pass
+        else:
+            # Silence, wind, insects, water, birds, or sub-audible noise -> Ambient Forest baseline
             prediction = PredictionResult(
                 label="Ambient",
                 class_id=0,
                 confidence=0.96,
                 top_k=[("Ambient", 0.96), (current_label_clean, 0.04)],
-                inference_time_ms=getattr(prediction, "inference_time_ms", 0.0),
-            )
-        elif audio_rms < 0.0005:
-            prediction = PredictionResult(
-                label="Ambient",
-                class_id=0,
-                confidence=0.98,
-                top_k=[("Ambient", 0.98), (current_label_clean, 0.02)],
                 inference_time_ms=getattr(prediction, "inference_time_ms", 0.0),
             )
 
