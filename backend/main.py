@@ -2185,6 +2185,16 @@ def dashboard_snapshot(
         alerts = []
 
     try:
+        siren = database.get_active_public_siren()
+    except Exception:
+        siren = None
+
+    try:
+        citizen_reports = database.get_citizen_reports()
+    except Exception:
+        citizen_reports = []
+
+    try:
         total_records = database.count()
     except Exception:
         total_records = 0
@@ -2201,8 +2211,46 @@ def dashboard_snapshot(
         "latest_event": latest_event,
         "recent_events": recent or [],
         "active_alerts": alerts or [],
+        "active_siren": siren,
+        "citizen_reports": citizen_reports or [],
         "server_time": time.time(),
     }
+
+
+# ==========================================================
+# PUBLIC SIREN CONTROL ENDPOINTS
+# ==========================================================
+
+@app.post(
+    "/api/v1/edge/siren/activate"
+)
+def activate_siren_endpoint(payload: dict = Body(...)):
+    """Activate sanctuary-wide emergency warning siren."""
+    reason = str(payload.get("reason", "Public Emergency Warning"))
+    activated_by = str(payload.get("activated_by", "Chief Ranger Sharma"))
+    lat = float(payload.get("location_lat", 12.2965))
+    lon = float(payload.get("location_lon", 76.6405))
+    alert_id = database.activate_public_siren(
+        reason=reason,
+        activated_by=activated_by,
+        location_lat=lat,
+        location_lon=lon,
+    )
+    return {"success": True, "alert_id": alert_id, "status": "ACTIVATED"}
+
+
+@app.post(
+    "/api/v1/edge/siren/deactivate"
+)
+def deactivate_siren_endpoint(payload: dict = Body(default_factory=dict)):
+    """Deactivate and silence sanctuary-wide emergency warning siren."""
+    deactivated_by = str(payload.get("deactivated_by", "Chief Ranger Sharma"))
+    notes = str(payload.get("resolution_notes", "Emergency stood down. Siren silenced."))
+    success = database.deactivate_public_siren(
+        deactivated_by=deactivated_by,
+        resolution_notes=notes,
+    )
+    return {"success": success, "status": "DEACTIVATED"}
 
 
 # ==========================================================

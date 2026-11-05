@@ -275,6 +275,10 @@ class RuntimeDataSource:
             }
             if "active_alerts" in snapshot:
                 state["active_alerts"] = snapshot["active_alerts"]
+            if "active_siren" in snapshot:
+                state["active_siren"] = snapshot["active_siren"]
+            if "citizen_reports" in snapshot:
+                state["citizen_reports"] = snapshot["citizen_reports"]
 
             self._last_state = deepcopy(state)
             return deepcopy(state)

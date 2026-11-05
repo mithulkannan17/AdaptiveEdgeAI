@@ -1656,7 +1656,25 @@ def render_live_operational_portal():
         if is_threat_event
         else "🟢 STEADY STATE MONITORING · Baseline"
     )
-    active_alerts = db.get_active_emergency_alerts(include_acknowledged=True)
+    # Synchronize active alerts & public siren from live backend terminal snapshot
+    tunnel_alerts = state.get("active_alerts")
+    if tunnel_alerts is not None and isinstance(tunnel_alerts, list):
+        active_alerts = tunnel_alerts
+        # Mirror into local SQLite container database so all downstream lookups match
+        for a in active_alerts:
+            try:
+                db.insert_emergency_alert(a)
+            except Exception:
+                pass
+    else:
+        active_alerts = db.get_active_emergency_alerts(include_acknowledged=True)
+
+    tunnel_siren = state.get("active_siren")
+    if tunnel_siren is not None or "active_siren" in state:
+        active_siren = tunnel_siren
+    else:
+        if active_siren is None: active_siren = db.get_active_public_siren()
+
     field_rangers = db.get_field_rangers()
 
 
@@ -1758,7 +1776,7 @@ def render_live_operational_portal():
         components.html(siren_html, height=0)
 
     # 🚨 SANCTUARY-WIDE PUBLIC EMERGENCY SIREN (BROADCAST ACROSS ALL ROLES & PAGES)
-    active_siren = db.get_active_public_siren()
+    if active_siren is None: active_siren = db.get_active_public_siren()
     if active_siren:
         s_ts_raw = active_siren.get("timestamp") or time.time()
         s_time_str = datetime.fromtimestamp(s_ts_raw).strftime("%H:%M:%S") if isinstance(s_ts_raw, (int, float)) else str(active_siren.get("created_at"))[:19].replace("T", " ")
@@ -1800,6 +1818,10 @@ def render_live_operational_portal():
                         st.rerun()
             else:
                 if st.button("🔕 Silence & Deactivate Siren", key="btn_silence_siren_top_global", use_container_width=True, type="primary"):
+                    try:
+                        api_request("/api/v1/edge/siren/deactivate", method="POST", payload={"deactivated_by": user_display})
+                    except Exception:
+                        pass
                     db.deactivate_public_siren(deactivated_by=user_display)
                     st.session_state.pop("citizen_siren_muted", None)
                     st.success("Public siren deactivated and silenced.")
@@ -1927,6 +1949,10 @@ def render_live_operational_portal():
                 al_status_curr = str(top_alert.get("status", "")).upper()
                 if al_status_curr != "ACKNOWLEDGED":
                     if st.button("Acknowledge Alert", key="btn_ack_top_alert", use_container_width=True, type="primary"):
+                        try:
+                            api_request(f"/api/v1/edge/alerts/{top_alert.get('alert_id')}/acknowledge", method="POST", payload={"acknowledged_by": user_display})
+                        except Exception:
+                            pass
                         db.acknowledge_emergency_alert(top_alert.get("alert_id"), acknowledged_by=user_display)
                         st.success("Alert acknowledged.")
                         st.rerun()
@@ -1940,6 +1966,10 @@ def render_live_operational_portal():
                     if current_role in ["admin", "ranger"]:
                         btn_label = "✅ Mark Threat as Solved" if current_role == "ranger" else "✅ Chief Resolution: Mark Threat Solved"
                         if st.button(btn_label, key=f"btn_top_mark_solved_{current_role}", use_container_width=True, type="primary"):
+                            try:
+                                api_request(f"/api/v1/edge/alerts/{top_alert.get('alert_id')}/resolve", method="POST", payload={"resolved_by": user_display, "resolution_notes": f"Threat investigated and perimeter secured by {user_display}."})
+                            except Exception:
+                                pass
                             db.resolve_emergency_alert(top_alert.get("alert_id"), resolved_by=user_display, resolution_notes=f"Threat investigated and perimeter secured by {user_display}.")
                             st.success("Threat resolved and logged to Incident Archive!")
                             st.rerun()
@@ -2752,7 +2782,7 @@ def render_live_operational_portal():
                 metric("Atmosphere / Gas", gas_status, gas_sub, "MQ-2 / MQ-135 Gas Sensors", accent="emerald" if gas_status == "NOMINAL" else "coral", icon="🧪")
 
             # 🚨 Public Warning Siren & CADIE Live Status Banner
-            active_siren = db.get_active_public_siren()
+            if active_siren is None: active_siren = db.get_active_public_siren()
             if active_siren:
                 s_ts_raw = active_siren.get("timestamp") or time.time()
                 s_time_str = datetime.fromtimestamp(s_ts_raw).strftime("%H:%M:%S") if isinstance(s_ts_raw, (int, float)) else str(active_siren.get("created_at"))[:19].replace("T", " ")
@@ -2800,6 +2830,19 @@ def render_live_operational_portal():
                     final_s_reason = custom_s_msg.strip() if custom_s_msg.strip() else siren_reason_choice
 
                     if st.button("🚨 BROADCAST EMERGENCY SIREN TO ALL SECTORS", type="primary", use_container_width=True, key="btn_broadcast_siren_now"):
+                        try:
+                            api_request(
+                                "/api/v1/edge/siren/activate",
+                                method="POST",
+                                payload={
+                                    "reason": final_s_reason,
+                                    "activated_by": user_display,
+                                    "location_lat": sent_lat,
+                                    "location_lon": sent_lon,
+                                }
+                            )
+                        except Exception:
+                            pass
                         db.activate_public_siren(reason=final_s_reason, activated_by=user_display, location_lat=sent_lat, location_lon=sent_lon)
                         st.success("🚨 Public Emergency Warning Siren broadcasted!")
                         st.rerun()
@@ -3458,8 +3501,26 @@ def render_live_operational_portal():
                 bc_col1, bc_col2 = st.columns(2)
                 with bc_col1:
                     if st.button("🚨 Broadcast Sentinel Threat Alert", type="primary", use_container_width=True, key="btn_bcast_sentinel_alert"):
+                        a_id = f"alert_man_{int(time.time())}"
+                        try:
+                            api_request(
+                                "/api/v1/edge/alerts/dispatch",
+                                method="POST",
+                                payload={
+                                    "device_id": device_id,
+                                    "threat_type": clean_th,
+                                    "confidence": 0.98,
+                                    "risk_level": m_risk,
+                                    "latitude": sent_lat,
+                                    "longitude": sent_lon,
+                                    "action": m_action,
+                                    "contributing_factors": [f"Manual Chief Broadcast: {clean_th}"],
+                                }
+                            )
+                        except Exception:
+                            pass
                         db.insert_emergency_alert({
-                            "alert_id": f"alert_man_{int(time.time())}",
+                            "alert_id": a_id,
                             "device_id": device_id,
                             "threat_type": clean_th,
                             "risk_level": m_risk,
@@ -3472,8 +3533,22 @@ def render_live_operational_portal():
                         st.rerun()
                 with bc_col2:
                     if st.button("📢 SOUND PUBLIC WARNING SIREN TO ALL CITIZENS", type="primary", use_container_width=True, key="btn_bcast_siren_page"):
+                        s_msg = f"🚨 {clean_th.upper()} WARNING ({m_risk}): Evacuate affected trails immediately."
+                        try:
+                            api_request(
+                                "/api/v1/edge/siren/activate",
+                                method="POST",
+                                payload={
+                                    "reason": s_msg,
+                                    "activated_by": user_display,
+                                    "location_lat": sent_lat,
+                                    "location_lon": sent_lon,
+                                }
+                            )
+                        except Exception:
+                            pass
                         db.activate_public_siren(
-                            reason=f"🚨 {clean_th.upper()} WARNING ({m_risk}): Evacuate affected trails immediately.",
+                            reason=s_msg,
                             activated_by=user_display,
                             location_lat=sent_lat,
                             location_lon=sent_lon,
