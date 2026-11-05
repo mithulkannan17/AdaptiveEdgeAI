@@ -349,16 +349,16 @@ uint32_t lastAudioInference = 0;
 // Automatically capture 5 seconds of audio, send it to the
 // FastAPI AI backend, receive the inference, and repeat.
 
-// Periodic automatic audio inference (runs every 10 seconds to leave bandwidth for snappy telemetry)
+// Continuous high-speed automatic audio inference
 bool automaticAudioDetection = true;
 
-const uint32_t AUDIO_INFERENCE_INTERVAL = 10000; // 10s gap between automatic audio scans
+const uint32_t AUDIO_INFERENCE_INTERVAL = 1000; // 1s minimal gap for continuous instant voice/threat detection
 
 uint32_t nextAudioInference = 0;
 
-const uint32_t SENSOR_INTERVAL = 1000; // Read sensors every 1 second
+const uint32_t SENSOR_INTERVAL = 500; // Read sensors every 500ms for high-speed responsiveness
 
-const uint32_t POST_INTERVAL = 2000; // Transmit live telemetry every 2 seconds (snappy real-time data)
+const uint32_t POST_INTERVAL = 1000; // Transmit live telemetry every 1 second (instant live telemetry updates)
 
 // ============================================================
 // AUDIO BUFFER

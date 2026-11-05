@@ -124,8 +124,8 @@ class RuntimeDataSource:
         """Poll autonomous 24/7 cloud relay for direct live telemetry and events with fast in-memory caching."""
         import time as _t
         now = _t.time()
-        # Fast 1.5s cache to ensure silky-smooth UI rendering without blocking HTTP roundtrips on rapid reruns
-        if hasattr(self, "_cloud_cache") and (now - getattr(self, "_cloud_cache_time", 0.0)) < 1.5:
+        # High-speed 0.4s cache to ensure near-instant live UI rendering
+        if hasattr(self, "_cloud_cache") and (now - getattr(self, "_cloud_cache_time", 0.0)) < 0.4:
             return self._cloud_cache
 
         try:
