@@ -363,10 +363,17 @@ class CADIE:
         if "mq2_raw" in device_status or "mq135_raw" in device_status:
             mq2 = float(device_status.get("mq2_raw", 0.0))
             mq135 = float(device_status.get("mq135_raw", 0.0))
-            # Basic sanity check if readings indicate active sensors
-            if mq2 > 0.0 or mq135 > 0.0:
-                score = min(1.0, (mq2 + mq135) / 1000.0)
-                return self._clamp(score), "Atmospheric gas telemetry active", True
+            # Ambient baseline for clean forest air: MQ-2 resting is ~50-350 ADC, MQ-135 is ~100-450 ADC
+            if mq2 <= 350.0 and mq135 <= 450.0:
+                return 0.0, "Atmospheric gas telemetry nominal", False
+
+            # Anomaly is calculated only on excess over clean-air baseline thresholds
+            mq2_excess = max(0.0, mq2 - 350.0)
+            mq135_excess = max(0.0, mq135 - 450.0)
+            score = min(1.0, max(mq2_excess / 650.0, mq135_excess / 800.0))
+            if score < 0.25:
+                return 0.0, "Atmospheric gas telemetry nominal", False
+            return self._clamp(score), f"Atmospheric gas elevation detected ({int(score * 100)}%)", True
 
         return 0.0, None, False
 
@@ -556,9 +563,9 @@ class CADIE:
 
         # Fire Cross-Corroboration:
         if any(k in lbl_lower for k in ["fire", "wildfire", "smoke", "burn", "flame"]):
-            has_smoke = mq2_val >= 500 or mq2_v >= 0.70 or (gas_factor >= 0.35)
-            has_heat = temp_val >= 38.0 or (humidity_val <= 30.0 and temp_val >= 34.0)
-            if has_smoke or has_heat:
+            has_smoke = (mq2_val >= 500 or mq2_v >= 0.50) or (gas_factor >= 0.65 and (mq2_val >= 350 or mq2_v >= 0.30))
+            has_heat = temp_val >= 42.0 or (humidity_val <= 25.0 and temp_val >= 36.0)
+            if has_smoke or has_heat or (gas_factor >= 0.70):
                 fire_multimodal_confirmed = True
 
         # Chainsaw / Logging Cross-Corroboration:
@@ -631,9 +638,12 @@ class CADIE:
             if any(k in lbl_lower for k in ["fire", "chainsaw", "drill", "jackhammer"]):
                 score = min(score, 0.50)
 
-        # Physical Smoke / Gas Anomaly evaluation
-        has_smoke = mq2_val >= 400 or mq2_v >= 0.50 or (gas_factor >= 0.35)
-        has_heat = temp_val >= 38.0 or (humidity_val <= 30.0 and temp_val >= 34.0)
+        # Physical Smoke / Gas Anomaly evaluation - ONLY when crossing critical thresholds
+        has_smoke = (
+            (mq2_val >= 600 or mq2_v >= 0.50)
+            or (gas_factor >= 0.75 and (mq2_val >= 400 or mq2_v >= 0.35))
+        )
+        has_heat = temp_val >= 42.0 or (humidity_val <= 25.0 and temp_val >= 36.0)
 
         # Undetected events should not become high-risk UNLESS physical smoke/fire is detected
         if not event.detected:

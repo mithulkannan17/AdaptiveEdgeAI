@@ -1318,14 +1318,11 @@ mq135_v = safe_num(telemetry.get("mq135_adc_voltage", dev_status.get("mq135_adc_
 gas_sub = f"MQ2:{int(mq2_val)} ({mq2_v:.2f}V) · MQ135:{int(mq135_val)} ({mq135_v:.2f}V)" if (mq2_val > 0 or mq135_val > 0) else f"Risk {gas_score:.2f} (MQ2/135)"
 
 is_smoke_detected = bool(
-    mq2_val >= 400
-    or mq2_v >= 0.50
-    or mq135_val >= 800
-    or mq135_v >= 1.0
-    or gas_status in ["WARNING", "ALERT", "CRITICAL", "ELEVATED", "SMOKE / FIRE ANOMALY", "POLLUTION / VOC SPIKE"]
-    or "smoke" in str(label).lower()
-    or "fire" in str(label).lower()
-    or "smoke" in str(cadie.get("action", "")).lower()
+    (mq2_val >= 600 or mq2_v >= 0.50)
+    or (mq135_val >= 1000 or mq135_v >= 1.20)
+    or (gas_status in ["CRITICAL", "SMOKE / FIRE ANOMALY"] and (mq2_val >= 400 or mq2_v >= 0.35))
+    or (("fire" in str(label).lower() or "smoke" in str(label).lower()) and safe_num(telemetry.get("confidence", 0.0)) >= 0.65 and bool(telemetry.get("event_detected", False)))
+    or (str(cadie.get("action", "")).upper() == "DISPATCH_RANGERS_SMOKE_ALERT" and (mq2_val >= 500 or mq2_v >= 0.40))
 )
 
 # Ingest live device GPS from browser/mobile device query parameters
@@ -2600,16 +2597,13 @@ if current_role == "admin":
         mq135_v = safe_num(telemetry.get("mq135_adc_voltage", dev_status.get("mq135_adc_voltage", dev_status.get("mq135_voltage", 0.0))))
         gas_sub = f"MQ2:{int(mq2_val)} ({mq2_v:.2f}V) · MQ135:{int(mq135_val)} ({mq135_v:.2f}V)" if (mq2_val > 0 or mq135_val > 0) else f"Risk {gas_score:.2f} (MQ2/135)"
 
-        # Check for active Smoke / Fire Anomaly
-        is_smoke_detected = (
-            mq2_val >= 400
-            or mq2_v >= 0.50
-            or mq135_val >= 800
-            or mq135_v >= 1.0
-            or gas_status in ["WARNING", "ALERT", "CRITICAL", "ELEVATED", "SMOKE / FIRE ANOMALY", "POLLUTION / VOC SPIKE"]
-            or "smoke" in label.lower()
-            or "fire" in label.lower()
-            or "smoke" in str(cadie.get("action", "")).lower()
+        # Check for active Smoke / Fire Anomaly - ONLY when physical readings cross critical thresholds
+        is_smoke_detected = bool(
+            (mq2_val >= 600 or mq2_v >= 0.50)
+            or (mq135_val >= 1000 or mq135_v >= 1.20)
+            or (gas_status in ["CRITICAL", "SMOKE / FIRE ANOMALY"] and (mq2_val >= 400 or mq2_v >= 0.35))
+            or (("fire" in str(label).lower() or "smoke" in str(label).lower()) and safe_num(telemetry.get("confidence", 0.0)) >= 0.65 and bool(telemetry.get("event_detected", False)))
+            or (str(cadie.get("action", "")).upper() == "DISPATCH_RANGERS_SMOKE_ALERT" and (mq2_val >= 500 or mq2_v >= 0.40))
         )
 
         # 🚨 PROMINENT SMOKE & FIRE HAZARD ALERT BANNER

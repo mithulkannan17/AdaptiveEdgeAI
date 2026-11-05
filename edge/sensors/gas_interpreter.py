@@ -132,13 +132,21 @@ class ChannelBaselineTracker:
         all_raw = [r.raw_adc for r in self.history]
         sorted_raw = sorted(all_raw)
         
-        # Take mean of bottom 30% of window as ambient clean-air baseline
+        # Take mean of bottom 30% of window as ambient clean-air baseline.
+        # Clamp baseline floor to at least 150.0 ADC to prevent division-by-near-zero
+        # where tiny resting sensor noise (e.g. 50 -> 100 ADC) artificially doubles the ratio.
         cutoff_idx = max(1, int(len(sorted_raw) * 0.30))
         ambient_baseline = float(np_mean(sorted_raw[:cutoff_idx]))
-        self.baseline_adc = max(1.0, ambient_baseline)
+        self.baseline_adc = max(150.0, ambient_baseline)
 
         # Ratio to baseline
         ratio = max(0.0, raw_adc / self.baseline_adc)
+
+        # Physical Clean Air Baseline Floor:
+        # If raw reading is under 350 ADC (< 0.28V), it is physically resting in clean ambient air.
+        # Prevent false ratio alarms on quiescent baseline fluctuations (e.g. 101 ADC / 0.081V).
+        if raw_adc < 350.0 and voltage < 0.30:
+            return min(1.0, ratio), GasTrend.STABLE, 0.0
 
         # Trend estimation using linear slope across recent trend window
         trend = self._estimate_trend()
