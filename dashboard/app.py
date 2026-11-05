@@ -187,11 +187,19 @@ def is_citizen_danger_threat(threat_type: str) -> bool:
     return False
 
 # Real-time auto-refresh across live operational portals
-# Defaults to active (1s cadence for instant live streaming updates)
+# Local: 1s cadence for instant live streaming. Cloud: 5s to prevent flash-reload every second.
 _current_nav = st.session_state.get("sidebar_navigation_choice") or ""
 _is_archive_page = any(k in str(_current_nav) for k in ["Archive", "Resolution Logs", "Security", "Audit Log"])
+_is_cloud_deployed = bool(
+    os.getenv("STREAMLIT_SERVER_GATHER_USAGE_STATS")
+    or os.getenv("RENDER")
+    or os.getenv("IS_CLOUD_DEPLOYED")
+    or not os.path.exists("hardware.ino")
+)
 if st_autorefresh is not None and not _is_archive_page and st.session_state.get("aura_auto_sync_enabled", True):
-    _sync_rate = int(st.session_state.get("aura_auto_sync_interval", 1)) * 1000
+    _user_cadence = int(st.session_state.get("aura_auto_sync_interval", 1))
+    # On cloud, enforce minimum 5s to prevent visible full-page flash every second
+    _sync_rate = max(_user_cadence, 5) * 1000 if _is_cloud_deployed else _user_cadence * 1000
     st_autorefresh(interval=_sync_rate, key="aura_live_refresh")
 
 # ============================================================

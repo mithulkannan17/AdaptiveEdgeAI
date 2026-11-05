@@ -1298,20 +1298,28 @@ class AudioInferenceService:
         current_label_lower = current_label_clean.lower()
         prediction_confidence = float(getattr(prediction, "confidence", 0.0))
 
-        # Check if human voice was distinctly recognized by the model
-        is_voice_detected = (
-            current_label_clean == "Human"
-            or "speech" in current_label_lower
-            or "voice" in current_label_lower
-        ) and prediction_confidence >= 0.35
+        # Check if any significant target sound was distinctly recognized by the model.
+        # Protect all real acoustic events — not just voice — from being wrongly suppressed.
+        _protected_keywords = [
+            "human", "speech", "voice", "talking", "conversation",
+            "fire", "wildfire", "burning", "flame", "crackl",
+            "chainsaw", "drill", "logging", "jackhammer",
+            "gunshot", "explosion", "blast", "poach",
+            "vehicle", "truck", "engine", "motorcycle",
+            "bird", "insect", "water", "rain", "wind",
+            "siren", "emergency",
+        ]
+        is_real_event_detected = (
+            any(kw in current_label_lower for kw in _protected_keywords)
+            and prediction_confidence >= 0.30
+        )
 
-        # Ambient gating rules:
-        # 1. Voice protection: If genuine voice is detected with model confidence >= 0.35,
-        #    preserve the voice prediction! Never suppress legitimate human speech.
-        # 2. Ambient Forest baseline: In quiescent room / quiet forest conditions (RMS < 0.010),
-        #    low-level stationary noise without vocal transients is classified as "Ambient" (Ambient Forest),
-        #    preventing hallucinated alerts (Bird, Vehicle, etc.) when the environment is peaceful.
-        if not is_voice_detected and audio_rms < 0.0100:
+        # Ambient gating rules (conservative — only suppress true silence/hiss):
+        # 1. Event protection: If the model recognizes ANY real target sound with >= 30% confidence,
+        #    always preserve the prediction — fire, human voice, chainsaw, etc.
+        # 2. True silence gate: Only force "Ambient" when RMS < 0.0030 (mic hiss / dead silence)
+        #    AND the model hasn't flagged a real acoustic event.
+        if not is_real_event_detected and audio_rms < 0.0030:
             prediction = PredictionResult(
                 label="Ambient",
                 class_id=0,
@@ -1319,7 +1327,7 @@ class AudioInferenceService:
                 top_k=[("Ambient", 0.96), (current_label_clean, 0.04)],
                 inference_time_ms=getattr(prediction, "inference_time_ms", 0.0),
             )
-        elif audio_rms < 0.0010:
+        elif audio_rms < 0.0005:
             prediction = PredictionResult(
                 label="Ambient",
                 class_id=0,
