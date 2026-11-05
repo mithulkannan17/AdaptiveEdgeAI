@@ -352,13 +352,13 @@ uint32_t lastAudioInference = 0;
 // Continuous high-speed automatic audio inference
 bool automaticAudioDetection = true;
 
-const uint32_t AUDIO_INFERENCE_INTERVAL = 1000; // 1s minimal gap for continuous instant voice/threat detection
+const uint32_t AUDIO_INFERENCE_INTERVAL = 4000; // 4s gap after each scan: allows Wi-Fi stack & backend to breathe, preventing disconnects
 
 uint32_t nextAudioInference = 0;
 
-const uint32_t SENSOR_INTERVAL = 500; // Read sensors every 500ms for high-speed responsiveness
+const uint32_t SENSOR_INTERVAL = 1000; // Read sensors every 1 second for smooth, reliable updates
 
-const uint32_t POST_INTERVAL = 1000; // Transmit live telemetry every 1 second (instant live telemetry updates)
+const uint32_t POST_INTERVAL = 2000; // Transmit live telemetry every 2 seconds without socket congestion
 
 // ============================================================
 // AUDIO BUFFER
@@ -762,6 +762,8 @@ bool captureAudio()
         samplesCaptured <
         AUDIO_SAMPLE_COUNT)
     {
+        yield(); // Yield to FreeRTOS watchdog & background Wi-Fi tasks to prevent disconnects
+
         size_t bytesRead = 0;
 
         esp_err_t result =
@@ -1214,6 +1216,7 @@ void connectWiFi()
 
     WiFi.mode(WIFI_STA);
     WiFi.setSleep(false); // Essential for mobile hotspot stability
+    WiFi.setTxPower(WIFI_POWER_17dBm); // Prevents USB power rail brownout & current spikes while keeping strong Wi-Fi signal
 
     WiFi.begin(activeWiFiSSID.c_str(), activeWiFiPassword.c_str());
 
@@ -3421,6 +3424,10 @@ void loop()
 
         Serial.println(
             "############################################################");
+
+        // Guarantee a healthy delay after the audio upload so background Wi-Fi and telemetry can run smoothly
+        nextAudioInference =
+            millis() + AUDIO_INFERENCE_INTERVAL;
     }
 
     // ----------------------------------------------------------
