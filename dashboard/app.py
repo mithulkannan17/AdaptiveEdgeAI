@@ -3976,237 +3976,305 @@ SMTP_SSL=false
 
 elif current_role == "ranger":
     if active_page == "🚨 Incident & Citizen Response":
-        st.markdown('<div class="section"><div class="section-title">Active Threats & Citizen Incidents Response</div><div class="section-meta">CADIE MULTIMODAL RADAR · SIREN BROADCAST CONTROLS · FIELD PATROL DISPATCH</div></div>', unsafe_allow_html=True)
-        render_geolocation_sentry("FIELD RANGER LIVE GPS TELEMETRY", auto_capture=True)
+        @st.fragment(run_every=_sync_cadence)
+        def render_ranger_incident_response_view():
+            live_st = source.tick() if hasattr(source, "tick") else {}
+            telemetry = live_st.get("telemetry") or {}
+            event = live_st.get("event") or {}
+            cadie = live_st.get("cadie") or {}
+            prediction = live_st.get("prediction") or {}
+            raw_label = event.get("label") or prediction.get("label") or "Ambient Forest"
+            label = format_display_label(raw_label)
+            conf = safe_num(event.get("confidence", prediction.get("confidence", 0.0)))
+            detected = bool(event.get("detected", False))
 
-        # ----------------------------------------------------
-        # 🚨 FIELD SIREN CONTROLS & CADIE MULTIMODAL RADAR HUD
-        # ----------------------------------------------------
-        r_sir_c1, r_sir_c2 = st.columns([2.8, 1.2])
-        with r_sir_c1:
-            st.markdown(
-                """
-                <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;">
-                    <span style="font-size:22px;">🚨</span>
-                    <div>
-                        <div style="font-size:13px;font-weight:700;color:#ff7070;">FIELD RANGER SIREN BROADCAST:</div>
-                        <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">
-                            Authorized for Field Rangers during direct hazards (wildfire, confirmed illegal logging, predator encounters) to warn and evacuate public visitors.
+            tunnel_alerts = live_st.get("active_alerts")
+            if tunnel_alerts is not None and isinstance(tunnel_alerts, list):
+                active_alerts = tunnel_alerts
+            else:
+                active_alerts = db.get_active_emergency_alerts(include_acknowledged=True)
+
+            tunnel_siren = live_st.get("active_siren")
+            if tunnel_siren is not None or "active_siren" in live_st:
+                active_siren = tunnel_siren
+            else:
+                active_siren = db.get_active_public_siren()
+
+            # 4 Real-Time Field Environment Metrics
+            dev_status = telemetry.get("device_status") if isinstance(telemetry.get("device_status"), dict) else {}
+            gas_info = dev_status.get("gas_assessment") or telemetry.get("gas_assessment") or {}
+            gas_status = str(gas_info.get("overall_status") or "NOMINAL").upper()
+            mq2_val = safe_num(telemetry.get("mq2_raw", dev_status.get("mq2_raw", 0)))
+            mq2_v = safe_num(telemetry.get("mq2_adc_voltage", dev_status.get("mq2_adc_voltage", dev_status.get("mq2_voltage", 0.0))))
+            is_smoke_detected = bool(mq2_val >= 600 or mq2_v >= 0.50 or gas_status in ["CRITICAL", "SMOKE / FIRE ANOMALY"])
+            vib_active = bool(telemetry.get("vibration_detected", False) or dev_status.get("vibration_detected", False))
+
+            rf1, rf2, rf3, rf4 = st.columns(4)
+            with rf1:
+                metric("Field Temp", f"{safe_num(telemetry.get('temperature', 28.5)):.1f}", "°C", "DHT11 Thermal Sensor", accent="amber", icon="🌡️")
+            with rf2:
+                metric("Humidity", f"{safe_num(telemetry.get('humidity', 55.0)):.1f}", "%", "Canopy RH Index", accent="cyan", icon="💧")
+            with rf3:
+                metric("Battery SOC", f"{safe_num(telemetry.get('battery_percent', 85.0)):.1f}", "%", f"{safe_num(telemetry.get('battery_voltage', 4.1)):.2f}V MAX17048", accent="emerald", icon="⚡")
+            with rf4:
+                metric("Atmosphere / Gas", gas_status, "SMOKE DETECTED" if is_smoke_detected else "NORMAL CANOPY", "MQ-2 / MQ-135 Gas Sentry", accent="coral" if is_smoke_detected else "emerald", icon="🧪")
+
+            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+
+            st.markdown('<div class="section"><div class="section-title">Active Threats & Citizen Incidents Response</div><div class="section-meta">CADIE MULTIMODAL RADAR · SIREN BROADCAST CONTROLS · FIELD PATROL DISPATCH</div></div>', unsafe_allow_html=True)
+            render_geolocation_sentry("FIELD RANGER LIVE GPS TELEMETRY", auto_capture=False)
+
+            # ----------------------------------------------------
+            # 🚨 FIELD SIREN CONTROLS & CADIE MULTIMODAL RADAR HUD
+            # ----------------------------------------------------
+            r_sir_c1, r_sir_c2 = st.columns([2.8, 1.2])
+            with r_sir_c1:
+                st.markdown(
+                    """
+                    <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;">
+                        <span style="font-size:22px;">🚨</span>
+                        <div>
+                            <div style="font-size:13px;font-weight:700;color:#ff7070;">FIELD RANGER SIREN BROADCAST:</div>
+                            <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">
+                                Authorized for Field Rangers during direct hazards (wildfire, confirmed illegal logging, predator encounters) to warn and evacuate public visitors.
+                            </div>
                         </div>
                     </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        with r_sir_c2:
-            st.write("")
-            is_r_siren = bool(db.get_active_public_siren())
-            if not is_r_siren:
-                if st.button("🚨 Broadcast Siren to Public", key="btn_rng_start_siren_main", use_container_width=True, type="primary"):
-                    db.activate_public_siren(activated_by=f"Ranger {user_display}", reason=f"Field Emergency broadcast by Ranger {user_display}.")
-                    st.success("Sanctuary public emergency siren broadcast activated!")
-                    st.rerun()
-            else:
-                if st.button("🔕 Silence & Deactivate Siren", key="btn_rng_stop_siren_main", use_container_width=True):
-                    db.deactivate_public_siren(deactivated_by=f"Ranger {user_display}")
-                    st.session_state.pop("citizen_siren_muted", None)
-                    st.success("Public siren silenced and deactivated.")
-                    st.rerun()
-
-        # Render CADIE Multimodal Decision HUD for Rangers
-        render_active_threat_map_hud(active_alerts, detected, cadie, label, sent_lat, sent_lon, conf)
-
-        rcad_1, rcad_2 = st.columns([2.2, 1.8])
-        with rcad_1:
-            rg_risk = str(cadie.get("risk_level") or ("HIGH" if is_smoke_detected else "LOW")).upper()
-            rg_action = cadie.get("action") or ("DISPATCH_RANGERS_SMOKE_ALERT" if is_smoke_detected else "MONITOR")
-            rg_score = safe_num(cadie.get("score", 0.85 if is_smoke_detected else 0.20))
-        
-            # Logging & Vibration Cross-Corroboration
-            rg_vib = bool(telemetry.get("vibration_detected", False) or telemetry.get("vibration", False))
-            rg_is_logging = any(k in str(label).lower() for k in ["chainsaw", "drill", "jackhammer", "logging", "saw", "felling"])
-            if rg_is_logging and rg_vib:
-                rg_log_status = "🚨 CONFIRMED LOGGING (Voice + Vibration)"
-            elif rg_is_logging:
-                rg_log_status = "⚠️ ACOUSTIC VOICE DETECTED (No Vibration)"
-            elif rg_vib:
-                rg_log_status = "🌍 SEISMIC / TREMOR VIBRATION (No Logging Voice)"
-            else:
-                rg_log_status = "🟢 NOMINAL / CLEAR"
-
-            st.markdown(
-                f"""
-                <div class="panel" style="margin-top:10px; margin-bottom:12px;">
-                    <div class="panel-title">CADIE Triage Intelligence (Field Ranger Radar)</div>
-                    <div class="decision-box">
-                        <div class="kicker">CONTEXT-AWARE RISK LEVEL</div>
-                        <div class="decision-risk {status_class('FAILED' if rg_risk in ['HIGH','CRITICAL'] else ('WORKING' if rg_risk in ['LOW','MINIMAL'] else 'WARN'))}">{rg_risk}</div>
-                        <div class="decision-action" style="color:var(--green)">ACTION: {rg_action}</div>
-                    </div>
-                    {display_status("CADIE Context Score", f"{rg_score:.3f}")}
-                    {display_status("Logging / Seismic Triage", rg_log_status)}
-                    {display_status("Smoke / Fire Sensor", "🚨 ACTIVE SMOKE DETECTED" if is_smoke_detected else "🟢 NOMINAL / CLEAR")}
-                    {display_status("Primary Acoustic Voice", label)}
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        with rcad_2:
-            st.markdown(
-                f"""
-                <div class="panel" style="margin-top:10px; margin-bottom:12px;">
-                    <div class="panel-title">Field Sector Guidelines & Protocols</div>
-                    {display_status("Responding Ranger Callsign", f"{user_display}")}
-                    {display_status("GPS Patrol Fix", f"{sent_lat:.5f}°N, {sent_lon:.5f}°E")}
-                    {display_status("Earthquake / Tremor Protocol", "Vibration alone logged as seismic tremor; do not dispatch logging.")}
-                    {display_status("Illegal Logging Protocol", "Requires acoustic voice signature + simultaneous ground vibration.")}
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-        # ----------------------------------------------------
-        # 1. LIVE SENTINEL EDGE AI THREAT ALERTS
-        # ----------------------------------------------------
-        st.markdown("<div style='font-size:14px;font-weight:700;color:#ff7070;margin-top:10px;margin-bottom:8px;'>📡 Active Sentinel Edge AI Threat Alerts:</div>", unsafe_allow_html=True)
-
-        if not active_alerts:
-            st.success("🟢 No unacknowledged Sentinel edge alerts in your sector.")
-        else:
-            for al in active_alerts:
-                al_id = al.get("alert_id")
-                al_threat = str(al.get("threat_type", "Threat")).upper()
-                al_conf = safe_num(al.get("confidence", 0.9)) * 100
-                al_stat = str(al.get("status", "DISPATCHED")).upper()
-                al_node = al.get("device_id", "AURA_SENTRY_01")
-                al_lat = float(safe_num(al.get("location_lat"), sent_lat))
-                al_lon = float(safe_num(al.get("location_lon"), sent_lon))
-                d_str = format_gps_distance(calculate_haversine_distance(sent_lat, sent_lon, al_lat, al_lon))
-                al_msg = al.get("message") or f"{al_threat} signature detected by {al_node}."
-
-                border_color = "#ef4444" if al_stat != "ACKNOWLEDGED" else "#7cf0b2"
-                stat_badge = f"<span style='background:rgba(239,68,68,0.2);color:#ef4444;border:1px solid #ef4444;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;'>🚨 {al_stat}</span>" if al_stat != "ACKNOWLEDGED" else f"<span style='background:rgba(124,240,178,0.2);color:#7cf0b2;border:1px solid #7cf0b2;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;'>✓ ACKNOWLEDGED</span>"
-
-                al_t_raw = al.get("timestamp") or time.time()
-                if isinstance(al_t_raw, (int, float)):
-                    al_time_s = datetime.fromtimestamp(al_t_raw).strftime("%Y-%m-%d %H:%M:%S")
-                    el_s = max(0, int(time.time() - al_t_raw))
-                    if el_s < 60:
-                        al_rel_s = f"{el_s}s ago (JUST NOW)"
-                    elif el_s < 3600:
-                        al_rel_s = f"{el_s // 60}m ago"
-                    elif el_s < 86400:
-                        al_rel_s = f"{el_s // 3600}h ago"
-                    else:
-                        al_rel_s = f"{el_s // 86400}d ago"
+                    """,
+                    unsafe_allow_html=True,
+                )
+            with r_sir_c2:
+                st.write("")
+                is_r_siren = bool(db.get_active_public_siren())
+                if not is_r_siren:
+                    if st.button("🚨 Broadcast Siren to Public", key="btn_rng_start_siren_main", use_container_width=True, type="primary"):
+                        try:
+                            api_request("/api/v1/edge/siren/activate", method="POST", payload={"reason": f"Field Emergency broadcast by Ranger {user_display}.", "activated_by": f"Ranger {user_display}", "location_lat": sent_lat, "location_lon": sent_lon})
+                        except Exception:
+                            pass
+                        db.activate_public_siren(activated_by=f"Ranger {user_display}", reason=f"Field Emergency broadcast by Ranger {user_display}.", location_lat=sent_lat, location_lon=sent_lon)
+                        st.success("Sanctuary public emergency siren broadcast activated!")
+                        st.rerun()
                 else:
-                    al_time_s = str(al_t_raw)[:19].replace("T", " ")
-                    al_rel_s = "Recent"
+                    if st.button("🔕 Silence & Deactivate Siren", key="btn_rng_stop_siren_main", use_container_width=True):
+                        try:
+                            api_request("/api/v1/edge/siren/deactivate", method="POST", payload={"deactivated_by": f"Ranger {user_display}"})
+                        except Exception:
+                            pass
+                        db.deactivate_public_siren(deactivated_by=f"Ranger {user_display}")
+                        st.session_state.pop("citizen_siren_muted", None)
+                        st.success("Public siren silenced and deactivated.")
+                        st.rerun()
 
-                with st.container(border=True):
-                    t_c1, t_c2 = st.columns([3, 1.2])
-                    with t_c1:
-                        st.markdown(f"<div style='font-size:16px;font-weight:800;color:#fff;'>🚨 THREAT: <span style='color:#ef4444;'>{al_threat}</span> ({al_conf:.1f}% Confidence) · {stat_badge}</div>", unsafe_allow_html=True)
-                        st.markdown(f"⏱️ **Incident Time:** `{al_time_s}` · <span style='background:rgba(242,198,109,0.2);color:#f2c66d;font-size:11px;padding:2px 6px;border-radius:4px;font-weight:700;'>{al_rel_s}</span> · Node: `[{al_node}]`", unsafe_allow_html=True)
-                        st.markdown(f"📍 Coordinates: [`{al_lat:.5f}°N, {al_lon:.5f}°E`](https://maps.google.com/?q={al_lat},{al_lon}) · Proximity from you: **{d_str}**")
-                        st.caption(f"Details: {al_msg}")
-                    with t_c2:
-                        if al_stat != "ACKNOWLEDGED":
-                            if st.button("⚡ Acknowledge Alert", key=f"btn_ack_rng_{al_id}", use_container_width=True, type="secondary"):
-                                db.acknowledge_emergency_alert(al_id, acknowledged_by=user_display)
-                                st.success(f"Alert acknowledged by {user_display}!")
+            # Render CADIE Multimodal Decision HUD for Rangers
+            render_active_threat_map_hud(active_alerts, detected, cadie, label, sent_lat, sent_lon, conf)
+
+            rcad_1, rcad_2 = st.columns([2.2, 1.8])
+            with rcad_1:
+                rg_risk = str(cadie.get("risk_level") or ("HIGH" if is_smoke_detected else "LOW")).upper()
+                rg_action = cadie.get("action") or ("DISPATCH_RANGERS_SMOKE_ALERT" if is_smoke_detected else "MONITOR")
+                rg_score = safe_num(cadie.get("score", 0.85 if is_smoke_detected else 0.20))
+
+                # Logging & Vibration Cross-Corroboration
+                rg_vib = bool(telemetry.get("vibration_detected", False) or telemetry.get("vibration", False))
+                rg_is_logging = any(k in str(label).lower() for k in ["chainsaw", "drill", "jackhammer", "logging", "saw", "felling"])
+                if rg_is_logging and rg_vib:
+                    rg_log_status = "🚨 CONFIRMED LOGGING (Voice + Vibration)"
+                elif rg_is_logging:
+                    rg_log_status = "⚠️ ACOUSTIC VOICE DETECTED (No Vibration)"
+                elif rg_vib:
+                    rg_log_status = "🌍 SEISMIC / TREMOR VIBRATION (No Logging Voice)"
+                else:
+                    rg_log_status = "🟢 NOMINAL / CLEAR"
+
+                st.markdown(
+                    f"""
+                    <div class="panel" style="margin-top:10px; margin-bottom:12px;">
+                        <div class="panel-title">CADIE Triage Intelligence (Field Ranger Radar)</div>
+                        <div class="decision-box">
+                            <div class="kicker">CONTEXT-AWARE RISK LEVEL</div>
+                            <div class="decision-risk {status_class('FAILED' if rg_risk in ['HIGH','CRITICAL'] else ('WORKING' if rg_risk in ['LOW','MINIMAL'] else 'WARN'))}">{rg_risk}</div>
+                            <div class="decision-action" style="color:var(--green)">ACTION: {rg_action}</div>
+                        </div>
+                        {display_status("CADIE Context Score", f"{rg_score:.3f}")}
+                        {display_status("Logging / Seismic Triage", rg_log_status)}
+                        {display_status("Smoke / Fire Sensor", "🚨 ACTIVE SMOKE DETECTED" if is_smoke_detected else "🟢 NOMINAL / CLEAR")}
+                        {display_status("Primary Acoustic Voice", label)}
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            with rcad_2:
+                st.markdown(
+                    f"""
+                    <div class="panel" style="margin-top:10px; margin-bottom:12px;">
+                        <div class="panel-title">Field Sector Guidelines & Protocols</div>
+                        {display_status("Responding Ranger Callsign", f"{user_display}")}
+                        {display_status("GPS Patrol Fix", f"{sent_lat:.5f}°N, {sent_lon:.5f}°E")}
+                        {display_status("Earthquake / Tremor Protocol", "Vibration alone logged as seismic tremor; do not dispatch logging.")}
+                        {display_status("Illegal Logging Protocol", "Requires acoustic voice signature + simultaneous ground vibration.")}
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+            # ----------------------------------------------------
+            # 1. LIVE SENTINEL EDGE AI THREAT ALERTS
+            # ----------------------------------------------------
+            st.markdown("<div style='font-size:14px;font-weight:700;color:#ff7070;margin-top:10px;margin-bottom:8px;'>📡 Active Sentinel Edge AI Threat Alerts:</div>", unsafe_allow_html=True)
+
+            if not active_alerts:
+                st.success("🟢 No unacknowledged Sentinel edge alerts in your sector.")
+            else:
+                for al in active_alerts:
+                    al_id = al.get("alert_id")
+                    al_threat = str(al.get("threat_type", "Threat")).upper()
+                    al_conf = safe_num(al.get("confidence", 0.9)) * 100
+                    al_stat = str(al.get("status", "DISPATCHED")).upper()
+                    al_node = al.get("device_id", "AURA_SENTRY_01")
+                    al_lat = float(safe_num(al.get("location_lat"), sent_lat))
+                    al_lon = float(safe_num(al.get("location_lon"), sent_lon))
+                    d_str = format_gps_distance(calculate_haversine_distance(sent_lat, sent_lon, al_lat, al_lon))
+                    al_msg = al.get("message") or f"{al_threat} signature detected by {al_node}."
+
+                    border_color = "#ef4444" if al_stat != "ACKNOWLEDGED" else "#7cf0b2"
+                    stat_badge = f"<span style='background:rgba(239,68,68,0.2);color:#ef4444;border:1px solid #ef4444;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;'>🚨 {al_stat}</span>" if al_stat != "ACKNOWLEDGED" else f"<span style='background:rgba(124,240,178,0.2);color:#7cf0b2;border:1px solid #7cf0b2;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;'>✓ ACKNOWLEDGED</span>"
+
+                    al_t_raw = al.get("timestamp") or time.time()
+                    if isinstance(al_t_raw, (int, float)):
+                        al_time_s = datetime.fromtimestamp(al_t_raw).strftime("%Y-%m-%d %H:%M:%S")
+                        el_s = max(0, int(time.time() - al_t_raw))
+                        if el_s < 60:
+                            al_rel_s = f"{el_s}s ago (JUST NOW)"
+                        elif el_s < 3600:
+                            al_rel_s = f"{el_s // 60}m ago"
+                        elif el_s < 86400:
+                            al_rel_s = f"{el_s // 3600}h ago"
+                        else:
+                            al_rel_s = f"{el_s // 86400}d ago"
+                    else:
+                        al_time_s = str(al_t_raw)[:19].replace("T", " ")
+                        al_rel_s = "Recent"
+
+                    with st.container(border=True):
+                        t_c1, t_c2 = st.columns([3, 1.2])
+                        with t_c1:
+                            st.markdown(f"<div style='font-size:16px;font-weight:800;color:#fff;'>🚨 THREAT: <span style='color:#ef4444;'>{al_threat}</span> ({al_conf:.1f}% Confidence) · {stat_badge}</div>", unsafe_allow_html=True)
+                            st.markdown(f"⏱️ **Incident Time:** `{al_time_s}` · <span style='background:rgba(242,198,109,0.2);color:#f2c66d;font-size:11px;padding:2px 6px;border-radius:4px;font-weight:700;'>{al_rel_s}</span> · Node: `[{al_node}]`", unsafe_allow_html=True)
+                            st.markdown(f"📍 Coordinates: [`{al_lat:.5f}°N, {al_lon:.5f}°E`](https://maps.google.com/?q={al_lat},{al_lon}) · Proximity from you: **{d_str}**")
+                            st.caption(f"Details: {al_msg}")
+                        with t_c2:
+                            if al_stat != "ACKNOWLEDGED":
+                                if st.button("⚡ Acknowledge Alert", key=f"btn_ack_rng_{al_id}", use_container_width=True, type="secondary"):
+                                    try:
+                                        api_request(f"/api/v1/edge/alerts/{al_id}/acknowledge", method="POST", payload={"acknowledged_by": user_display})
+                                    except Exception:
+                                        pass
+                                    db.acknowledge_emergency_alert(al_id, acknowledged_by=user_display)
+                                    st.success(f"Alert acknowledged by {user_display}!")
+                                    st.rerun()
+
+                        st.markdown("<div style='margin-top:8px; border-top:1px dashed var(--line); padding-top:8px;'></div>", unsafe_allow_html=True)
+                        r_c1, r_c2 = st.columns([2.5, 1])
+                        with r_c1:
+                            notes_inp = st.text_input("Resolution & Field Investigation Notes", value="Threat investigated on-site, sector secured, no illegal activity present.", key=f"al_notes_{al_id}")
+                        with r_c2:
+                            st.write("")
+                            if st.button("✅ Mark Threat as Solved", key=f"btn_res_{al_id}", use_container_width=True, type="primary"):
+                                try:
+                                    api_request(f"/api/v1/edge/alerts/{al_id}/resolve", method="POST", payload={"resolved_by": user_display, "resolution_notes": notes_inp})
+                                except Exception:
+                                    pass
+                                db.resolve_emergency_alert(al_id, resolved_by=user_display, resolution_notes=notes_inp)
+                                st.success("Alert marked as solved! Recorded permanently into Incident Archive.")
                                 st.rerun()
 
-                    st.markdown("<div style='margin-top:8px; border-top:1px dashed var(--line); padding-top:8px;'></div>", unsafe_allow_html=True)
-                    r_c1, r_c2 = st.columns([2.5, 1])
-                    with r_c1:
-                        notes_inp = st.text_input("Resolution & Field Investigation Notes", value="Threat investigated on-site, sector secured, no illegal activity present.", key=f"al_notes_{al_id}")
-                    with r_c2:
-                        st.write("")
-                        if st.button("✅ Mark Threat as Solved", key=f"btn_res_{al_id}", use_container_width=True, type="primary"):
-                            db.resolve_emergency_alert(al_id, resolved_by=user_display, resolution_notes=notes_inp)
-                            st.success("Alert marked as solved! Recorded permanently into Incident Archive.")
-                            st.rerun()
+            # ----------------------------------------------------
+            # 2. CITIZEN-REPORTED FIELD INCIDENTS
+            # ----------------------------------------------------
+            st.markdown("<div style='font-size:14px;font-weight:700;color:#f2c66d;margin-top:22px;margin-bottom:8px;'>📸 Citizen-Reported Field Incidents:</div>", unsafe_allow_html=True)
+            cit_unres = [c for c in db.get_citizen_reports() if str(c.get("status", "")).upper() != "RESOLVED"]
+            if not cit_unres:
+                st.info("🟢 No pending citizen reports awaiting investigation.")
+            else:
+                for rep in cit_unres:
+                    c_id = rep.get("report_id")
+                    c_cat = rep.get("threat_category", "Sighting")
+                    c_rep = rep.get("reporter_name", "Public Visitor")
+                    c_con = rep.get("contact_info", "Unspecified")
+                    c_desc = rep.get("description", "No description provided.")
+                    c_photo = rep.get("photo_filename")
+                    c_stat = str(rep.get("status", "PENDING")).upper()
+                    c_lat = float(safe_num(rep.get("location_lat"), sent_lat))
+                    c_lon = float(safe_num(rep.get("location_lon"), sent_lon))
+                    d_str = format_gps_distance(calculate_haversine_distance(sent_lat, sent_lon, c_lat, c_lon))
 
-        # ----------------------------------------------------
-        # 2. CITIZEN-REPORTED FIELD INCIDENTS
-        # ----------------------------------------------------
-        st.markdown("<div style='font-size:14px;font-weight:700;color:#f2c66d;margin-top:22px;margin-bottom:8px;'>📸 Citizen-Reported Field Incidents:</div>", unsafe_allow_html=True)
-        cit_unres = [c for c in db.get_citizen_reports() if str(c.get("status", "")).upper() != "RESOLVED"]
-        if not cit_unres:
-            st.info("🟢 No pending citizen reports awaiting investigation.")
-        else:
-            for rep in cit_unres:
-                c_id = rep.get("report_id")
-                c_cat = rep.get("threat_category", "Sighting")
-                c_rep = rep.get("reporter_name", "Public Visitor")
-                c_con = rep.get("contact_info", "Unspecified")
-                c_desc = rep.get("description", "No description provided.")
-                c_photo = rep.get("photo_filename")
-                c_stat = str(rep.get("status", "PENDING")).upper()
-                c_lat = float(safe_num(rep.get("location_lat"), sent_lat))
-                c_lon = float(safe_num(rep.get("location_lon"), sent_lon))
-                d_str = format_gps_distance(calculate_haversine_distance(sent_lat, sent_lon, c_lat, c_lon))
-
-                with st.container(border=True):
-                    cr_c1, cr_c2 = st.columns([1.2, 2.8])
-                    with cr_c1:
-                        if c_photo and c_photo != "no_photo.jpg":
-                            if c_photo.startswith("data:image"):
-                                st.image(c_photo, caption="📸 Evidence Photo", use_container_width=True)
-                            elif os.path.exists(c_photo):
-                                st.image(c_photo, caption="📸 Evidence Photo", use_container_width=True)
+                    with st.container(border=True):
+                        cr_c1, cr_c2 = st.columns([1.2, 2.8])
+                        with cr_c1:
+                            if c_photo and c_photo != "no_photo.jpg":
+                                if c_photo.startswith("data:image"):
+                                    st.image(c_photo, caption="📸 Evidence Photo", use_container_width=True)
+                                elif os.path.exists(c_photo):
+                                    st.image(c_photo, caption="📸 Evidence Photo", use_container_width=True)
+                                else:
+                                    st.markdown("<div style='padding:14px;background:rgba(255,255,255,0.04);border:1px dashed var(--line);border-radius:8px;text-align:center;'>📸 Photo Evidence Attached</div>", unsafe_allow_html=True)
                             else:
-                                st.markdown("<div style='padding:14px;background:rgba(255,255,255,0.04);border:1px dashed var(--line);border-radius:8px;text-align:center;'>📸 Photo Evidence Attached</div>", unsafe_allow_html=True)
-                        else:
-                            st.caption("📷 No photo attached")
-                    with cr_c2:
-                        st.markdown(f"**📸 Sighting: {c_cat}** · <span style='background:rgba(242,198,109,0.2);color:#f2c66d;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700;'>{c_stat}</span>", unsafe_allow_html=True)
-                        st.markdown(f"Report ID: `[{c_id}]` · Reporter: **{c_rep}** (📞 `{c_con}`)")
-                        st.markdown(f"📍 GPS Location: [`{c_lat:.5f}°N, {c_lon:.5f}°E`](https://maps.google.com/?q={c_lat},{c_lon}) · Distance: **{d_str}**")
-                        st.caption(f"Description: {c_desc}")
+                                st.caption("📷 No photo attached")
+                        with cr_c2:
+                            st.markdown(f"**📸 Sighting: {c_cat}** · <span style='background:rgba(242,198,109,0.2);color:#f2c66d;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700;'>{c_stat}</span>", unsafe_allow_html=True)
+                            st.markdown(f"Report ID: `[{c_id}]` · Reporter: **{c_rep}** (📞 `{c_con}`)")
+                            st.markdown(f"📍 GPS Location: [`{c_lat:.5f}°N, {c_lon:.5f}°E`](https://maps.google.com/?q={c_lat},{c_lon}) · Distance: **{d_str}**")
+                            st.caption(f"Description: {c_desc}")
 
-                    rc_1, rc_2 = st.columns([2.5, 1])
-                    with rc_1:
-                        cit_notes = st.text_input("Ranger Action & Verification Notes", value="Coordinates inspected on patrol. Area confirmed clear and safe.", key=f"cit_res_n_{c_id}")
-                    with rc_2:
-                        st.write("")
-                        if st.button("✅ Mark Incident Solved", key=f"btn_cit_res_{c_id}", use_container_width=True, type="primary"):
-                            db.resolve_citizen_report(c_id, resolved_by=user_display, resolution_notes=cit_notes)
-                            st.success(f"Incident marked as solved by {user_display}! Archived in Incident Archive.")
-                            st.rerun()
+                        rc_1, rc_2 = st.columns([2.5, 1])
+                        with rc_1:
+                            cit_notes = st.text_input("Ranger Action & Verification Notes", value="Coordinates inspected on patrol. Area confirmed clear and safe.", key=f"cit_res_n_{c_id}")
+                        with rc_2:
+                            st.write("")
+                            if st.button("✅ Mark Incident Solved", key=f"btn_cit_res_{c_id}", use_container_width=True, type="primary"):
+                                try:
+                                    api_request(f"/api/v1/edge/citizen-reports/{c_id}/resolve", method="POST", payload={"resolved_by": user_display, "resolution_notes": cit_notes})
+                                except Exception:
+                                    pass
+                                db.resolve_citizen_report(c_id, resolved_by=user_display, resolution_notes=cit_notes)
+                                st.success(f"Incident marked as solved by {user_display}! Archived in Incident Archive.")
+                                st.rerun()
 
-        # ----------------------------------------------------
-        # 3. LIVE ACOUSTIC SENTRY PERCEPTION LOG (HARDWARE STREAM)
-        # ----------------------------------------------------
-        st.markdown("<div style='font-size:14px;font-weight:700;color:#73d9e8;margin-top:24px;margin-bottom:8px;'>📡 Live Sentinel Acoustic Perception Feed (Sensor Log):</div>", unsafe_allow_html=True)
-        recent_evs = db.get_recent(limit=8) if hasattr(db, "get_recent") else (db.get_recent_events(limit=8) if hasattr(db, "get_recent_events") else [])
-        if not recent_evs:
-            st.caption("Awaiting incoming acoustic telemetry stream from Sentinel edge hardware...")
-        else:
-            ev_rows = []
-            for ev in recent_evs:
-                pred = ev.get("prediction") or {}
-                dec = ev.get("decision") or {}
-                ev_lbl = format_display_label(pred.get("label", "Ambient Forest"))
-                ev_conf = safe_num(pred.get("confidence", 0.0)) * 100
-                ev_risk = str(dec.get("risk_level", "LOW")).upper()
-                ev_act = dec.get("action", "MONITOR")
-                ev_ts = ev.get("timestamp", time.time())
-                ev_time_str = datetime.fromtimestamp(ev_ts).strftime("%H:%M:%S")
-                ev_rows.append({
-                    "TIMESTAMP": ev_time_str,
-                    "DETECTED SOUND": ev_lbl,
-                    "CONFIDENCE": f"{ev_conf:.1f}%",
-                    "RISK LEVEL": ev_risk,
-                    "CADIE ACTION": ev_act,
-                    "DEVICE": ev.get("device_id", "AURA_SENTRY_01")
-                })
-            st.dataframe(ev_rows, width="stretch", hide_index=True)
+            # ----------------------------------------------------
+            # 3. LIVE ACOUSTIC SENTRY PERCEPTION LOG (HARDWARE STREAM)
+            # ----------------------------------------------------
+            st.markdown("<div style='font-size:14px;font-weight:700;color:#73d9e8;margin-top:24px;margin-bottom:8px;'>📡 Live Sentinel Acoustic Perception Feed (Sensor Log):</div>", unsafe_allow_html=True)
+            recent_evs = db.get_recent(limit=8) if hasattr(db, "get_recent") else (db.get_recent_events(limit=8) if hasattr(db, "get_recent_events") else [])
+            if not recent_evs:
+                st.caption("Awaiting incoming acoustic telemetry stream from Sentinel edge hardware...")
+            else:
+                ev_rows = []
+                for ev in recent_evs:
+                    pred = ev.get("prediction") or {}
+                    dec = ev.get("decision") or {}
+                    ev_lbl = format_display_label(pred.get("label", "Ambient Forest"))
+                    ev_conf = safe_num(pred.get("confidence", 0.0)) * 100
+                    ev_risk = str(dec.get("risk_level", "LOW")).upper()
+                    ev_act = dec.get("action", "MONITOR")
+                    ev_ts = ev.get("timestamp", time.time())
+                    ev_time_str = datetime.fromtimestamp(ev_ts).strftime("%H:%M:%S")
+                    ev_rows.append({
+                        "TIMESTAMP": ev_time_str,
+                        "DETECTED SOUND": ev_lbl,
+                        "CONFIDENCE": f"{ev_conf:.1f}%",
+                        "RISK LEVEL": ev_risk,
+                        "CADIE ACTION": ev_act,
+                        "DEVICE": ev.get("device_id", "AURA_SENTRY_01")
+                    })
+                st.dataframe(ev_rows, width="stretch", hide_index=True)
 
+
+
+        render_ranger_incident_response_view()
     elif active_page == "🗺️ Sector Map & Near Rangers":
         st.markdown('<div class="section"><div class="section-title">Tactical Sector Map & Near My Rangers Radar</div><div class="section-meta">LIVE PATROL BUDDY PROXIMITY · TARGET THREAT COORDINATES</div></div>', unsafe_allow_html=True)
-        render_geolocation_sentry("FIELD RANGER LIVE GPS TELEMETRY", auto_capture=True)
+        render_geolocation_sentry("FIELD RANGER LIVE GPS TELEMETRY", auto_capture=False)
         render_active_threat_map_hud(active_alerts, detected, cadie, label, sent_lat, sent_lon, conf)
         render_tactical_pydeck_map(map_dataframe, sent_lat, sent_lon, zoom=14.0, routes=map_dispatch_routes)
         st.markdown(
@@ -4237,94 +4305,102 @@ elif current_role == "ranger":
         render_incident_archive_page()
 
     elif active_page == "📡 Field Telemetry & Gas":
-        st.markdown('<div class="section"><div class="section-title">Field Environment & Atmospheric Sentry</div><div class="section-meta">LIVE TELEMETRY READINGS FROM SENTINEL EDGE NODE</div></div>', unsafe_allow_html=True)
-        rc1, rc2, rc3, rc4 = st.columns(4)
-        with rc1:
-            metric("Ambient Temp", f"{safe_num(telemetry.get('temperature')):.1f}", "°C", "DHT11 Thermal Sensor", accent="amber", icon="🌡️")
-        with rc2:
-            metric("Relative Humidity", f"{safe_num(telemetry.get('humidity')):.1f}", "%", "DHT11 RH Moisture", accent="cyan", icon="💧")
-        with rc3:
-            metric("Battery SOC", f"{safe_num(telemetry.get('battery_percent')):.1f}", "%", f"{safe_num(telemetry.get('battery_voltage')):.2f}V MAX17048", accent="emerald", icon="⚡")
-        with rc4:
+        @st.fragment(run_every=_sync_cadence)
+        def render_ranger_field_telemetry_view():
+            live_st = source.tick() if hasattr(source, "tick") else {}
+            telemetry = live_st.get("telemetry") or {}
+
+            st.markdown('<div class="section"><div class="section-title">Field Environment & Atmospheric Sentry</div><div class="section-meta">LIVE TELEMETRY READINGS FROM SENTINEL EDGE NODE</div></div>', unsafe_allow_html=True)
+            rc1, rc2, rc3, rc4 = st.columns(4)
+            with rc1:
+                metric("Ambient Temp", f"{safe_num(telemetry.get('temperature')):.1f}", "°C", "DHT11 Thermal Sensor", accent="amber", icon="🌡️")
+            with rc2:
+                metric("Relative Humidity", f"{safe_num(telemetry.get('humidity')):.1f}", "%", "DHT11 RH Moisture", accent="cyan", icon="💧")
+            with rc3:
+                metric("Battery SOC", f"{safe_num(telemetry.get('battery_percent')):.1f}", "%", f"{safe_num(telemetry.get('battery_voltage')):.2f}V MAX17048", accent="emerald", icon="⚡")
+            with rc4:
+                dev_status = telemetry.get("device_status") if isinstance(telemetry.get("device_status"), dict) else {}
+                gas_info = dev_status.get("gas_assessment") or telemetry.get("gas_assessment") or {}
+                gas_status = str(gas_info.get("overall_status") or "NOMINAL").upper()
+                metric("Gas Atmosphere", gas_status, f"Risk {safe_num(gas_info.get('gas_risk_score', 0.0)):.2f}", "Atmospheric Air Index", accent="purple" if gas_status == "NOMINAL" else "coral", icon="🧪")
+
+            st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+            st.markdown('<div class="section"><div class="section-title">Live Electrochemical Gas & Smoke Sensors (MQ Series)</div><div class="section-meta">ESP32-S3 12-BIT HIGH-PRECISION ADC BUS READINGS (GPIO 1 / GPIO 2)</div></div>', unsafe_allow_html=True)
+
             dev_status = telemetry.get("device_status") if isinstance(telemetry.get("device_status"), dict) else {}
-            gas_info = dev_status.get("gas_assessment") or telemetry.get("gas_assessment") or {}
-            gas_status = str(gas_info.get("overall_status") or "NOMINAL").upper()
-            metric("Gas Atmosphere", gas_status, f"Risk {safe_num(gas_info.get('gas_risk_score', 0.0)):.2f}", "Atmospheric Air Index", accent="purple" if gas_status == "NOMINAL" else "coral", icon="🧪")
+            mq2_val = safe_num(telemetry.get("mq2_raw", dev_status.get("mq2_raw", 0)))
+            mq2_v = safe_num(telemetry.get("mq2_adc_voltage", dev_status.get("mq2_adc_voltage", dev_status.get("mq2_voltage", 0.0))))
+            mq135_val = safe_num(telemetry.get("mq135_raw", dev_status.get("mq135_raw", 0)))
+            mq135_v = safe_num(telemetry.get("mq135_adc_voltage", dev_status.get("mq135_adc_voltage", dev_status.get("mq135_voltage", 0.0))))
 
-        st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
-        st.markdown('<div class="section"><div class="section-title">Live Electrochemical Gas & Smoke Sensors (MQ Series)</div><div class="section-meta">ESP32-S3 12-BIT HIGH-PRECISION ADC BUS READINGS (GPIO 1 / GPIO 2)</div></div>', unsafe_allow_html=True)
-
-        dev_status = telemetry.get("device_status") if isinstance(telemetry.get("device_status"), dict) else {}
-        mq2_val = safe_num(telemetry.get("mq2_raw", dev_status.get("mq2_raw", 0)))
-        mq2_v = safe_num(telemetry.get("mq2_adc_voltage", dev_status.get("mq2_adc_voltage", dev_status.get("mq2_voltage", 0.0))))
-        mq135_val = safe_num(telemetry.get("mq135_raw", dev_status.get("mq135_raw", 0)))
-        mq135_v = safe_num(telemetry.get("mq135_adc_voltage", dev_status.get("mq135_adc_voltage", dev_status.get("mq135_voltage", 0.0))))
-
-        g_col1, g_col2 = st.columns(2)
-        with g_col1:
-            mq2_pct = min(100.0, (mq2_val / 4095.0) * 100.0) if mq2_val > 0 else 0.0
-            mq2_status = "SMOKE / FIRE ANOMALY" if mq2_v > 1.8 else ("ELEVATED TRACE" if mq2_v > 1.0 else "CLEAR / NOMINAL")
-            mq2_color = "#ff7070" if mq2_v > 1.8 else ("#f2c66d" if mq2_v > 1.0 else "#7cf0b2")
-            st.markdown(
-                f"""
-                <div class="panel" style="padding: 16px; border: 1.5px solid {mq2_color}; border-radius: 12px; background: rgba(16, 28, 32, 0.9);">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-family:monospace; font-size:11px; font-weight:700; color:{mq2_color};">🔥 MQ-2 SMOKE & COMBUSTIBLE GAS</span>
-                        <span style="font-family:monospace; font-size:10px; background:rgba(255,255,255,0.08); padding:2px 8px; border-radius:4px; color:#fff;">GPIO 1 (ADC1)</span>
-                    </div>
-                    <div style="font-size: 24px; font-weight: 800; color: #fff; margin-top: 8px;">
-                        {int(mq2_val)} <span style="font-size: 13px; color: var(--muted); font-weight: 500;">ADC RAW ({mq2_v:.3f} V)</span>
-                    </div>
-                    <div style="font-size: 11px; color: {mq2_color}; font-weight: 700; margin-top: 4px;">
-                        STATUS: {mq2_status}
-                    </div>
-                    <div style="margin-top: 10px;">
-                        <div style="display:flex; justify-content:space-between; font-size:10px; color:#829a97; margin-bottom:4px;">
-                            <span>ADC Load (0 - 4095)</span>
-                            <span>{mq2_pct:.1f}%</span>
+            g_col1, g_col2 = st.columns(2)
+            with g_col1:
+                mq2_pct = min(100.0, (mq2_val / 4095.0) * 100.0) if mq2_val > 0 else 0.0
+                mq2_status = "SMOKE / FIRE ANOMALY" if mq2_v > 1.8 else ("ELEVATED TRACE" if mq2_v > 1.0 else "CLEAR / NOMINAL")
+                mq2_color = "#ff7070" if mq2_v > 1.8 else ("#f2c66d" if mq2_v > 1.0 else "#7cf0b2")
+                st.markdown(
+                    f"""
+                    <div class="panel" style="padding: 16px; border: 1.5px solid {mq2_color}; border-radius: 12px; background: rgba(16, 28, 32, 0.9);">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-family:monospace; font-size:11px; font-weight:700; color:{mq2_color};">🔥 MQ-2 SMOKE & COMBUSTIBLE GAS</span>
+                            <span style="font-family:monospace; font-size:10px; background:rgba(255,255,255,0.08); padding:2px 8px; border-radius:4px; color:#fff;">GPIO 1 (ADC1)</span>
                         </div>
-                        <div class="bar"><div style="width:{max(2, min(100, mq2_pct))}%; background:{mq2_color}; box-shadow:0 0 10px {mq2_color};"></div></div>
-                    </div>
-                    <div style="font-size: 10px; color: #829a97; margin-top: 8px;">
-                        Monitors: LPG, Propane, Methane, Hydrogen, Alcohol, Smoke, and Fire Combustibles.
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-        with g_col2:
-            mq135_pct = min(100.0, (mq135_val / 4095.0) * 100.0) if mq135_val > 0 else 0.0
-            mq135_status = "POLLUTION / VOC SPIKE" if mq135_v > 1.8 else ("SLIGHT VOC TRACE" if mq135_v > 1.0 else "CLEAN FOREST AIR")
-            mq135_color = "#ff7070" if mq135_v > 1.8 else ("#f2c66d" if mq135_v > 1.0 else "#73d9e8")
-            st.markdown(
-                f"""
-                <div class="panel" style="padding: 16px; border: 1.5px solid {mq135_color}; border-radius: 12px; background: rgba(16, 28, 32, 0.9);">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-family:monospace; font-size:11px; font-weight:700; color:{mq135_color};">🍃 MQ-135 AIR QUALITY & TOXIC GAS</span>
-                        <span style="font-family:monospace; font-size:10px; background:rgba(255,255,255,0.08); padding:2px 8px; border-radius:4px; color:#fff;">GPIO 2 (ADC1)</span>
-                    </div>
-                    <div style="font-size: 24px; font-weight: 800; color: #fff; margin-top: 8px;">
-                        {int(mq135_val)} <span style="font-size: 13px; color: var(--muted); font-weight: 500;">ADC RAW ({mq135_v:.3f} V)</span>
-                    </div>
-                    <div style="font-size: 11px; color: {mq135_color}; font-weight: 700; margin-top: 4px;">
-                        STATUS: {mq135_status}
-                    </div>
-                    <div style="margin-top: 10px;">
-                        <div style="display:flex; justify-content:space-between; font-size:10px; color:#829a97; margin-bottom:4px;">
-                            <span>ADC Load (0 - 4095)</span>
-                            <span>{mq135_pct:.1f}%</span>
+                        <div style="font-size: 24px; font-weight: 800; color: #fff; margin-top: 8px;">
+                            {int(mq2_val)} <span style="font-size: 13px; color: var(--muted); font-weight: 500;">ADC RAW ({mq2_v:.3f} V)</span>
                         </div>
-                        <div class="bar"><div style="width:{max(2, min(100, mq135_pct))}%; background:{mq135_color}; box-shadow:0 0 10px {mq135_color};"></div></div>
+                        <div style="font-size: 11px; color: {mq2_color}; font-weight: 700; margin-top: 4px;">
+                            STATUS: {mq2_status}
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <div style="display:flex; justify-content:space-between; font-size:10px; color:#829a97; margin-bottom:4px;">
+                                <span>ADC Load (0 - 4095)</span>
+                                <span>{mq2_pct:.1f}%</span>
+                            </div>
+                            <div class="bar"><div style="width:{max(2, min(100, mq2_pct))}%; background:{mq2_color}; box-shadow:0 0 10px {mq2_color};"></div></div>
+                        </div>
+                        <div style="font-size: 10px; color: #829a97; margin-top: 8px;">
+                            Monitors: LPG, Propane, Methane, Hydrogen, Alcohol, Smoke, and Fire Combustibles.
+                        </div>
                     </div>
-                    <div style="font-size: 10px; color: #829a97; margin-top: 8px;">
-                        Monitors: NH3, NOx, Alcohol, Benzene, Smoke, CO2, and Toxic Industrial Emissions.
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+                    """,
+                    unsafe_allow_html=True,
+                )
 
+            with g_col2:
+                mq135_pct = min(100.0, (mq135_val / 4095.0) * 100.0) if mq135_val > 0 else 0.0
+                mq135_status = "POLLUTION / VOC SPIKE" if mq135_v > 1.8 else ("SLIGHT VOC TRACE" if mq135_v > 1.0 else "CLEAN FOREST AIR")
+                mq135_color = "#ff7070" if mq135_v > 1.8 else ("#f2c66d" if mq135_v > 1.0 else "#73d9e8")
+                st.markdown(
+                    f"""
+                    <div class="panel" style="padding: 16px; border: 1.5px solid {mq135_color}; border-radius: 12px; background: rgba(16, 28, 32, 0.9);">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-family:monospace; font-size:11px; font-weight:700; color:{mq135_color};">🍃 MQ-135 AIR QUALITY & TOXIC GAS</span>
+                            <span style="font-family:monospace; font-size:10px; background:rgba(255,255,255,0.08); padding:2px 8px; border-radius:4px; color:#fff;">GPIO 2 (ADC1)</span>
+                        </div>
+                        <div style="font-size: 24px; font-weight: 800; color: #fff; margin-top: 8px;">
+                            {int(mq135_val)} <span style="font-size: 13px; color: var(--muted); font-weight: 500;">ADC RAW ({mq135_v:.3f} V)</span>
+                        </div>
+                        <div style="font-size: 11px; color: {mq135_color}; font-weight: 700; margin-top: 4px;">
+                            STATUS: {mq135_status}
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <div style="display:flex; justify-content:space-between; font-size:10px; color:#829a97; margin-bottom:4px;">
+                                <span>ADC Load (0 - 4095)</span>
+                                <span>{mq135_pct:.1f}%</span>
+                            </div>
+                            <div class="bar"><div style="width:{max(2, min(100, mq135_pct))}%; background:{mq135_color}; box-shadow:0 0 10px {mq135_color};"></div></div>
+                        </div>
+                        <div style="font-size: 10px; color: #829a97; margin-top: 8px;">
+                            Monitors: NH3, NOx, Alcohol, Benzene, Smoke, CO2, and Toxic Industrial Emissions.
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+
+
+        render_ranger_field_telemetry_view()
     elif active_page == "📊 Acoustic Frequency Monitor":
         render_spectrum_section(label, mic_level=safe_num(telemetry.get("microphone_level", 500.0)))
 
@@ -4334,31 +4410,44 @@ elif current_role == "ranger":
 
 elif current_role == "viewer":
     if "Forest Climate" in active_page:
-        st.markdown('<div class="section"><div class="section-title">Live Forest Environmental Readings</div><div class="section-meta">PUBLIC REAL-TIME CLIMATE AND AIR QUALITY</div></div>', unsafe_allow_html=True)
-        cit_clim_danger = [a for a in active_alerts if is_citizen_danger_threat(a.get("threat_type", ""))]
-        if cit_clim_danger:
-            st.markdown(
-                f'''
-                <div style="background:rgba(235,87,87,0.12);border:1.5px solid var(--status-red);border-radius:10px;padding:12px 16px;margin-bottom:14px;">
-                    <div style="font-size:14px;font-weight:700;color:var(--status-red);">⚠️ ACTIVE LIFE-SAFETY ADVISORY ({len(cit_clim_danger)} Active Danger Events)</div>
-                    <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">
-                        Active Fire or Dangerous Animal sighting reported in sanctuary. Switch to the <b>Safety Notices & Alerts</b> tab for live coordinates, caution perimeters, and safety advisories.
-                    </div>
-                </div>
-                ''',
-                unsafe_allow_html=True
-            )
-        pc1, pc2, pc3 = st.columns(3)
-        with pc1:
-            metric("Forest Temperature", f"{safe_num(telemetry.get('temperature')):.1f}", "°C", "Pleasant climate", accent="amber", icon="🌲")
-        with pc2:
-            metric("Relative Humidity", f"{safe_num(telemetry.get('humidity')):.1f}", "%", "Canopy moisture", accent="cyan", icon="💧")
-        with pc3:
-            metric("Air Quality", "FRESH & CLEAN", "", "Natural forest atmosphere", accent="emerald", icon="🍃")
+        @st.fragment(run_every=_sync_cadence)
+        def render_citizen_forest_climate_view():
+            live_st = source.tick() if hasattr(source, "tick") else {}
+            telemetry = live_st.get("telemetry") or {}
+            tunnel_alerts = live_st.get("active_alerts")
+            if tunnel_alerts is not None and isinstance(tunnel_alerts, list):
+                active_alerts = tunnel_alerts
+            else:
+                active_alerts = db.get_active_emergency_alerts(include_acknowledged=True)
 
+            st.markdown('<div class="section"><div class="section-title">Live Forest Environmental Readings</div><div class="section-meta">PUBLIC REAL-TIME CLIMATE AND AIR QUALITY</div></div>', unsafe_allow_html=True)
+            cit_clim_danger = [a for a in active_alerts if is_citizen_danger_threat(a.get("threat_type", ""))]
+            if cit_clim_danger:
+                st.markdown(
+                    f'''
+                    <div style="background:rgba(235,87,87,0.12);border:1.5px solid var(--status-red);border-radius:10px;padding:12px 16px;margin-bottom:14px;">
+                        <div style="font-size:14px;font-weight:700;color:var(--status-red);">⚠️ ACTIVE LIFE-SAFETY ADVISORY ({len(cit_clim_danger)} Active Danger Events)</div>
+                        <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">
+                            Active Fire or Dangerous Animal sighting reported in sanctuary. Switch to the <b>Safety Notices & Alerts</b> tab for live coordinates, caution perimeters, and safety advisories.
+                        </div>
+                    </div>
+                    ''',
+                    unsafe_allow_html=True
+                )
+            pc1, pc2, pc3 = st.columns(3)
+            with pc1:
+                metric("Forest Temperature", f"{safe_num(telemetry.get('temperature')):.1f}", "°C", "Pleasant climate", accent="amber", icon="🌲")
+            with pc2:
+                metric("Relative Humidity", f"{safe_num(telemetry.get('humidity')):.1f}", "%", "Canopy moisture", accent="cyan", icon="💧")
+            with pc3:
+                metric("Air Quality", "FRESH & CLEAN", "", "Natural forest atmosphere", accent="emerald", icon="🍃")
+
+
+
+        render_citizen_forest_climate_view()
     elif "Safety Notices" in active_page:
         st.markdown('<div class="section"><div class="section-title">Public Forest Safety Notices & Live Advisories</div><div class="section-meta">REAL-TIME SANCTUARY SAFETY STATUS · EDGE SENTRY ADVISORIES</div></div>', unsafe_allow_html=True)
-        render_geolocation_sentry("VISITOR GPS LOCATION SENTRY", auto_capture=True)
+        render_geolocation_sentry("VISITOR GPS LOCATION SENTRY", auto_capture=False)
 
         v_lat = float(st.session_state.get("client_gps_lat", sent_lat))
         v_lon = float(st.session_state.get("client_gps_lon", sent_lon))
