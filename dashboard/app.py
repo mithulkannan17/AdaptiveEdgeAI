@@ -101,7 +101,7 @@ if not st.session_state.get("authenticated", False) and auth_param_user and auth
             if "auth_token" in st.query_params:
                 del st.query_params["auth_token"]
 
-ACTIVE_TUNNEL_URL = "https://battery-jay-why-sage.trycloudflare.com"
+ACTIVE_TUNNEL_URL = "https://anime-administrator-coverage-tribune.trycloudflare.com"
 
 def is_cloud_environment() -> bool:
     """Detect if running in a deployed cloud environment (Streamlit Cloud, Render, Linux containers)."""

@@ -34,7 +34,7 @@ from urllib.error import URLError, HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
-ACTIVE_TUNNEL_URL = "https://battery-jay-why-sage.trycloudflare.com"
+ACTIVE_TUNNEL_URL = "https://anime-administrator-coverage-tribune.trycloudflare.com"
 
 def is_cloud_environment() -> bool:
     """Detect if running in a deployed cloud environment (Streamlit Cloud, Render, Linux containers)."""
