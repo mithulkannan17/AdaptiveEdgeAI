@@ -101,7 +101,7 @@ if not st.session_state.get("authenticated", False) and auth_param_user and auth
             if "auth_token" in st.query_params:
                 del st.query_params["auth_token"]
 
-ACTIVE_TUNNEL_URL = "https://xbox-derek-brunswick-troubleshooting.trycloudflare.com"
+ACTIVE_TUNNEL_URL = "https://battery-jay-why-sage.trycloudflare.com"
 
 def is_cloud_environment() -> bool:
     """Detect if running in a deployed cloud environment (Streamlit Cloud, Render, Linux containers)."""
@@ -2785,7 +2785,8 @@ if current_role == "admin":
                 active_siren = db.get_active_public_siren()
 
             # Reminder notification for pending citizen tips (Details in Citizen Reports Inbox)
-            pending_cits_list = [c for c in db.get_citizen_reports() if str(c.get("status", "")).upper() != "RESOLVED"]
+            cits_source = live_state.get("citizen_reports") if (live_state.get("citizen_reports") is not None) else db.get_citizen_reports()
+            pending_cits_list = [c for c in (cits_source or []) if str(c.get("status", "")).upper() != "RESOLVED"]
             if pending_cits_list:
                 st.markdown(
                     f'''
