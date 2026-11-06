@@ -152,6 +152,16 @@ def main() -> None:
                         print("   Paste this into Streamlit Cloud App Settings -> Secrets:")
                         print(f'   AURAFOREST_API_URL = "{url}"')
                         print("#" * 65 + "\n")
+                        try:
+                            (PROJECT_ROOT / ".tunnel_url").write_text(url, encoding="utf-8")
+                            for tgt in [PROJECT_ROOT / "dashboard" / "app.py", PROJECT_ROOT / "dashboard" / "runtime_data_source.py"]:
+                                if tgt.exists():
+                                    t = tgt.read_text(encoding="utf-8")
+                                    nt = re.sub(r'ACTIVE_TUNNEL_URL = "https://[a-zA-Z0-9\-]+\.trycloudflare\.com"', f'ACTIVE_TUNNEL_URL = "{url}"', t)
+                                    if nt != t:
+                                        tgt.write_text(nt, encoding="utf-8")
+                        except Exception:
+                            pass
                         break
             threading.Thread(target=monitor_cf, daemon=True).start()
         except Exception as e:
