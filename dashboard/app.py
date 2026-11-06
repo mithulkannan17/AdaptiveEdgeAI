@@ -1679,7 +1679,7 @@ tunnel_siren = state.get("active_siren")
 if tunnel_siren is not None or "active_siren" in state:
     active_siren = tunnel_siren
 else:
-    if active_siren is None: active_siren = db.get_active_public_siren()
+    active_siren = db.get_active_public_siren()
 
 field_rangers = db.get_field_rangers()
 
@@ -2738,6 +2738,51 @@ if current_role == "admin":
     if active_page == "📡 Live Sentinel Overview":
         @st.fragment(run_every=_sync_cadence)
         def render_live_sentinel_overview_view():
+            live_state = source.tick() if hasattr(source, "tick") else {}
+            telemetry = live_state.get("telemetry") or {}
+            event = live_state.get("event") or {}
+            cadie = live_state.get("cadie") or {}
+            prediction = live_state.get("prediction") or {}
+            environment = live_state.get("environment") or {}
+            policy = live_state.get("adaptive_policy") or {}
+            unknown = live_state.get("unknown_discovery") or {}
+            device_id = live_state.get("device_id") or "ESP32-S3-SENTINEL-01"
+            hardware = live_state.get("hardware_health") or telemetry.get("hardware_health") or {}
+
+            raw_label = event.get("label") or prediction.get("label") or "Ambient Forest"
+            label = format_display_label(raw_label)
+            conf = safe_num(event.get("confidence", prediction.get("confidence", 0.0)))
+            detected = bool(event.get("detected", False))
+
+            is_threat_event = bool(
+                detected
+                and "ambient" not in str(label).lower()
+                and "bird" not in str(label).lower()
+                and "water" not in str(label).lower()
+                and "wind" not in str(label).lower()
+                and "insect" not in str(label).lower()
+            )
+            risk_raw = str(cadie.get("risk_level") or "LOW").upper()
+            threat_class = ("threat-critical" if risk_raw in ["HIGH", "CRITICAL"] else "threat-elevated") if is_threat_event else "threat-nominal"
+            conf_color = ("#ff7070" if risk_raw in ["HIGH", "CRITICAL"] else "#f2c66d") if is_threat_event else "#7cf0b2"
+            perception_caption = (
+                f"🔴 THREAT SIGNAL DETECTED · class {event.get('class_id', prediction.get('class_id', '—'))}"
+                if is_threat_event
+                else "🟢 STEADY STATE MONITORING · Baseline"
+            )
+
+            # Synchronize active alerts & public siren
+            tunnel_alerts = live_state.get("active_alerts")
+            if tunnel_alerts is not None and isinstance(tunnel_alerts, list):
+                active_alerts = tunnel_alerts
+            else:
+                active_alerts = db.get_active_emergency_alerts(include_acknowledged=True)
+
+            tunnel_siren = live_state.get("active_siren")
+            if tunnel_siren is not None or "active_siren" in live_state:
+                active_siren = tunnel_siren
+            else:
+                active_siren = db.get_active_public_siren()
 
             # Reminder notification for pending citizen tips (Details in Citizen Reports Inbox)
             pending_cits_list = [c for c in db.get_citizen_reports() if str(c.get("status", "")).upper() != "RESOLVED"]
@@ -2819,7 +2864,6 @@ if current_role == "admin":
                 metric("Atmosphere / Gas", gas_status, gas_sub, "MQ-2 / MQ-135 Gas Sensors", accent="emerald" if gas_status == "NOMINAL" else "coral", icon="🧪")
 
             # 🚨 Public Warning Siren & CADIE Live Status Banner
-            if active_siren is None: active_siren = db.get_active_public_siren()
             if active_siren:
                 s_ts_raw = active_siren.get("timestamp") or time.time()
                 s_time_str = datetime.fromtimestamp(s_ts_raw).strftime("%H:%M:%S") if isinstance(s_ts_raw, (int, float)) else str(active_siren.get("created_at"))[:19].replace("T", " ")
