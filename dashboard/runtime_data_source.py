@@ -34,7 +34,7 @@ from urllib.error import URLError, HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
-ACTIVE_TUNNEL_URL = "https://distributor-diagnosis-disk-might.trycloudflare.com"
+ACTIVE_TUNNEL_URL = "https://xbox-derek-brunswick-troubleshooting.trycloudflare.com"
 
 def is_cloud_environment() -> bool:
     """Detect if running in a deployed cloud environment (Streamlit Cloud, Render, Linux containers)."""
@@ -112,7 +112,7 @@ class RuntimeDataSource:
         )
 
         self.event_history_limit = max(1, int(event_history_limit))
-        self.timeout_seconds = min(1.0, max(0.5, float(timeout_seconds if timeout_seconds != 2.5 else 1.0)))
+        self.timeout_seconds = 3.5 if _is_cloud_env else float(timeout_seconds or 2.5)
         self._last_state: dict[str, Any] | None = None
         self._last_error: str | None = None
         self._api_offline_until: float = 0.0
